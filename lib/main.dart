@@ -1,7 +1,8 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
+import 'package:jetlag/ShapeRenderer.dart';
+import 'package:jetlag/shape.dart';
 import 'dart:math' as math;
 
 void main() => runApp(MyApp());
@@ -17,117 +18,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Child extends StatefulWidget {
-  const Child({super.key});
-  @override
-  State<Child> createState() => ChildState();
-}
-
-ui.Path getPath(BuildContext context) {
-  ui.Path path = ui.Path();
-
-  MapCamera c = MapCamera.of(context);
-  path.moveTo(0, 0);
-  path.addPolygon([
-    c.latLngToScreenOffset(LatLng(51.5, 0.0)),
-    c.latLngToScreenOffset(LatLng(51.5, 1.0)),
-    c.latLngToScreenOffset(LatLng(53.5, 1.0)),
-    c.latLngToScreenOffset(LatLng(53.5, 0.0)),
-  ], false);
-  Offset bottomleft = c.latLngToScreenOffset(LatLng(51.5, -1));
-  Offset topright = c.latLngToScreenOffset(LatLng(53.5, 1));
-  Rect rec = Rect.fromLTRB(
-    bottomleft.dx,
-    topright.dy,
-    topright.dx,
-    bottomleft.dy,
-  );
-  path.addArc(rec, 1 / 2 * math.pi, math.pi);
-  return path;
-}
-
-class MyClipper extends CustomClipper<ui.Path> {
-  BuildContext context;
-  MyClipper({required this.context});
-
-  @override
-  ui.Path getClip(Size size) {
-    return getPath(context);
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<ui.Path> oldClipper) {
-    return true;
-  }
-}
-
-class BorderPainter extends CustomPainter {
-  BuildContext context;
-  BorderPainter({required this.context});
-  @override
-  void paint(Canvas canvas, Size size) {
-    ui.Paint p = ui.Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10.0
-      ..color = Colors.black;
-    canvas.drawPath(getPath(context), p);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
-  }
-}
-
-class ChildState extends State<Child> {
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        MapCamera c = MapCamera.of(context);
-        double width = constraints.maxWidth, height = constraints.maxHeight;
-        double stop = 0.05;
-        Offset o = c.latLngToScreenOffset(LatLng(stop, 0));
-        Offset end = c.latLngToScreenOffset(LatLng(0, stop));
-        Alignment topleft = Alignment(
-          o.dx / width * 2 - 1,
-          o.dy / height * 2 - 1,
-        );
-        Alignment bottomright = Alignment(
-          end.dx / width * 2 - 1,
-          end.dy / height * 2 - 1,
-        );
-
-        return ClipPath(
-          clipper: MyClipper(context: context),
-          child: Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: topleft,
-                end: bottomright,
-                stops: [0.0, 0.5, 0.5, 1.0],
-                colors: [
-                  Colors.grey,
-                  Colors.grey,
-                  Colors.transparent,
-                  Colors.transparent,
-                ],
-                tileMode: TileMode.repeated,
-              ),
-            ),
-            child: CustomPaint(painter: BorderPainter(context: context)),
-          ),
-          //   ),
-          //   CustomPaint(painter: BorderPainter(context: context)),
-          // ],
-        );
-      },
-    );
-  }
-}
-
 class OSMFlutterMap extends StatefulWidget {
   const OSMFlutterMap({super.key});
 
@@ -138,7 +28,53 @@ class OSMFlutterMap extends StatefulWidget {
 class _OSMFlutterMapState extends State<OSMFlutterMap> {
   @override
   Widget build(BuildContext context) {
-    // return Child();
+    Shape shape = Shape(
+      segments: [
+        Segment(
+          vertices: [
+            LatLng(51.5, 0.0),
+            LatLng(51.5, 1.0),
+            LatLng(53.5, 1.0),
+            LatLng(53.5, 0.0),
+          ],
+          sides: [
+            StraightEdge(),
+            CircleEdge(
+              center: LatLng(52.5, 1),
+              radius: 111111,
+              startAngle: 1 / 2 * math.pi,
+              sweepAngle: math.pi,
+            ),
+            CircleEdge(
+              center: LatLng(53.5, 0.5),
+              radius: 33000,
+              startAngle: 0,
+              sweepAngle: math.pi,
+            ),
+            // StraightEdge(),
+            CircleEdge(
+              center: LatLng(52.5, 0),
+              radius: 111111,
+              startAngle: -1 / 2 * math.pi,
+              sweepAngle: math.pi,
+            ),
+          ],
+        ),
+        Segment(
+          vertices: [LatLng(52, 0.5), LatLng(52.5, 0.7), LatLng(52, 0.7)],
+          sides: [
+            StraightEdge(),
+            CircleEdge(
+              center: LatLng(52.25, 0.7),
+              radius: 55556 / 2,
+              startAngle: -1 / 2 * math.pi,
+              sweepAngle: -math.pi,
+            ),
+            StraightEdge(),
+          ],
+        ),
+      ],
+    );
     return FlutterMap(
       options: const MapOptions(initialCenter: LatLng(51.5, -0.12)),
       children: [
@@ -146,7 +82,7 @@ class _OSMFlutterMapState extends State<OSMFlutterMap> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.app',
         ),
-        Child(),
+        Child(shape: shape),
         // PolygonLayer(
         //   polygons: [
         //     Polygon(
