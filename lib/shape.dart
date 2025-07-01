@@ -81,7 +81,7 @@ List<IntersectionPoint> intersectConstantWithNonConstant(
   double b = begin2.longitude - a * begin2.latitude;
 
   // A vertical and non-vertical line will always intersect in a single point
-  LatLng intersection = LatLng(begin1.latitude, a * begin1.longitude + b);
+  LatLng intersection = LatLng(begin1.latitude, a * begin1.latitude + b);
   double t1 = calculateT(intersection, begin1, end1, true);
   double t2 = calculateT(intersection, begin2, end2, false);
   if (liesBetween(t1) && liesBetween(t2)) {
@@ -580,5 +580,12 @@ class Shape {
     Matrix4 rotMatrix = Matrix4.rotationZ(angle);
     Matrix4 matrix = reversetrans * rotMatrix * trans;
     return path.transform(matrix.storage);
+  }
+
+  bool hit(LatLng pos, MapCamera camera, Size containerSize) {
+    return getPath(
+      camera,
+      containerSize,
+    ).contains(camera.latLngToScreenOffset(pos));
   }
 }
