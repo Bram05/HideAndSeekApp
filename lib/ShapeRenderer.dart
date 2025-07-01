@@ -6,7 +6,8 @@ import 'package:latlong2/latlong.dart';
 
 class Child extends StatefulWidget {
   Shape shape;
-  Child({super.key, required this.shape});
+  Color color;
+  Child({super.key, required this.shape, required this.color});
   @override
   State<Child> createState() => ChildState();
 }
@@ -30,13 +31,18 @@ class MyClipper extends CustomClipper<ui.Path> {
 class BorderPainter extends CustomPainter {
   BuildContext context;
   Shape shape;
-  BorderPainter({required this.context, required this.shape});
+  Color color;
+  BorderPainter({
+    required this.context,
+    required this.shape,
+    required this.color,
+  });
   @override
   void paint(Canvas canvas, Size size) {
     ui.Paint p = ui.Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 10.0
-      ..color = Colors.black;
+      ..color = color;
     canvas.drawPath(shape.getPath(MapCamera.of(context), size), p);
   }
 
@@ -84,8 +90,8 @@ class ChildState extends State<Child> {
                 end: bottomright,
                 stops: [0.0, 0.5, 0.5, 1.0],
                 colors: [
-                  Colors.grey,
-                  Colors.grey,
+                  widget.color,
+                  widget.color,
                   Colors.transparent,
                   Colors.transparent,
                 ],
@@ -93,7 +99,11 @@ class ChildState extends State<Child> {
               ),
             ),
             child: CustomPaint(
-              painter: BorderPainter(context: context, shape: widget.shape),
+              painter: BorderPainter(
+                context: context,
+                shape: widget.shape,
+                color: widget.color,
+              ),
             ),
           ),
           //   ),
