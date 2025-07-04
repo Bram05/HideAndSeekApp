@@ -1,3 +1,7 @@
+import 'dart:collection';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -6,10 +10,54 @@ import 'dart:math' as math;
 
 enum SideType { straight, circle }
 
+SideType getSideTypeFromString(String s) {
+  for (SideType type in SideType.values) {
+    if (type.name == s) return type;
+  }
+  throw Exception("String $s is not the name of a sidetype");
+}
+
 abstract class Side {
   SideType sideType;
   Side(this.sideType);
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera);
+  @override
+  bool operator ==(Object other) {
+    if (other is! Side) return false;
+    return equalsImpl(other);
+  }
+
+  bool equalsImpl(Side other) {
+    return true;
+  }
+
+  factory Side.fromJson(Map<String, dynamic> json) {
+    switch (getSideTypeFromString(json['type'])) {
+      case SideType.straight:
+        return StraightEdge();
+      case SideType.circle:
+        return CircleEdge.fromJson(json);
+    }
+  }
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> output = {};
+    output["type"] = sideType.name;
+    Map<String, dynamic> sub = toJsonImpl();
+    sub.forEach((name, data) {
+      if (name == "type") {
+        throw Exception(
+          "Json value in a SideType cannot hcameraConave name 'type' because that is reserved for the base class",
+        );
+      }
+      output[name] = data;
+    });
+
+    return output;
+  }
+
+  Map<String, dynamic> toJsonImpl() {
+    return {};
+  }
 }
 
 class StraightEdge extends Side {
@@ -370,8 +418,15 @@ void setNextPoint(
   );
   Segment segment =
       (currentPoint.isFirstShape ? s1 : s2).segments[currentPoint.indices.$1];
+  // todo: what are the indices if we are not on a vertex but on an intersection?
 
   if (index == currentLine.length - 1) {
+    currentPoint.indices = (
+      currentPoint.indices.$1,
+      (currentPoint.indices.$2 + 1) % segment.vertices.length,
+    );
+    currentPoint.point = segment.vertices[currentPoint.indices.$2];
+  } else if (index == currentLine.length - 2) {
     currentPoint.indices = (
       currentPoint.indices.$1,
       (currentPoint.indices.$2 + 1) % segment.vertices.length,
@@ -383,17 +438,60 @@ void setNextPoint(
 }
 
 Shape intersect(Shape s1, Shape s2) {
+  print("Intersecting");
   var (intersections, intersectionsPerLine) = intersectionPoints(s1, s2);
   Map<LatLng, ((int, int), (int, int))> intersectionsTotal = {};
   Set<LatLng> intersectionsLeft = {};
+  int count = 0;
   for (IntersectionData data in intersections) {
-    intersectionsTotal[data.point] = (data.indexInS1, data.indexInS2);
     intersectionsTotal[data.point] = (data.indexInS1, data.indexInS2);
 
     intersectionsLeft.add(data.point);
   }
-
+  List<bool> segmentsIntersected1 = List.filled(s1.segments.length, false);
+  List<bool> segmentsIntersected2 = List.filled(s2.segments.length, false);
+  for (IntersectionData ints in intersections) {
+    segmentsIntersected1[ints.indexInS1.$1] = true;
+    segmentsIntersected2[ints.indexInS2.$1] = true;
+  }
+  // ui.Path firstPath = s1.getPath(camera, size);
+  // ui.Path secondPath = s2.getPath(camera, size);
   Shape result = Shape(segments: []);
+  for (int i = 0; i < segmentsIntersected1.length; i++) {
+    if (!segmentsIntersected1[i]) {
+      print("Segment ${i} in shape 1 has no intersections");
+      if (s1.segments[i].vertices.isEmpty) {
+        print("WARNING: empty segment!!!");
+        continue;
+      }
+      if (s2.hit(s1.segments[i].vertices.first)) {
+        result.segments.add(s1.segments[i]);
+      }
+
+      // if (secondPath.contains(
+      //   camera.latLngToScreenOffset(s1.segments[i].vertices.first),
+      // )) {
+      //   result.segments.add(s1.segments[i]);
+      // }
+    }
+  }
+  for (int i = 0; i < segmentsIntersected2.length; i++) {
+    if (!segmentsIntersected2[i]) {
+      print("Segment ${i} in shape 2 has no intersections");
+      if (s2.segments[i].vertices.isEmpty) {
+        print("WARNING: empty segment!!!");
+        continue;
+      }
+      if (s1.hit(s2.segments[i].vertices.first)) {
+        result.segments.add(s2.segments[i]);
+      }
+      // if (firstPath.contains(
+      //   camera.latLngToScreenOffset(s2.segments[i].vertices.first),
+      // )) {
+      //   result.segments.add(s2.segments[i]);
+      // }
+    }
+  }
   while (intersectionsLeft.isNotEmpty) {
     LatLng startPoint = intersectionsLeft.first;
     CurrentPoint currentPoint = CurrentPoint(
@@ -409,6 +507,11 @@ Shape intersect(Shape s1, Shape s2) {
       print(
         "current point = ${currentPoint.point} and start point = $startPoint",
       );
+      ++count;
+      if (count > 10000) {
+        print("WARNING: Stopping due to too many loops");
+        return Shape(segments: []);
+      }
       if (intersectionsTotal[currentPoint.point] != null) {
         intersectionsLeft.remove(currentPoint.point);
         var indices = intersectionsTotal[currentPoint.point]!;
@@ -468,7 +571,7 @@ Shape intersect(Shape s1, Shape s2) {
         newSegment.sides.add(segment.sides[currentPoint.indices.$2]);
         print("adding vertex");
       }
-    } while (currentPoint.point != startPoint);
+    } while (!latLngClose(currentPoint.point, startPoint));
     newSegment.vertices
         .removeLast(); // We always add the start vertex again at the very end
     print("length is");
@@ -477,6 +580,19 @@ Shape intersect(Shape s1, Shape s2) {
   }
 
   return result;
+}
+
+Map<String, dynamic> latLngToJson(LatLng point) {
+  return {"latitude": point.latitude, "longitude": point.longitude};
+}
+
+LatLng latLngFromJson(Map<String, dynamic> json) {
+  // This would if a coordinate is an integer so we add .0 to automatically convert it to a double
+  return LatLng(json["latitude"] + .0, json["longitude"] + .0);
+}
+
+bool latLngClose(LatLng x, LatLng y) {
+  return close(x.longitude, y.longitude) && close(x.latitude, y.latitude);
 }
 
 class CircleEdge extends Side {
@@ -489,6 +605,34 @@ class CircleEdge extends Side {
     required this.startAngle,
     required this.sweepAngle,
   }) : super(SideType.circle);
+
+  @override
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> output = {};
+    output["center"] = latLngToJson(center);
+    output["radius"] = radius;
+    output["startAngle"] = startAngle;
+    output["sweepAngle"] = sweepAngle;
+    return output;
+  }
+
+  factory CircleEdge.fromJson(Map<String, dynamic> json) {
+    return CircleEdge(
+      center: json["center"],
+      radius: json["center"],
+      startAngle: json["startAngle"],
+      sweepAngle: json["sweepAngle"],
+    );
+  }
+
+  @override
+  bool equalsImpl(Side other) {
+    CircleEdge otherCircle = other as CircleEdge;
+    return latLngClose(center, otherCircle.center) &&
+        close(radius, otherCircle.radius) &&
+        close(startAngle, otherCircle.startAngle) &&
+        close(sweepAngle, otherCircle.sweepAngle);
+  }
 
   @override
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera) {
@@ -532,6 +676,45 @@ class Segment {
   List<Side> sides;
 
   Segment({required this.vertices, required this.sides});
+
+  factory Segment.fromJson(Map<String, dynamic> json) {
+    List<LatLng> vertices = [];
+    for (var vertex in json["vertices"]) {
+      vertices.add(latLngFromJson(vertex));
+    }
+
+    List<Side> sides = [];
+    for (var side in json["sides"]) {
+      sides.add(Side.fromJson(side));
+    }
+    return Segment(vertices: vertices, sides: sides);
+  }
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> output = {};
+    List<Map<String, dynamic>> verticesJson = [];
+    for (LatLng p in vertices) {
+      verticesJson.add(latLngToJson(p));
+    }
+    output["vertices"] = verticesJson;
+
+    List<Map<String, dynamic>> sidesJson = [];
+    for (Side s in sides) {
+      sidesJson.add(s.toJson());
+    }
+    output["sides"] = sidesJson;
+
+    return output;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! Segment) return false;
+    if (vertices.length != other.vertices.length) return false;
+    for (int i = 0; i < vertices.length; i++) {
+      if (!latLngClose(vertices[i], other.vertices[i])) return false;
+    }
+    return listEquals(sides, other.sides);
+  }
 }
 
 class Shape {
@@ -542,15 +725,54 @@ class Shape {
   // This is useful for calculating intersections
   Shape({required this.segments});
 
+  factory Shape.fromJson(Map<String, dynamic> json) {
+    List<Segment> segments = [];
+    for (dynamic segment in json["segments"]) {
+      segments.add(Segment.fromJson(segment));
+    }
+    return Shape(segments: segments);
+  }
+
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> output = {};
+    List<Map<String, dynamic>> segmentsJson = [];
+    for (Segment s in segments) {
+      segmentsJson.add(s.toJson());
+    }
+    output["segments"] = segmentsJson;
+    return output;
+  }
+
+  @override
+  String toString() {
+    return "shape with ${segments.length} segments and the first has ${segments.isNotEmpty ? segments[0].vertices.length.toString() : "----"} vertices";
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! Shape) {
+      return false;
+    }
+    // todo: this should probably also return true if they are ordered differently
+    return listEquals(segments, other.segments);
+  }
+
   ui.Path getPath(MapCamera camera, Size containerSize) {
     // We need this because rotating the circles doesn't work as we have to provide the bounding rectangle, which should also rotate. Therefore we calculate without rotation and then rotate everything at the end
     MapCamera cameraWithoutRotation = camera.withRotation(0);
     if (segments.isEmpty) {
       return ui.Path();
     }
+
     ui.Path path = ui.Path();
     path.fillType = PathFillType.nonZero;
     for (Segment s in segments) {
+      if (s.vertices.length != s.sides.length) {
+        throw Exception(
+          "Number of vertices (${s.vertices.length}) must equal the number of sides (${s.sides.length}) in the shape when rendering it",
+        );
+      }
+
       ui.Offset begin = cameraWithoutRotation.latLngToScreenOffset(
         s.vertices[0],
       );
@@ -582,10 +804,57 @@ class Shape {
     return path.transform(matrix.storage);
   }
 
-  bool hit(LatLng pos, MapCamera camera, Size containerSize) {
-    return getPath(
-      camera,
-      containerSize,
-    ).contains(camera.latLngToScreenOffset(pos));
+  bool hit(LatLng pos) {
+    // return getPath(
+    //   camera,
+    //   containerSize,
+    // ).contains(camera.latLngToScreenOffset(pos));
+    LatLng begin = pos;
+    LatLng end = LatLng(
+      pos.latitude,
+      pos.longitude + 180,
+    ); // loop around half the circle. We assume that this is enough and no curve will loop around more than half the earth todo: add a check and explicitly fail otherwise
+    // todo: make sure that the intersections also work when looping around the earth
+    Side side = StraightEdge();
+    int count = 0;
+    for (Segment s in segments) {
+      for (int i = 0; i < s.vertices.length; i++) {
+        LatLng begin2 = s.vertices[i];
+        LatLng end2 = s.vertices[(i + 1) % s.vertices.length];
+        List<IntersectionPoint> points = intersectSides(
+          side,
+          s.sides[i],
+          begin,
+          end,
+          begin2,
+          end2,
+        );
+        assert(
+          points.length < 2,
+        ); // this does not hold with circles later on, it is for now
+
+        // with circles we have to take the tangent line again
+        for (IntersectionPoint p in points) {
+          if (det(
+                LatLng(
+                  end.latitude - begin.latitude,
+                  end.longitude - begin.longitude,
+                ),
+                LatLng(
+                  end2.latitude - begin2.latitude,
+                  end2.longitude - end2.longitude,
+                ),
+              ) <
+              0) {
+            --count;
+          } else {
+            ++count;
+          }
+        }
+      }
+    }
+    // return true;
+    // return false;
+    return count != 0;
   }
 }

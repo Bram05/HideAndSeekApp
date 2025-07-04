@@ -7,7 +7,13 @@ import 'package:latlong2/latlong.dart';
 class Child extends StatefulWidget {
   Shape shape;
   Color color;
-  Child({super.key, required this.shape, required this.color});
+  bool focussed;
+  Child({
+    super.key,
+    required this.shape,
+    required this.color,
+    required this.focussed,
+  });
   @override
   State<Child> createState() => ChildState();
 }
@@ -32,16 +38,18 @@ class BorderPainter extends CustomPainter {
   BuildContext context;
   Shape shape;
   Color color;
+  bool focussed;
   BorderPainter({
     required this.context,
     required this.shape,
     required this.color,
+    required this.focussed,
   });
   @override
   void paint(Canvas canvas, Size size) {
     ui.Paint p = ui.Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10.0
+      ..strokeWidth = focussed ? 30.0 : 10
       ..color = color;
     canvas.drawPath(shape.getPath(MapCamera.of(context), size), p);
   }
@@ -103,6 +111,7 @@ class ChildState extends State<Child> {
                 context: context,
                 shape: widget.shape,
                 color: widget.color,
+                focussed: widget.focussed,
               ),
             ),
           ),
