@@ -1,6 +1,3 @@
-import 'dart:collection';
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -99,6 +96,10 @@ bool liesBetween(double t) {
   return t >= 0 && t <= 1;
 }
 
+double det(LatLng p1, LatLng p2) {
+  return p1.longitude * p2.latitude - p1.latitude * p2.longitude;
+}
+
 class IntersectionPoint {
   LatLng point;
   double tInSide1, tInSide2;
@@ -107,6 +108,11 @@ class IntersectionPoint {
     required this.tInSide1,
     required this.tInSide2,
   });
+
+  @override
+  String toString() {
+    return "$point with tinSide1: $tInSide1, tinside2: $tInSide2";
+  }
 }
 
 List<IntersectionPoint> intersectConstantWithNonConstant(
@@ -214,8 +220,16 @@ List<IntersectionPoint> intersectStraights(
   if (close(a1, a2)) {
     if (close(b1, b2)) {
       // The lines coincide
-      double lower = math.max(begin1.latitude, begin2.latitude);
-      double upper = math.min(end1.latitude, end2.latitude);
+      LatLng begin1copy = begin1,
+          begin2copy = begin2,
+          end1copy = end1,
+          end2copy = end2;
+      if (begin1.latitude > end1.latitude)
+        (begin1copy, end1copy) = (end1, begin1);
+      if (begin2.latitude > end2.latitude)
+        (begin2copy, end2copy) = (end2, begin2);
+      double lower = math.max(begin1copy.latitude, begin2copy.latitude);
+      double upper = math.min(end1copy.latitude, end2copy.latitude);
       if (close(lower, upper)) {
         intersections = [LatLng(upper, a1 * upper + b1)];
       } else if (lower < upper) {
@@ -257,7 +271,9 @@ List<IntersectionPoint> intersectSides(
   LatLng end2,
 ) {
   if (s1.sideType == SideType.straight && s2.sideType == SideType.straight) {
-    return intersectStraights(begin1, end1, begin2, end2);
+    var p = intersectStraights(begin1, end1, begin2, end2);
+    // print("Interescting the sides gave ${p.length} point");
+    return p;
   }
   throw UnimplementedError("Cannot intersect circles yet");
 }
@@ -308,8 +324,101 @@ void addBeginAndEnds(
   }
 }
 
+(LatLng, LatLng) getoutwardVectors(
+  Shape s,
+  int segmentIndex,
+  int sideIndex,
+  bool atStart,
+  LatLng centre,
+) {
+  Segment seg = s.segments[segmentIndex];
+  LatLng endOfOutwardVector =
+      seg.vertices[(sideIndex + 1) % seg.vertices.length];
+  LatLng beginOfInwardVector = atStart
+      ? seg.vertices[(sideIndex - 1) % seg.vertices.length]
+      : seg.vertices[sideIndex];
+  LatLng v1 = LatLng(
+    (endOfOutwardVector.latitude - centre.latitude),
+    (endOfOutwardVector.longitude - centre.longitude),
+  );
+  LatLng v2 = LatLng(
+    (beginOfInwardVector.latitude - centre.latitude),
+    (beginOfInwardVector.longitude - centre.longitude),
+  );
+  return (v1, v2);
+}
+
+double getAngle(LatLng x) {
+  Offset o = Offset(
+    x.longitude,
+    -x.latitude,
+  ); // - because it uses the wrong axis
+  double val = -o.direction;
+  return val;
+}
+
+bool vectorLiesBetween(
+  LatLng vector1,
+  LatLng vector2,
+  LatLng other,
+  bool isOutward,
+) {
+  double a1 = getAngle(vector1);
+  double a2 = getAngle(vector2) - a1;
+  double ao = getAngle(other) - a1;
+  return (ao > 0 || isOutward && close(ao, 0)) && ao < a2 ||
+      (!isOutward && close(ao, a2));
+
+  // double det1 = det(vector1, other);
+  // double det2 = det(other, vector2);
+  // The outward vector can only overlap with the first and not with the second
+  // If it overlaps with the second then its inside is to the left of the second, thereby outside the other
+  //
+  // return (det1 > 0 || (isOutward && close(det1, 0))) &&
+  //     (det2 > 0 || (!isOutward && close(det2, 0)));
+}
+
+bool intersectTransversely(
+  Shape s1,
+  Shape s2,
+  IntersectionPoint point,
+  int seg1Index,
+  int side1Index,
+  int seg2Index,
+  int side2Index,
+  bool isForHit,
+) {
+  var (outward1, reverseInward1) = getoutwardVectors(
+    s1,
+    seg1Index,
+    side1Index,
+    close(point.tInSide1, 0),
+    point.point,
+  );
+  var (outward2, reverseInward2) = getoutwardVectors(
+    s2,
+    seg2Index,
+    side2Index,
+    close(point.tInSide2, 0),
+    point.point,
+  );
+
+  print(vectorLiesBetween(outward1, reverseInward1, outward2, true));
+  print(vectorLiesBetween(outward1, reverseInward1, reverseInward2, false));
+  print(vectorLiesBetween(outward2, reverseInward2, outward1, true));
+  print(vectorLiesBetween(outward2, reverseInward2, reverseInward1, false));
+
+  return (!isForHit &&
+          vectorLiesBetween(outward1, reverseInward1, outward2, true)) ||
+      (!isForHit &&
+          vectorLiesBetween(outward1, reverseInward1, reverseInward2, false)) ||
+      vectorLiesBetween(outward2, reverseInward2, outward1, true) ||
+      vectorLiesBetween(outward2, reverseInward2, reverseInward1, false);
+}
+
 (List<IntersectionData>, Map<(bool, int, int), List<IntersectionOnLine>>)
-intersectionPoints(Shape s1, Shape s2) {
+intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
+  print("starting intersectPoints");
   List<IntersectionData> intersections = [];
   Map<(bool, int, int), List<IntersectionOnLine>> intersectionsPerSide = {};
   addBeginAndEnds(intersectionsPerSide, s1, true);
@@ -350,13 +459,21 @@ intersectionPoints(Shape s1, Shape s2) {
           );
           for (IntersectionPoint point in currentIntersections) {
             if (close(point.tInSide1, 0) || close(point.tInSide2, 0)) {
-              print(
-                "Cannot have an intersection close to a starting point yet. Later: Check if one of the points is 'inside' the other polygon",
-              );
-
-              // throw UnimplementedError(
-              //   "Cannot have an intersection close to a starting point yet. Later: Check if one of the points is 'inside' the other polygon",
-              // );
+              if (!intersectTransversely(
+                s1,
+                s2,
+                point,
+                seg1Index,
+                side1Index,
+                seg2Index,
+                side2Index,
+                isForHit,
+              )) {
+                print(
+                  "The curves do not intersect transversely at $point  from segments 1index: $side1Index and 2index: $side2Index -> ignoring",
+                );
+                continue;
+              }
             }
             intersections.add(
               IntersectionData(
@@ -382,11 +499,9 @@ intersectionPoints(Shape s1, Shape s2) {
   intersectionsPerSide.forEach(
     (k, list) => list.sort((a, b) => a.t.compareTo(b.t)),
   );
-  return (intersections, intersectionsPerSide);
-}
+  print("finished intersectPoints");
 
-double det(LatLng p1, LatLng p2) {
-  return p1.longitude * p2.latitude - p1.latitude * p2.longitude;
+  return (intersections, intersectionsPerSide);
 }
 
 class CurrentPoint {
@@ -413,12 +528,13 @@ void setNextPoint(
         currentPoint.indices.$1,
         currentPoint.indices.$2,
       )]!;
-  int index = currentLine.indexWhere(
+  // When the two shapes share a side the currentLine can contain that point twice (once from the current shape and a second time as 'intersection' with the other shape).
+  // We therefore choose the last index where it occurs so we can actually move on instead of getting into an infinite loop
+  int index = currentLine.lastIndexWhere(
     (point) => currentPoint.point == point.point,
   );
   Segment segment =
       (currentPoint.isFirstShape ? s1 : s2).segments[currentPoint.indices.$1];
-  // todo: what are the indices if we are not on a vertex but on an intersection?
 
   if (index == currentLine.length - 1) {
     currentPoint.indices = (
@@ -717,6 +833,17 @@ class Segment {
   }
 }
 
+(LatLng, LatLng) getBeginAndEndFromIntersection(
+  Shape s,
+  LatLng point,
+  (int, int) index,
+) {
+  Segment seg = s.segments[index.$1];
+  LatLng end = seg.vertices[(index.$2 + 1) % seg.vertices.length];
+  LatLng begin = seg.vertices[index.$2 % seg.vertices.length];
+  return (begin, end);
+}
+
 class Shape {
   List<Segment> segments;
 
@@ -809,6 +936,7 @@ class Shape {
     //   camera,
     //   containerSize,
     // ).contains(camera.latLngToScreenOffset(pos));
+    print("Testing if point lies inside");
     LatLng begin = pos;
     LatLng end = LatLng(
       pos.latitude,
@@ -817,42 +945,53 @@ class Shape {
     // todo: make sure that the intersections also work when looping around the earth
     Side side = StraightEdge();
     int count = 0;
-    for (Segment s in segments) {
-      for (int i = 0; i < s.vertices.length; i++) {
-        LatLng begin2 = s.vertices[i];
-        LatLng end2 = s.vertices[(i + 1) % s.vertices.length];
-        List<IntersectionPoint> points = intersectSides(
-          side,
-          s.sides[i],
-          begin,
-          end,
-          begin2,
-          end2,
-        );
-        assert(
-          points.length < 2,
-        ); // this does not hold with circles later on, it is for now
+    // for (Segment s in segments) {
+    //   for (int i = 0; i < s.vertices.length; i++) {
+    //     LatLng begin2 = s.vertices[i];
+    //     LatLng end2 = s.vertices[(i + 1) % s.vertices.length];
+    //     List<IntersectionPoint> points = intersectSides(
+    //       side,
+    //       s.sides[i],
+    //       begin,
+    //       end,
+    //       begin2,
+    //       end2,
+    //     );
+    //     assert(
+    //       points.length < 2,
+    //     ); // this does not hold with circles later on, it is for now
+    //
+    //     // with circles we have to take the tangent line again
+    Shape s = Shape(
+      segments: [
+        Segment(vertices: [begin, end], sides: [StraightEdge()]),
+      ],
+    );
+    var (points, _) = intersectionPoints(s, this, isForHit: true);
+    for (IntersectionData p in points) {
+      var (begin2, end2) = getBeginAndEndFromIntersection(
+        this,
+        p.point,
+        p.indexInS2,
+      );
+      double detval = det(
+        LatLng(end.latitude - begin.latitude, end.longitude - begin.longitude),
+        LatLng(
+          end2.latitude - begin2.latitude,
+          end2.longitude - end2.longitude,
+        ),
+      );
 
-        // with circles we have to take the tangent line again
-        for (IntersectionPoint p in points) {
-          if (det(
-                LatLng(
-                  end.latitude - begin.latitude,
-                  end.longitude - begin.longitude,
-                ),
-                LatLng(
-                  end2.latitude - begin2.latitude,
-                  end2.longitude - end2.longitude,
-                ),
-              ) <
-              0) {
-            --count;
-          } else {
-            ++count;
-          }
-        }
+      // if detval == 0 then we ignore it: think about turning the ray an infinitesimal amount making sure it does not intersect this line anymore. The other lines are still intersected the same way though
+      if (close(detval, 0)) continue;
+      if (detval < 0) {
+        --count;
+      } else {
+        ++count;
       }
     }
+    //   }
+    // }
     // return true;
     // return false;
     return count != 0;

@@ -9,6 +9,9 @@ void main() async {
   List<FileSystemEntity> entities = await directory.list().toList();
   final Iterable<File> files = entities.whereType<File>();
   for (var file in files) {
+    if (!file.path.endsWith('.json'))
+	continue;
+
     test(file.path, () async {
       var (shapes, intersections, solutions) = fromJson(
         jsonDecode(await file.readAsString()),

@@ -27,20 +27,17 @@ class OSMFlutterMap extends StatefulWidget {
 class _OSMFlutterMapState extends State<OSMFlutterMap> {
   @override
   Widget build(BuildContext context) {
-    Shape s = Shape(
-      segments: [
-        Segment(
-          vertices: [
-            LatLng(50.42, -1.275),
-            LatLng(51.165, -0.015),
-            LatLng(51.266, -1.151),
-          ],
-          sides: [StraightEdge(), StraightEdge(), StraightEdge()],
-        ),
-      ],
-    );
-    print(s.hit(LatLng(51.0, -1)));
-    // return Text("hi");
+    // List<IntersectionPoint> p = intersectStraights(
+    //   LatLng(49.798359587085926, -2.1991629121674143),
+    //   LatLng(48.99717532020741, -2.1696485682447113),
+    //   LatLng(49.798359587085926, -2.1991629121674143),
+    //   LatLng(48.99717532020741, -2.1696485682447113),
+    // );
+    // print('hi');
+    // for (IntersectionPoint i in p) {
+    //   print(i.point);
+    // }
+    // return Text('hi');
     // Shape shape = Shape(
     //   segments: [
     //     Segment(
