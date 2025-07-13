@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:jetlag/Plane.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'package:jetlag/constants.dart';
 
 enum SideType { straight, circle }
 
@@ -17,6 +19,7 @@ SideType getSideTypeFromString(String s) {
 abstract class Side {
   SideType sideType;
   Side(this.sideType);
+
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera);
   @override
   bool operator ==(Object other) {
@@ -553,9 +556,13 @@ void setNextPoint(
   }
 }
 
-Shape intersect(Shape s1, Shape s2) {
+Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
   print("Intersecting");
-  var (intersections, intersectionsPerLine) = intersectionPoints(s1, s2);
+  var (intersections, intersectionsPerLine) = intersectionPoints(
+    s1,
+    s2,
+    isForHit: firstIsForHit,
+  );
   Map<LatLng, ((int, int), (int, int))> intersectionsTotal = {};
   Set<LatLng> intersectionsLeft = {};
   int count = 0;
@@ -714,12 +721,14 @@ bool latLngClose(LatLng x, LatLng y) {
 class CircleEdge extends Side {
   LatLng center;
   double radius, startAngle, sweepAngle; // radius in metres
+  Plane plane;
 
   CircleEdge({
     required this.center,
     required this.radius,
     required this.startAngle,
     required this.sweepAngle,
+    required this.plane,
   }) : super(SideType.circle);
 
   @override
@@ -729,6 +738,7 @@ class CircleEdge extends Side {
     output["radius"] = radius;
     output["startAngle"] = startAngle;
     output["sweepAngle"] = sweepAngle;
+    output["plane"] = plane.toJson();
     return output;
   }
 
@@ -738,6 +748,7 @@ class CircleEdge extends Side {
       radius: json["center"],
       startAngle: json["startAngle"],
       sweepAngle: json["sweepAngle"],
+      plane: Plane.fromJson(json["plane"]),
     );
   }
 
@@ -752,11 +763,8 @@ class CircleEdge extends Side {
 
   @override
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera) {
-    const double circumferenceEarthAroundEquator = 40075017; // metres
-    const double circumferenceEarthAroundPoles = 40007863; // metres
-    double radiusInLongitude =
-        2 * radius / circumferenceEarthAroundEquator * 360;
-    double radiusInLatitude = 2 * radius / circumferenceEarthAroundPoles * 180;
+    double radiusInLongitude = 2 * radius / circumferenceEarth * 360;
+    double radiusInLatitude = 2 * radius / circumferenceEarth * 180;
     ui.Offset bottomLeft = camera.latLngToScreenOffset(
       LatLng(
         center.latitude - radiusInLatitude,
@@ -784,6 +792,11 @@ class CircleEdge extends Side {
     ui.Path extra = ui.Path();
     extra.arcTo(oval, startAngle, -sweepAngle, true);
     path.extendWithPath(extra, Offset(0, 0));
+  }
+
+  @override
+  String toString() {
+    return 'CircleEdge with centre $center and radius $radius';
   }
 }
 
@@ -894,11 +907,12 @@ class Shape {
     ui.Path path = ui.Path();
     path.fillType = PathFillType.nonZero;
     for (Segment s in segments) {
-      if (s.vertices.length != s.sides.length) {
-        throw Exception(
-          "Number of vertices (${s.vertices.length}) must equal the number of sides (${s.sides.length}) in the shape when rendering it",
-        );
-      }
+      // if (s.vertices.length != s.sides.length) {
+      //   throw Exception(
+      //     "Number of vertices (${s.vertices.length}) must equal the number of sides (${s.sides.length}) in the shape when rendering it",
+      //   );
+      // }
+      if (s.vertices.length == 0) return ui.Path();
 
       ui.Offset begin = cameraWithoutRotation.latLngToScreenOffset(
         s.vertices[0],
@@ -913,6 +927,9 @@ class Shape {
           cameraWithoutRotation,
         );
       }
+      // path.relativeLineTo(-200, -200);
+      // path.lineTo(0, 0);
+      // path.lineTo(1000, 0);
       path.close();
     }
     double angle = camera.rotationRad;

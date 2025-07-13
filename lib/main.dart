@@ -1,8 +1,12 @@
+import 'package:jetlag/constants.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:jetlag/shape.dart';
 import 'package:jetlag/Map.dart';
 import 'dart:math' as math;
+import 'dart:convert';
+import 'package:jetlag/Plane.dart';
+import 'package:vector_math/vector_math.dart' hide Colors;
 
 void main() => runApp(MyApp());
 
@@ -27,6 +31,23 @@ class OSMFlutterMap extends StatefulWidget {
 class _OSMFlutterMapState extends State<OSMFlutterMap> {
   @override
   Widget build(BuildContext context) {
+    print(
+      "dist= ${getDistanceAlongSphere(latLngToVec3(LatLng(0, 0)), latLngToVec3(LatLng(-10, 15))) / 1000}km",
+    );
+    print(
+      "d=${getDistanceAlongSphere(Vector3(0, 0, radiusEarth), Vector3(radiusEarth, 0, 0)) / 1000}",
+    );
+    // return TextButton(
+    //   onPressed: () async {
+    //     var data = await request();
+    //     var json = jsonDecode(data.body);
+    //     for (var element in json["elements"]) {
+    //       print("Element: ${element}");
+    //     }
+    //     print(data.body);
+    //   },
+    //   child: Text("hi"),
+    // );
     // List<IntersectionPoint> p = intersectStraights(
     //   LatLng(49.798359587085926, -2.1991629121674143),
     //   LatLng(48.99717532020741, -2.1696485682447113),
@@ -259,9 +280,11 @@ class _OSMFlutterMapState extends State<OSMFlutterMap> {
 
     return MaterialApp(
       home: Scaffold(
-        body: MapWidget(
-          // shapes: [(shape1, shape2), (shape11, shape12), (shape21, shape22)],
-          shapes: [],
+        body: SafeArea(
+          child: MapWidget(
+            // shapes: [(shape1, shape2), (shape11, shape12), (shape21, shape22)],
+            shapes: [],
+          ),
         ),
       ),
     );
