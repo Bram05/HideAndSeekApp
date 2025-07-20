@@ -6,14 +6,13 @@ import 'package:jetlag/Plane.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:jetlag/shape.dart';
 import 'package:jetlag/ShapeRenderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:jetlag/Boundary.dart';
-import 'package:vector_math/vector_math.dart' hide Plane, Colors;
+import 'package:vector_math/vector_math_64.dart' hide Plane, Colors;
 
 (List<Shape>, List<(int, int)>, List<Shape>) fromJson(
   Map<String, dynamic> json,
@@ -29,6 +28,7 @@ import 'package:vector_math/vector_math.dart' hide Plane, Colors;
     solutions.add(Shape.fromJson(intersection["solution"]));
   }
 
+  print("Loaded ${extraShapes.length} extra shapes from json");
   return (extraShapes, intersections, solutions);
 }
 
@@ -145,7 +145,7 @@ class MenuEntry {
 }
 
 class MapWidget extends StatefulWidget {
-  final List<(Shape, Shape)> shapes;
+  final List<Shape> shapes;
   const MapWidget({super.key, required this.shapes});
   @override
   State<StatefulWidget> createState() {
@@ -159,6 +159,8 @@ class MapWidgetState extends State<MapWidget> {
   bool drawingShape = false;
   bool museums = false;
   bool hittest = false;
+  bool drawingCircle = false;
+  LatLng? lastCirclePoint = null;
   bool drewCirclePart = false;
   LatLng circleThirdPoint = LatLng(-1, -1);
   late TileLayer tileLayer;
@@ -347,9 +349,12 @@ class MapWidgetState extends State<MapWidget> {
                     if (hittest) {
                       for (int i = 0; i < extraShapes.length; i++) {
                         if (extraShapes[i].hit(
-                          mapController.camera.screenOffsetToLatLng(
-                            e.localPosition,
+                          latLngToVec3(
+                            mapController.camera.screenOffsetToLatLng(
+                              e.localPosition,
+                            ),
                           ),
+                          this,
                         )) {
                           focussedIndex = i;
                           return;
@@ -371,11 +376,72 @@ class MapWidgetState extends State<MapWidget> {
                     // Tapposition contains screen coordinates, which we do not want
                     onTap: (TapPosition _, LatLng pos) {
                       print("Clicked at position $pos");
+                      // return;
+                      if (drawingCircle) {
+                        if (lastCirclePoint != null) {
+                          Vector3 centre = latLngToVec3(lastCirclePoint!);
+                          Vector3 now = latLngToVec3(pos);
+                          lastCirclePoint = null;
+                          drawingCircle = false;
+                          print("adding cirlc");
+                          print("Centre is ${vec3ToLatLng(centre)}");
+                          var (p, _, _) = Plane.fromCircle(
+                            vec3ToLatLng(centre),
+                            getDistanceAlongSphere(centre, now),
+                            true,
+                          );
+                          print("LIES INSIDE: ${p.liesInside(now)}");
+                          points.add(vec3ToLatLng(now));
+                          points.add(
+                            vec3ToLatLng(
+                              (centre - (now - centre)).normalized(),
+                            ),
+                          );
+                          extraShapes.add(
+                            Shape(
+                              segments: [
+                                Segment(
+                                  vertices: [
+                                    now,
+                                    (centre - (now - centre)).normalized(),
+                                  ],
+                                  sides: [
+                                    CircleEdge(
+                                      center: vec3ToLatLng(centre),
+                                      radius: getDistanceAlongSphere(
+                                        centre,
+                                        now,
+                                      ),
+                                      startAngle: 0,
+                                      sweepAngle: math.pi,
+                                      plane: p,
+                                    ),
+                                    StraightEdge(),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                          print(
+                            extraShapes.last.segments.last.sides[0].getPlane(
+                              now,
+                              centre - (now - centre),
+                            ),
+                          );
+                          setState(() {});
+                          return;
+                        } else {
+                          lastCirclePoint = pos;
+                          return;
+                        }
+                      }
                       if (drawingShape) {
                         if (drewCirclePart) {
                           drewCirclePart = false;
                           Offset p1 = mapController.camera.latLngToScreenOffset(
-                            extraShapes.last.segments.last.vertices.last,
+                            vec3ToLatLng(
+                              extraShapes.last.segments.last.vertices.last,
+                            ),
                           );
                           Offset p2 = mapController.camera.latLngToScreenOffset(
                             circleThirdPoint,
@@ -405,14 +471,16 @@ class MapWidgetState extends State<MapWidget> {
                           );
                           Vector3 centre = l1.intersect(l2);
                           assert(close(centre.z, 0));
-                          extraShapes.last.segments.last.vertices.add(pos);
+                          extraShapes.last.segments.last.vertices.add(
+                            latLngToVec3(pos),
+                          );
                           print('centre: $centre');
                           Offset centreOffset = Offset(centre.x, centre.y);
-                          points.add(
-                            mapController.camera.screenOffsetToLatLng(
-                              centreOffset,
-                            ),
-                          );
+                          // points.add(
+                          //   mapController.camera.screenOffsetToLatLng(
+                          //     centreOffset,
+                          //   ),
+                          // );
                           extraShapes.last.segments.last.sides.add(
                             CircleEdge(
                               center: mapController.camera.screenOffsetToLatLng(
@@ -420,12 +488,12 @@ class MapWidgetState extends State<MapWidget> {
                               ),
                               plane: Plane(0, 1, 0, 0), //todo:
                               radius: getDistanceAlongSphere(
-                                latLngToVec3ForDistance(
+                                latLngToVec3(
                                   mapController.camera.screenOffsetToLatLng(
                                     centreOffset,
                                   ),
                                 ),
-                                latLngToVec3ForDistance(pos),
+                                latLngToVec3(pos),
                               ),
                               startAngle: 0,
                               sweepAngle: math.pi,
@@ -441,7 +509,9 @@ class MapWidgetState extends State<MapWidget> {
                         }
 
                         setState(() {
-                          extraShapes.last.segments.last.vertices.add(pos);
+                          extraShapes.last.segments.last.vertices.add(
+                            latLngToVec3(pos),
+                          );
                           // if (extraShapes.last.segments.last.vertices.length > 1) {
                           extraShapes.last.segments.last.sides.add(
                             StraightEdge(),
@@ -450,22 +520,23 @@ class MapWidgetState extends State<MapWidget> {
                         });
                       } else {
                         print("hit?");
-                        for (int i = extraShapes.length - 1; i >= 0; i--) {
-                          if (extraShapes[i].hit(pos)) {
+                        // todo: =----------------------------change to extrashapes
+                        for (int i = widget.shapes.length - 1; i >= 0; i--) {
+                          if (widget.shapes[i].hit(latLngToVec3(pos), this)) {
                             print("hit index $i");
-                            if (firstIntersection == -1) {
-                              firstIntersection = i;
-                              return;
-                            } else {
-                              setState(() {
-                                intersections.add((firstIntersection, i));
-                                firstIntersection = -1;
-                                print(
-                                  "Now seeing ${intersections.length} intersections",
-                                );
-                              });
-                              return;
-                            }
+                            // if (firstIntersection == -1) {
+                            //   firstIntersection = i;
+                            //   return;
+                            // } else {
+                            // setState(() {
+                            //   intersections.add((firstIntersection, i));
+                            //   firstIntersection = -1;
+                            //   print(
+                            //     "Now seeing ${intersections.length} intersections",
+                            //   );
+                            // });
+                            // return;
+                            // }
                           }
                         }
                         print("Did not intersect anything");
@@ -488,14 +559,14 @@ class MapWidgetState extends State<MapWidget> {
                   ),
                   children: [
                     tileLayer,
-                    for (var (s1, s2) in widget.shapes) ...[
-                      Child(shape: s1, color: Colors.blueGrey, focussed: false),
-                      Child(shape: s2, color: Colors.grey, focussed: false),
-                      Child(
-                        shape: intersect(s1, s2),
-                        color: Colors.red,
-                        focussed: false,
-                      ),
+                    for (var s in widget.shapes) ...[
+                      Child(shape: s, color: Colors.blueGrey, focussed: false),
+                      // Child(shape: s2, color: Colors.grey, focussed: false),
+                      // Child(
+                      //   shape: intersect(s1, s2, this),
+                      //   color: Colors.red,
+                      //   focussed: false,
+                      // ),
                     ],
                     for (
                       int i = 0;
@@ -527,16 +598,20 @@ class MapWidgetState extends State<MapWidget> {
                         shape: intersect(
                           extraShapes[first],
                           extraShapes[second],
+                          this,
                         ),
                         color: Colors.red,
                         focussed: false,
                       ),
                       CustomPaint(
                         painter: PointPainter(
-                          points: intersectionPoints(
-                            extraShapes[first],
-                            extraShapes[second],
-                          ).$1.map<LatLng>((el) => el.point).toList(),
+                          points:
+                              intersectionPoints(
+                                    extraShapes[first],
+                                    extraShapes[second],
+                                  ).$1
+                                  .map<LatLng>((el) => vec3ToLatLng(el.point))
+                                  .toList(),
                           camera: mapController.camera,
                         ),
                       ),
@@ -632,7 +707,7 @@ class MapWidgetState extends State<MapWidget> {
           MenuEntry(
             label: 'Add new segment',
             shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyS,
+              LogicalKeyboardKey.keyN,
               control: true,
             ),
             onPressed: () {
@@ -691,6 +766,7 @@ class MapWidgetState extends State<MapWidget> {
                   "solution": intersect(
                     extraShapes[first],
                     extraShapes[second],
+                    this,
                   ),
                 });
               }
@@ -763,6 +839,16 @@ class MapWidgetState extends State<MapWidget> {
                     });
                   },
                 ),
+          MenuEntry(
+            label: "Add circle",
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyK,
+              control: true,
+            ),
+            onPressed: () async {
+              drawingCircle = true;
+            },
+          ),
           MenuEntry(
             label: "Update last boundary with museum",
             shortcut: const SingleActivator(

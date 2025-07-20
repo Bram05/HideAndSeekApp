@@ -9,8 +9,7 @@ void main() async {
   List<FileSystemEntity> entities = await directory.list().toList();
   final Iterable<File> files = entities.whereType<File>();
   for (var file in files) {
-    if (!file.path.endsWith('.json'))
-	continue;
+    if (!file.path.endsWith('.json')) continue;
 
     test(file.path, () async {
       var (shapes, intersections, solutions) = fromJson(
@@ -20,6 +19,7 @@ void main() async {
         Shape result = intersect(
           shapes[intersections[i].$1],
           shapes[intersections[i].$2],
+          null,
         );
         expect(result, solutions[i]);
       }

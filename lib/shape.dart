@@ -4,8 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/Plane.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:ui' as ui;
-import 'dart:math' as math;
 import 'package:jetlag/constants.dart';
+import 'package:vector_math/vector_math_64.dart' hide Plane;
 
 enum SideType { straight, circle }
 
@@ -18,6 +18,8 @@ SideType getSideTypeFromString(String s) {
 
 abstract class Side {
   SideType sideType;
+  bool isInfinite = false;
+  // todo: begin and end?
   Side(this.sideType);
 
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera);
@@ -30,6 +32,18 @@ abstract class Side {
   bool equalsImpl(Side other) {
     return true;
   }
+
+  Vector3 getProperCentre();
+
+  Vector3 getTangent(Vector3 begin, Vector3 end, Vector3 point) {
+    Plane p = getPlane(begin, end);
+    Vector3 centre = getProperCentre();
+    Vector3 cross = Vector3(0, 0, 0);
+    cross3((centre - point), p.getNormal(), cross);
+    return cross.normalized();
+  }
+
+  Plane getPlane(Vector3 begin, Vector3 end);
 
   factory Side.fromJson(Map<String, dynamic> json) {
     switch (getSideTypeFromString(json['type'])) {
@@ -46,7 +60,7 @@ abstract class Side {
     sub.forEach((name, data) {
       if (name == "type") {
         throw Exception(
-          "Json value in a SideType cannot hcameraConave name 'type' because that is reserved for the base class",
+          "Json value in a SideType cannot have name 'type' because that is reserved for the base class",
         );
       }
       output[name] = data;
@@ -61,16 +75,27 @@ abstract class Side {
 }
 
 class StraightEdge extends Side {
+  // todo: store plane?
   StraightEdge() : super(SideType.straight);
+
+  @override
+  Plane getPlane(Vector3 begin, Vector3 end) {
+    return Plane.fromTwoPointsAndOrigin(begin, end);
+  }
 
   @override
   void extendPath(ui.Path path, LatLng begin, LatLng end, MapCamera camera) {
     ui.Offset endof = camera.latLngToScreenOffset(end);
     path.lineTo(endof.dx, endof.dy);
   }
+
+  @override
+  Vector3 getProperCentre() {
+    return Vector3(0, 0, 0);
+  }
 }
 
-const double epsilon = 0.00001;
+const double epsilon = 0.00000001;
 bool close(double x, double y) {
   return (x - y).abs() < epsilon;
 }
@@ -104,185 +129,162 @@ double det(LatLng p1, LatLng p2) {
 }
 
 class IntersectionPoint {
-  LatLng point;
-  double tInSide1, tInSide2;
+  Vector3 point;
+  double distAlong1, distAlong2;
   IntersectionPoint({
     required this.point,
-    required this.tInSide1,
-    required this.tInSide2,
+    required this.distAlong1,
+    required this.distAlong2,
   });
 
   @override
   String toString() {
-    return "$point with tinSide1: $tInSide1, tinside2: $tInSide2";
+    return "$point with tinSide1: $distAlong1, tinside2: $distAlong2";
   }
 }
 
-List<IntersectionPoint> intersectConstantWithNonConstant(
-  LatLng begin1,
-  LatLng end1,
-  LatLng begin2,
-  LatLng end2,
-) {
-  if (!close(begin1.latitude, end1.latitude) ||
-      close(begin2.latitude, end2.latitude)) {
-    throw Exception(
-      "intersectConstantWithNonConstant needs the first two points to have the same latitude (that is the constant line) and the second two cannot have the same latitude (the non-constant line)",
-    );
+Plane getPlaneForSide(Side s, Vector3 begin, Vector3 end) {
+  switch (s.sideType) {
+    case SideType.straight:
+      return Plane.fromTwoPointsAndOrigin(begin, end);
+    case SideType.circle:
+      return (s as CircleEdge).plane;
   }
-  // y = ax+b
-  // x = latitude
-  // y = longitude
-  double a =
-      (end2.longitude - begin2.longitude) / (end2.latitude - begin2.latitude);
-  double b = begin2.longitude - a * begin2.latitude;
-
-  // A vertical and non-vertical line will always intersect in a single point
-  LatLng intersection = LatLng(begin1.latitude, a * begin1.latitude + b);
-  double t1 = calculateT(intersection, begin1, end1, true);
-  double t2 = calculateT(intersection, begin2, end2, false);
-  if (liesBetween(t1) && liesBetween(t2)) {
-    return [IntersectionPoint(point: intersection, tInSide1: t1, tInSide2: t2)];
-  }
-  return [];
 }
 
-List<IntersectionPoint> intersectStraights(
-  LatLng begin1,
-  LatLng end1,
-  LatLng begin2,
-  LatLng end2,
+Vector3 normalize(Vector3 v) {
+  // We must compare with the zero vector and not compare its length to 0 because that leads to precision errors
+  if (vec3Close(v, Vector3(0, 0, 0))) return Vector3(0, 0, 0);
+  return v.normalized();
+}
+
+Vector3 normalizedCrossProduct(Vector3 a, Vector3 b) {
+  Vector3 result = Vector3(0, 0, 0);
+  cross3(normalize(a), normalize(b), result);
+  return normalize(result);
+}
+
+bool vec3LiesBetween(
+  Vector3 point,
+  Vector3 begin,
+  Vector3 end,
+  Plane plane,
+  Vector3 centre,
+  bool isFirst,
 ) {
-  if (close(begin1.latitude, end1.latitude)) {
-    if (close(begin2.latitude, end2.latitude)) {
-      if (!close(begin1.latitude, begin2.latitude)) {
-        return [];
-      }
-      // Both lines have constant latitude
-      // Check if one they intersect anywhere
-      LatLng begin1copy = begin1,
-          begin2copy = begin2,
-          end1copy = end1,
-          end2copy = end2;
-      if (begin1.longitude > end1.longitude) (begin1, end1) = (end1, begin1);
-      if (begin2.longitude > end2.longitude) (begin2, end2) = (end2, begin2);
-
-      double lower = math.max(begin1.longitude, begin2.longitude);
-      double upper = math.min(end1.longitude, end2.longitude);
-      List<LatLng> intersects;
-      if (close(upper, lower)) {
-        intersects = [LatLng(begin1.latitude, lower)];
-      } else if (lower < upper) {
-        intersects = [
-          // This is kindof unneceassry because we only add the point at both beginnings anyways
-          LatLng(begin1.latitude, lower),
-          LatLng(begin1.latitude, upper),
-        ];
-      } else {
-        intersects = [];
-      }
-      List<IntersectionPoint> finalIntersects = [];
-      for (LatLng point in intersects) {
-        double t1 = calculateT(point, begin1copy, end1copy, true);
-        double t2 = calculateT(point, begin2copy, end2copy, true);
-        if (liesBetween(t1) && liesBetween(t2)) {
-          finalIntersects.add(
-            IntersectionPoint(point: point, tInSide1: t1, tInSide2: t2),
-          ); // Both lines are vertical so we explicitly choose points that lie at the edge
-        }
-      }
-      return finalIntersects;
-    }
-    return intersectConstantWithNonConstant(begin1, end1, begin2, end2);
+  assert(plane.liesInside(point));
+  assert(plane.liesInside(begin));
+  assert(plane.liesInside(end));
+  assert(plane.liesInside(centre));
+  if (vec3Close(point, begin)) return true;
+  if (vec3Close(point, end)) return false; // this is handled by the next side
+  // Vector3 delta1 = point - begin;
+  // Vector3 delta2 = end - begin;
+  Vector3 delta1 = begin - centre;
+  Vector3 delta2 = point - centre;
+  Vector3 delta3 = end - centre;
+  // print('delta1: $delta1');
+  // print('delta2: $delta2');
+  // print('delta3: $delta3');
+  Vector3 cross1 = normalizedCrossProduct(delta1, delta2);
+  Vector3 cross2 = normalizedCrossProduct(delta2, delta3);
+  // Vector3 test = normalizedCrossProduct(delta1, delta3);
+  // Vector3 cross2 = Vector3(0, 0, 0);
+  // cross3(delta2, delta3, cross2);
+  // cross2.normalize();
+  // Vector3 cross3v = Vector3(0, 0, 0);
+  // cross3(delta1, delta3, cross3v);
+  // if (close(cross3v.length2, 0)) {
+  //   cross3v =
+  // }
+  // cross3v.normalize();
+  // print("normal:  ${plane.getNormal()}, cross1: ${cross1}, cross2: ${cross2}");
+  // print('centre: $centre');
+  // print('test: $test');
+  if (vec3Close(cross1, plane.getNormal()) &&
+      vec3Close(cross2, plane.getNormal())) {
+    return true;
   }
-  if (close(begin2.latitude, end2.latitude)) {
-    List<IntersectionPoint> result = intersectConstantWithNonConstant(
-      begin2,
-      end2,
-      begin1,
-      end1,
-    );
-    for (IntersectionPoint p in result) {
-      double temp = p.tInSide1;
-      p.tInSide1 = p.tInSide2;
-      p.tInSide2 = temp;
-    }
-    return result;
-  }
-
-  // y = ax+b
-  // x = latitude
-  // y = longitude
-  double a1 =
-      (end1.longitude - begin1.longitude) / (end1.latitude - begin1.latitude);
-  double a2 =
-      (end2.longitude - begin2.longitude) / (end2.latitude - begin2.latitude);
-  double b1 = begin1.longitude - a1 * begin1.latitude;
-  double b2 = begin2.longitude - a2 * begin2.latitude;
-  List<LatLng> intersections;
-  if (close(a1, a2)) {
-    if (close(b1, b2)) {
-      // The lines coincide
-      LatLng begin1copy = begin1,
-          begin2copy = begin2,
-          end1copy = end1,
-          end2copy = end2;
-      if (begin1.latitude > end1.latitude)
-        (begin1copy, end1copy) = (end1, begin1);
-      if (begin2.latitude > end2.latitude)
-        (begin2copy, end2copy) = (end2, begin2);
-      double lower = math.max(begin1copy.latitude, begin2copy.latitude);
-      double upper = math.min(end1copy.latitude, end2copy.latitude);
-      if (close(lower, upper)) {
-        intersections = [LatLng(upper, a1 * upper + b1)];
-      } else if (lower < upper) {
-        intersections = [
-          LatLng(lower, a1 * lower + b1),
-          LatLng(upper, a1 * upper + b1),
-        ];
-      } else {
-        intersections = [];
-      }
-    } else {
-      // The lines are parallel
-      intersections = [];
-    }
-  } else {
-    // a1x+b1 = a2x + b2
-    double latitude = (b2 - b1) / (a1 - a2);
-    intersections = [LatLng(latitude, a1 * latitude + b1)];
-  }
-  List<IntersectionPoint> finalIntersections = [];
-  for (LatLng point in intersections) {
-    double t1 = calculateT(point, begin1, end1, false);
-    double t2 = calculateT(point, begin2, end2, false);
-    if (liesBetween(t1) && liesBetween(t2)) {
-      finalIntersections.add(
-        IntersectionPoint(point: point, tInSide1: t1, tInSide2: t2),
-      );
-    }
-  }
-  return finalIntersections;
+  return false;
+  // Vector3 normal = plane.getNormal().normalized();
+  // print("Result was: normal = $normal and cross = $cross");
+  // if (!vec3Close(normal, cross) && !vec3Close(-normal, cross)) {
+  //   print("isfirst: $isFirst");
+  //   print("errororor");
+  //   print("normal: $normal");
+  //   print("d1: $delta1");
+  //   print("d2: $delta2");
+  //   print("cross: $cross");
+  //   print("dot: ${dot3(cross, delta1)}");
+  //   print("dot: ${dot3(cross, delta2)}");
+  //   print("dot: ${dot3(normal, delta1)}");
+  //   print("dot: ${dot3(normal, delta2)}");
+  // }
+  // return vec3Close(normal, cross);
 }
 
 List<IntersectionPoint> intersectSides(
   Side s1,
   Side s2,
-  LatLng begin1,
-  LatLng end1,
-  LatLng begin2,
-  LatLng end2,
+  Vector3 begin1,
+  Vector3 end1,
+  Vector3 begin2,
+  Vector3 end2,
 ) {
-  if (s1.sideType == SideType.straight && s2.sideType == SideType.straight) {
-    var p = intersectStraights(begin1, end1, begin2, end2);
-    // print("Interescting the sides gave ${p.length} point");
-    return p;
+  Plane p1 = getPlaneForSide(s1, begin1, end1);
+  Plane p2 = getPlaneForSide(s2, begin2, end2);
+  var (type, intersections) = p1.intersectOnEarth(p2);
+  switch (type) {
+    case IntersectionType.parallel:
+      return [];
+    case IntersectionType.coincide:
+      intersections = [begin1, end1, begin2, end2];
+    default:
   }
-  throw UnimplementedError("Cannot intersect circles yet");
+  return intersections.fold<List<IntersectionPoint>>([], (
+    result,
+    intersection,
+  ) {
+    bool first =
+        /* s1.isInfinite ||  */ vec3LiesBetween(
+          intersection,
+          begin1,
+          end1,
+          p1,
+          s1.getProperCentre(),
+          true,
+        );
+    bool second =
+        /* s2.isInfinite ||  */ vec3LiesBetween(
+          intersection,
+          begin2,
+          end2,
+          p2,
+          s2.getProperCentre(),
+          false,
+        );
+    // second = true;
+    // first = true;
+    if (!first || !second) {
+      // print(intersection);
+      // print(
+      //   "Ignoring intersection ${vec3ToLatLng(intersection)} becuase it does not lie between the others (first = $first, second = $second)",
+      // );
+      return result;
+    }
+    result.add(
+      IntersectionPoint(
+        point: intersection,
+        distAlong1: getDistanceAlongSphere(intersection, begin1),
+        distAlong2: getDistanceAlongSphere(intersection, begin2),
+      ),
+    );
+    return result;
+  });
 }
 
 class IntersectionData {
-  LatLng point;
+  Vector3 point;
   (int, int) indexInS1;
   (int, int) indexInS2;
   IntersectionData({
@@ -298,13 +300,13 @@ class IntersectionData {
 }
 
 class IntersectionOnLine {
-  LatLng point;
-  double t;
-  IntersectionOnLine({required this.point, required this.t});
+  Vector3 point;
+  double distanceAlong;
+  IntersectionOnLine({required this.point, required this.distanceAlong});
 
   @override
   String toString() {
-    return "point: $point, t: $t \n";
+    return "point: $point, t: $distanceAlong \n";
   }
 }
 
@@ -316,61 +318,47 @@ void addBeginAndEnds(
   for (int i = 0; i < s.segments.length; i++) {
     Segment seg = s.segments[i];
     for (int j = 0; j < seg.vertices.length; j++) {
+      Vector3 begin = seg.vertices[j];
+      Vector3 end = seg.vertices[(j + 1) % seg.vertices.length];
       map[(first, i, j)] = [
-        IntersectionOnLine(point: seg.vertices[j], t: 0),
+        IntersectionOnLine(point: begin, distanceAlong: 0),
         IntersectionOnLine(
-          point: seg.vertices[(j + 1) % seg.vertices.length],
-          t: 1,
+          point: end,
+          distanceAlong: getDistanceAlongSphere(begin, end),
         ),
       ];
     }
   }
 }
 
-(LatLng, LatLng) getoutwardVectors(
-  Shape s,
-  int segmentIndex,
-  int sideIndex,
-  bool atStart,
-  LatLng centre,
-) {
-  Segment seg = s.segments[segmentIndex];
-  LatLng endOfOutwardVector =
-      seg.vertices[(sideIndex + 1) % seg.vertices.length];
-  LatLng beginOfInwardVector = atStart
-      ? seg.vertices[(sideIndex - 1) % seg.vertices.length]
-      : seg.vertices[sideIndex];
-  LatLng v1 = LatLng(
-    (endOfOutwardVector.latitude - centre.latitude),
-    (endOfOutwardVector.longitude - centre.longitude),
-  );
-  LatLng v2 = LatLng(
-    (beginOfInwardVector.latitude - centre.latitude),
-    (beginOfInwardVector.longitude - centre.longitude),
-  );
-  return (v1, v2);
-}
-
-double getAngle(LatLng x) {
-  Offset o = Offset(
-    x.longitude,
-    -x.latitude,
-  ); // - because it uses the wrong axis
+// todo:
+double getAngle(Vector2 x) {
+  Offset o = Offset(x.x, -x.y); // - because it uses the wrong axis
   double val = -o.direction;
   return val;
 }
 
-bool vectorLiesBetween(
-  LatLng vector1,
-  LatLng vector2,
-  LatLng other,
+bool compareLessThan(double a, double b, bool mayBeEqual) {
+  if (close(a, b)) {
+    return mayBeEqual;
+  }
+  return a < b;
+}
+
+bool vec2LiesBetween(
+  Vector2 vector1,
+  Vector2 vector2,
+  Vector2 other,
   bool isOutward,
+  bool isForHit,
 ) {
   double a1 = getAngle(vector1);
   double a2 = getAngle(vector2) - a1;
   double ao = getAngle(other) - a1;
-  return (ao > 0 || isOutward && close(ao, 0)) && ao < a2 ||
-      (!isOutward && close(ao, a2));
+  // return (ao > 0 || (isOutward && !isForHit && close(ao, 0))) &&
+  //     (ao < a2 || (!isOutward && !isForHit && close(ao, a2)));
+  return compareLessThan(0, ao, isOutward && !isForHit) &&
+      compareLessThan(ao, a2, !isOutward && !isForHit);
 
   // double det1 = det(vector1, other);
   // double det2 = det(other, vector2);
@@ -379,6 +367,82 @@ bool vectorLiesBetween(
   //
   // return (det1 > 0 || (isOutward && close(det1, 0))) &&
   //     (det2 > 0 || (!isOutward && close(det2, 0)));
+}
+
+bool vectorLiesBetween(
+  Vector3 vector1,
+  Vector3 vector2,
+  Vector3 other,
+  Vector3 point,
+  bool isOutward,
+  bool isForHit,
+) {
+  // Vector3 cross = Vector3(0, 0, 0);
+  // cross3(vector1, vector2, cross);
+  Vector3 cross = normalizedCrossProduct(vector1, vector2);
+  if (close(cross.length2, 0)) {
+    // vectors are dependant
+    // if (isOutward) return false; // We want to check if it is to the left of this line and this side
+    Vector3 otherCross = normalizedCrossProduct(vector1, other);
+    if (vec3Close(otherCross, point)) {
+      return true;
+    }
+    assert(
+      vec3Close(otherCross, -point) || close(otherCross.length2, 0),
+      "othercross = $otherCross and point = $point",
+    );
+    return false;
+  }
+  Matrix3 transformation = Matrix3.columns(vector1, vector2, cross);
+  transformation.invert();
+  Vector3 transformed = transformation * other;
+  if (!close(transformed.z, 0)) {
+    throw Exception("Transformed z was not close to zero: $transformed");
+  }
+  Vector2 otherAs2 = Vector2(transformed.x, transformed.y);
+  Vector2 vector1As2 = Vector2(1, 0);
+  Vector2 vector2As2 = Vector2(0, 1);
+  return vec2LiesBetween(vector1As2, vector2As2, otherAs2, isOutward, isForHit);
+}
+
+(Vector3, Vector3) getoutwardVectors(
+  Shape s,
+  int segmentIndex,
+  int sideIndex,
+  bool atStart,
+  Vector3 centre,
+) {
+  Segment seg = s.segments[segmentIndex];
+  Vector3 outward = seg.sides[sideIndex].getTangent(
+    seg.vertices[sideIndex],
+    seg.vertices[(sideIndex + 1) % seg.vertices.length],
+    centre,
+  );
+
+  Vector3 reverseInward = atStart
+      ? -seg.sides[(sideIndex - 1) % seg.sides.length].getTangent(
+          seg.vertices[(sideIndex - 1) % seg.vertices.length],
+          seg.vertices[sideIndex],
+          centre,
+        )
+      : -outward;
+
+  return (outward, reverseInward);
+  // Vector3 endOfOutwardVector =
+  //     seg.vertices[(sideIndex + 1) % seg.vertices.length];
+  // Vector3 beginOfInwardVector = atStart
+  //     ? seg.vertices[(sideIndex - 1) % seg.vertices.length]
+  //     : seg.vertices[sideIndex];
+  // LatLng v1 = LatLng(
+  //   (endOfOutwardVector.latitude - centre.latitude),
+  //   (endOfOutwardVector.longitude - centre.longitude),
+  // );
+  // LatLng v2 = LatLng(
+  //   (beginOfInwardVector.latitude - centre.latitude),
+  //   (beginOfInwardVector.longitude - centre.longitude),
+  // );
+  // return (v1, v2);
+  // return (endOfOutwardVector - centre, beginOfInwardVector - centre);
 }
 
 bool intersectTransversely(
@@ -395,33 +459,102 @@ bool intersectTransversely(
     s1,
     seg1Index,
     side1Index,
-    close(point.tInSide1, 0),
+    close(point.distAlong1, 0),
     point.point,
   );
   var (outward2, reverseInward2) = getoutwardVectors(
     s2,
     seg2Index,
     side2Index,
-    close(point.tInSide2, 0),
+    close(point.distAlong2, 0),
     point.point,
   );
 
-  print(vectorLiesBetween(outward1, reverseInward1, outward2, true));
-  print(vectorLiesBetween(outward1, reverseInward1, reverseInward2, false));
-  print(vectorLiesBetween(outward2, reverseInward2, outward1, true));
-  print(vectorLiesBetween(outward2, reverseInward2, reverseInward1, false));
+  // print("TRANSVERSE at point ${vec3ToLatLng(point.point)}");
+  // print(
+  //   vectorLiesBetween(
+  //     outward1,
+  //     reverseInward1,
+  //     outward2,
+  //     point.point,
+  //     true,
+  //     isForHit,
+  //   ),
+  // );
+  // print(
+  //   vectorLiesBetween(
+  //     outward1,
+  //     reverseInward1,
+  //     reverseInward2,
+  //     point.point,
+  //     false,
+  //     isForHit,
+  //   ),
+  // );
+  // print(
+  //   vectorLiesBetween(
+  //     outward2,
+  //     reverseInward2,
+  //     outward1,
+  //     point.point,
+  //     true,
+  //     isForHit,
+  //   ),
+  // );
+  // print(
+  //   vectorLiesBetween(
+  //     outward2,
+  //     reverseInward2,
+  //     reverseInward1,
+  //     point.point,
+  //     false,
+  //     isForHit,
+  //   ),
+  // );
 
   return (!isForHit &&
-          vectorLiesBetween(outward1, reverseInward1, outward2, true)) ||
+          vectorLiesBetween(
+            outward1,
+            reverseInward1,
+            outward2,
+            point.point,
+            true,
+            isForHit,
+          )) ||
       (!isForHit &&
-          vectorLiesBetween(outward1, reverseInward1, reverseInward2, false)) ||
-      vectorLiesBetween(outward2, reverseInward2, outward1, true) ||
-      vectorLiesBetween(outward2, reverseInward2, reverseInward1, false);
+          vectorLiesBetween(
+            outward1,
+            reverseInward1,
+            reverseInward2,
+            point.point,
+            false,
+            isForHit,
+          )) ||
+      vectorLiesBetween(
+        outward2,
+        reverseInward2,
+        outward1,
+        point.point,
+        true,
+        isForHit,
+      ) ||
+      vectorLiesBetween(
+        outward2,
+        reverseInward2,
+        reverseInward1,
+        point.point,
+        false,
+        isForHit,
+      );
 }
 
 (List<IntersectionData>, Map<(bool, int, int), List<IntersectionOnLine>>)
-intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
-  print("starting intersectPoints");
+intersectionPoints(
+  Shape s1,
+  Shape s2, {
+  bool isForHit = false,
+  bool checkTransverse = true,
+}) {
   List<IntersectionData> intersections = [];
   Map<(bool, int, int), List<IntersectionOnLine>> intersectionsPerSide = {};
   addBeginAndEnds(intersectionsPerSide, s1, true);
@@ -433,8 +566,6 @@ intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
       side1Index < s1.segments[seg1Index].sides.length;
       side1Index++
     ) {
-      Side side1 = segment1.sides[side1Index];
-
       for (int seg2Index = 0; seg2Index < s2.segments.length; seg2Index++) {
         Segment segment2 = s2.segments[seg2Index];
 
@@ -443,13 +574,11 @@ intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
           side2Index < s2.segments[seg2Index].sides.length;
           side2Index++
         ) {
-          Side side2 = segment2.sides[side2Index];
-
-          LatLng begin1 = segment1.vertices[side1Index];
-          LatLng end1 =
+          Vector3 begin1 = segment1.vertices[side1Index];
+          Vector3 end1 =
               segment1.vertices[(side1Index + 1) % segment1.vertices.length];
-          LatLng begin2 = segment2.vertices[side2Index];
-          LatLng end2 =
+          Vector3 begin2 = segment2.vertices[side2Index];
+          Vector3 end2 =
               segment2.vertices[(side2Index + 1) % segment2.vertices.length];
 
           List<IntersectionPoint> currentIntersections = intersectSides(
@@ -461,17 +590,18 @@ intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
             end2,
           );
           for (IntersectionPoint point in currentIntersections) {
-            if (close(point.tInSide1, 0) || close(point.tInSide2, 0)) {
-              if (!intersectTransversely(
-                s1,
-                s2,
-                point,
-                seg1Index,
-                side1Index,
-                seg2Index,
-                side2Index,
-                isForHit,
-              )) {
+            if (close(point.distAlong1, 0) || close(point.distAlong2, 0)) {
+              if (checkTransverse &&
+                  !intersectTransversely(
+                    s1,
+                    s2,
+                    point,
+                    seg1Index,
+                    side1Index,
+                    seg2Index,
+                    side2Index,
+                    isForHit,
+                  )) {
                 print(
                   "The curves do not intersect transversely at $point  from segments 1index: $side1Index and 2index: $side2Index -> ignoring",
                 );
@@ -486,29 +616,35 @@ intersectionPoints(Shape s1, Shape s2, {bool isForHit = false}) {
               ),
             );
             intersectionsPerSide[(true, seg1Index, side1Index)]!.add(
-              IntersectionOnLine(point: point.point, t: point.tInSide1),
+              IntersectionOnLine(
+                point: point.point,
+                distanceAlong: point.distAlong1,
+              ),
             );
             intersectionsPerSide[(false, seg2Index, side2Index)]!.add(
-              IntersectionOnLine(point: point.point, t: point.tInSide2),
+              IntersectionOnLine(
+                point: point.point,
+                distanceAlong: point.distAlong2,
+              ),
             );
-            print(
-              "Adding intersection ${point.point} from segments 1index: $side1Index and 2index: $side2Index",
-            );
+            // print(
+            //   "Adding intersection ${point.point} from segments 1index: $side1Index and 2index: $side2Index",
+            // );
           }
         }
       }
     }
   }
   intersectionsPerSide.forEach(
-    (k, list) => list.sort((a, b) => a.t.compareTo(b.t)),
+    (k, list) =>
+        list.sort((a, b) => a.distanceAlong.compareTo(b.distanceAlong)),
   );
-  print("finished intersectPoints");
 
   return (intersections, intersectionsPerSide);
 }
 
 class CurrentPoint {
-  LatLng point;
+  Vector3 point;
   bool isFirstShape;
   (int, int) indices;
 
@@ -556,15 +692,21 @@ void setNextPoint(
   }
 }
 
-Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
+Shape intersect(Shape s1, Shape s2, var state, {bool firstIsForHit = false}) {
   print("Intersecting");
   var (intersections, intersectionsPerLine) = intersectionPoints(
     s1,
     s2,
     isForHit: firstIsForHit,
   );
-  Map<LatLng, ((int, int), (int, int))> intersectionsTotal = {};
-  Set<LatLng> intersectionsLeft = {};
+  for (var p in intersections) {
+    if (state != null) state.points.add(vec3ToLatLng(p.point));
+    print(
+      "Intersection: ${vec3ToLatLng(p.point)}, ${p.indexInS1}, ${p.indexInS2}",
+    );
+  }
+  Map<Vector3, ((int, int), (int, int))> intersectionsTotal = {};
+  Set<Vector3> intersectionsLeft = {};
   int count = 0;
   for (IntersectionData data in intersections) {
     intersectionsTotal[data.point] = (data.indexInS1, data.indexInS2);
@@ -582,12 +724,12 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
   Shape result = Shape(segments: []);
   for (int i = 0; i < segmentsIntersected1.length; i++) {
     if (!segmentsIntersected1[i]) {
-      print("Segment ${i} in shape 1 has no intersections");
+      print("Segment $i in shape 1 has no intersections");
       if (s1.segments[i].vertices.isEmpty) {
         print("WARNING: empty segment!!!");
         continue;
       }
-      if (s2.hit(s1.segments[i].vertices.first)) {
+      if (s2.hit(s1.segments[i].vertices.first, null)) {
         result.segments.add(s1.segments[i]);
       }
 
@@ -600,12 +742,12 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
   }
   for (int i = 0; i < segmentsIntersected2.length; i++) {
     if (!segmentsIntersected2[i]) {
-      print("Segment ${i} in shape 2 has no intersections");
+      print("Segment $i in shape 2 has no intersections");
       if (s2.segments[i].vertices.isEmpty) {
         print("WARNING: empty segment!!!");
         continue;
       }
-      if (s1.hit(s2.segments[i].vertices.first)) {
+      if (s1.hit(s2.segments[i].vertices.first, null)) {
         result.segments.add(s2.segments[i]);
       }
       // if (firstPath.contains(
@@ -615,8 +757,9 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
       // }
     }
   }
+  print("Found ${intersectionsLeft.length} intersections");
   while (intersectionsLeft.isNotEmpty) {
-    LatLng startPoint = intersectionsLeft.first;
+    Vector3 startPoint = intersectionsLeft.first;
     CurrentPoint currentPoint = CurrentPoint(
       point: startPoint,
       isFirstShape: false,
@@ -627,30 +770,59 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
     // bool inShape1 = false;
     Segment newSegment = Segment(vertices: [currentPoint.point], sides: []);
     do {
-      print(
-        "current point = ${currentPoint.point} and start point = $startPoint",
-      );
+      // print(
+      //   "current point = ${currentPoint.point} and start point = $startPoint",
+      // );
       ++count;
-      if (count > 10000) {
+      if (count > 1000) {
         print("WARNING: Stopping due to too many loops");
-        return Shape(segments: []);
+        // return Shape(segments: []);
+        result.segments.add(newSegment);
+        return result;
       }
+      // state.points.add(vec3ToLatLng(currentPoint.point));
       if (intersectionsTotal[currentPoint.point] != null) {
         intersectionsLeft.remove(currentPoint.point);
         var indices = intersectionsTotal[currentPoint.point]!;
         var vertices1 = s1.segments[indices.$1.$1].vertices;
+        var sides1 = s1.segments[indices.$1.$1].sides;
         var vertices2 = s2.segments[indices.$2.$1].vertices;
-        LatLng endAlongS1 = vertices1[(indices.$1.$2 + 1) % vertices1.length];
-        LatLng endAlongS2 = vertices2[(indices.$2.$2 + 1) % vertices2.length];
-        LatLng delta1 = LatLng(
-          endAlongS1.latitude - currentPoint.point.latitude,
-          endAlongS1.longitude - currentPoint.point.longitude,
+        var sides2 = s2.segments[indices.$2.$1].sides;
+        Vector3 endAlongS1 = vertices1[(indices.$1.$2 + 1) % vertices1.length];
+        Vector3 endAlongS2 = vertices2[(indices.$2.$2 + 1) % vertices2.length];
+
+        // vertices does not contain the intersections so use currentpoint and not vertices
+        Vector3 tangentAlongS1 = sides1[indices.$1.$2].getTangent(
+          // vertices1[indices.$1.$2],
+          currentPoint.point,
+          endAlongS1,
+          currentPoint.point,
         );
-        LatLng delta2 = LatLng(
-          endAlongS2.latitude - currentPoint.point.latitude,
-          endAlongS2.longitude - currentPoint.point.longitude,
+        // print(
+        //   'vertex: ${vertices1[indices.$1.$2]} and currpoint = ${currentPoint.point}',
+        // );
+        Vector3 tangentAlongS2 = sides2[indices.$2.$2].getTangent(
+          // vertices2[indices.$2.$2],
+          currentPoint.point,
+          endAlongS2,
+          currentPoint.point,
         );
-        if (det(delta2, delta1) > 0) {
+        Vector3 cross = Vector3(0, 0, 0);
+        cross3(tangentAlongS1, tangentAlongS2, cross);
+        // if both are dependant then it does not matter which path we choose
+        cross.normalize();
+        if (!vec3Close(cross, currentPoint.point.normalized())) {
+          // print("Continuing along shape 1");
+          // Vector3 delta1 = endAlongS1 - currentPoint.point;
+          // Vector3 delta2 = endAlongS2 - currentPoint.point;
+          // Vector3 delta1 = Vector3(
+          //   endAlongS1.latitude - currentPoint.point.latitude,
+          //   endAlongS1.longitude - currentPoint.point.longitude,
+          // );
+          // Vector3 delta2 = Vector3(
+          //   endAlongS2.latitude - currentPoint.point.latitude,
+          //   endAlongS2.longitude - currentPoint.point.longitude,
+          // );
           // continue along shape 1
           // currentPoint = vertices1[(indices.$1.$2 + 1) % vertices1.length];
           // currentPoint =
@@ -663,13 +835,14 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
                 .$2], // see below
           );
         } else {
+          // print("Continuing along shape 2");
           currentPoint.isFirstShape = false;
           currentPoint.indices = (indices.$2.$1, indices.$2.$2);
           setNextPoint(intersectionsPerLine, currentPoint, s1, s2);
           newSegment.sides.add(
             s2.segments[indices.$2.$1].sides[currentPoint
                 .indices
-                .$2], // When adding circles: make change the side a bit to only contain part of the circle arc
+                .$2], // todo: IMPORTANT: When adding circles: make change the side a bit to only contain part of the circle arc
           );
         }
         // newSegment.sides.add(StraightEdge());
@@ -692,26 +865,46 @@ Shape intersect(Shape s1, Shape s2, {bool firstIsForHit = false}) {
         Segment segment = (currentPoint.isFirstShape ? s1 : s2)
             .segments[currentPoint.indices.$1];
         newSegment.sides.add(segment.sides[currentPoint.indices.$2]);
-        print("adding vertex");
       }
-    } while (!latLngClose(currentPoint.point, startPoint));
+    } while (!vec3Close(currentPoint.point, startPoint));
     newSegment.vertices
         .removeLast(); // We always add the start vertex again at the very end
-    print("length is");
-    print(newSegment.sides.length);
     result.segments.add(newSegment);
   }
 
   return result;
 }
 
+Map<String, dynamic> vector3ToJson(Vector3 point) {
+  LatLng p = vec3ToLatLng(point);
+  return {"latitude": p.latitude, "longitude": p.longitude};
+  // return {"x": point.x, "y": point.y, "z": point.z};
+}
+
+Vector3 vector3FromJson(Map<String, dynamic> json) {
+  // This would fail if a coordinate is an integer so we add .0 to automatically convert it to a double
+  if (json["x"] != null) {
+    // it is still the old version
+    print(
+      "WARNING: json file was still the old version. Loading as if new version",
+    );
+    // return latLngToVec3(latLngFromJson(json));
+    return Vector3(json["x"] + .0, json["y"] + .0, json["z"] + .0);
+  }
+  return latLngToVec3(latLngFromJson(json));
+}
+
+LatLng latLngFromJson(Map<String, dynamic> json) {
+  // This would fail if a coordinate is an integer so we add .0 to automatically convert it to a double
+  return LatLng(json["latitude"] + .0, json["longitude"] + .0);
+}
+
 Map<String, dynamic> latLngToJson(LatLng point) {
   return {"latitude": point.latitude, "longitude": point.longitude};
 }
 
-LatLng latLngFromJson(Map<String, dynamic> json) {
-  // This would if a coordinate is an integer so we add .0 to automatically convert it to a double
-  return LatLng(json["latitude"] + .0, json["longitude"] + .0);
+bool vec3Close(Vector3 x, Vector3 y) {
+  return close(x.x, y.x) && close(x.y, y.y) && close(x.z, y.z);
 }
 
 bool latLngClose(LatLng x, LatLng y) {
@@ -720,6 +913,7 @@ bool latLngClose(LatLng x, LatLng y) {
 
 class CircleEdge extends Side {
   LatLng center;
+  late Vector3 properCentre;
   double radius, startAngle, sweepAngle; // radius in metres
   Plane plane;
 
@@ -729,10 +923,16 @@ class CircleEdge extends Side {
     required this.startAngle,
     required this.sweepAngle,
     required this.plane,
-  }) : super(SideType.circle);
+  }) : super(SideType.circle) {
+    properCentre = plane.getPointClosestToCentre();
+    // print(
+    //   "For circle: got a plane with normal: ${vec3ToLatLng(plane.getNormal())}",
+    // );
+    // print("LIES INSIDE: ${plane.liesInside(properCentre)}");
+  }
 
   @override
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJsonImpl() {
     Map<String, dynamic> output = {};
     output["center"] = latLngToJson(center);
     output["radius"] = radius;
@@ -744,8 +944,8 @@ class CircleEdge extends Side {
 
   factory CircleEdge.fromJson(Map<String, dynamic> json) {
     return CircleEdge(
-      center: json["center"],
-      radius: json["center"],
+      center: latLngFromJson(json["center"]),
+      radius: json["radius"],
       startAngle: json["startAngle"],
       sweepAngle: json["sweepAngle"],
       plane: Plane.fromJson(json["plane"]),
@@ -798,18 +998,28 @@ class CircleEdge extends Side {
   String toString() {
     return 'CircleEdge with centre $center and radius $radius';
   }
+
+  @override
+  Plane getPlane(Vector3 begin, Vector3 end) {
+    return plane;
+  }
+
+  @override
+  Vector3 getProperCentre() {
+    return properCentre;
+  }
 }
 
 class Segment {
-  List<LatLng> vertices;
+  List<Vector3> vertices;
   List<Side> sides;
 
   Segment({required this.vertices, required this.sides});
 
   factory Segment.fromJson(Map<String, dynamic> json) {
-    List<LatLng> vertices = [];
+    List<Vector3> vertices = [];
     for (var vertex in json["vertices"]) {
-      vertices.add(latLngFromJson(vertex));
+      vertices.add(vector3FromJson(vertex));
     }
 
     List<Side> sides = [];
@@ -821,8 +1031,8 @@ class Segment {
   Map<String, dynamic> toJson() {
     Map<String, dynamic> output = {};
     List<Map<String, dynamic>> verticesJson = [];
-    for (LatLng p in vertices) {
-      verticesJson.add(latLngToJson(p));
+    for (Vector3 p in vertices) {
+      verticesJson.add(vector3ToJson(p));
     }
     output["vertices"] = verticesJson;
 
@@ -840,21 +1050,33 @@ class Segment {
     if (other is! Segment) return false;
     if (vertices.length != other.vertices.length) return false;
     for (int i = 0; i < vertices.length; i++) {
-      if (!latLngClose(vertices[i], other.vertices[i])) return false;
+      if (!vec3Close(vertices[i], other.vertices[i])) return false;
     }
     return listEquals(sides, other.sides);
   }
 }
 
-(LatLng, LatLng) getBeginAndEndFromIntersection(
+(Vector3, Vector3) getBeginAndEndFromIntersection(
   Shape s,
-  LatLng point,
+  Vector3 point,
   (int, int) index,
 ) {
   Segment seg = s.segments[index.$1];
-  LatLng end = seg.vertices[(index.$2 + 1) % seg.vertices.length];
-  LatLng begin = seg.vertices[index.$2 % seg.vertices.length];
+  Vector3 end = seg.vertices[(index.$2 + 1) % seg.vertices.length];
+  Vector3 begin = seg.vertices[index.$2 % seg.vertices.length];
   return (begin, end);
+}
+
+enum OrientationResult { positive, negative, undeterminated }
+
+OrientationResult areOrientedPositively(Vector3 a, Vector3 b, Vector3 point) {
+  Vector3 cross = Vector3(0, 0, 0);
+  cross3(a, b, cross);
+  cross.normalize();
+  if (close(cross.length, 0)) return OrientationResult.undeterminated;
+  return vec3Close(cross, point.normalized())
+      ? OrientationResult.positive
+      : OrientationResult.negative;
 }
 
 class Shape {
@@ -912,18 +1134,18 @@ class Shape {
       //     "Number of vertices (${s.vertices.length}) must equal the number of sides (${s.sides.length}) in the shape when rendering it",
       //   );
       // }
-      if (s.vertices.length == 0) return ui.Path();
+      if (s.vertices.isEmpty) return ui.Path();
 
       ui.Offset begin = cameraWithoutRotation.latLngToScreenOffset(
-        s.vertices[0],
+        vec3ToLatLng(s.vertices[0]),
       );
       path.moveTo(begin.dx, begin.dy);
 
       for (int i = 0; i < s.sides.length; i++) {
         s.sides[i].extendPath(
           path,
-          s.vertices[i],
-          s.vertices[(i + 1) % s.vertices.length],
+          vec3ToLatLng(s.vertices[i]),
+          vec3ToLatLng(s.vertices[(i + 1) % s.vertices.length]),
           cameraWithoutRotation,
         );
       }
@@ -948,24 +1170,36 @@ class Shape {
     return path.transform(matrix.storage);
   }
 
-  bool hit(LatLng pos) {
+  Vector3 getTangentAtIntersection((int, int) index, Vector3 point) {
+    Segment s = segments[index.$1];
+    return s.sides[index.$2].getTangent(
+      s.vertices[index.$2],
+      s.vertices[(index.$2 + 1) % s.vertices.length],
+      point,
+    );
+  }
+
+  bool hit(Vector3 pos, var state) {
     // return getPath(
     //   camera,
     //   containerSize,
     // ).contains(camera.latLngToScreenOffset(pos));
-    print("Testing if point lies inside");
-    LatLng begin = pos;
-    LatLng end = LatLng(
-      pos.latitude,
-      pos.longitude + 180,
-    ); // loop around half the circle. We assume that this is enough and no curve will loop around more than half the earth todo: add a check and explicitly fail otherwise
+    print("Testing if point ${vec3ToLatLng(pos)} lies inside");
+    Vector3 begin = pos;
+    LatLng l = vec3ToLatLng(begin);
+    Vector3 end = latLngToVec3(LatLng(l.latitude, l.longitude - 180));
+    // todo: this does not work if latitude == 0 or 90
+    // Vector3 end = Vector3(
+    //   pos.latitude,
+    //   pos.longitude + 180,
+    // ); // loop around half the circle. We assume that this is enough and no curve will loop around more than half the earth todo: add a check and explicitly fail otherwise
     // todo: make sure that the intersections also work when looping around the earth
-    Side side = StraightEdge();
+    Side side = StraightEdge()..isInfinite = true;
     int count = 0;
     // for (Segment s in segments) {
     //   for (int i = 0; i < s.vertices.length; i++) {
-    //     LatLng begin2 = s.vertices[i];
-    //     LatLng end2 = s.vertices[(i + 1) % s.vertices.length];
+    //     Vector3 begin2 = s.vertices[i];
+    //     Vector3 end2 = s.vertices[(i + 1) % s.vertices.length];
     //     List<IntersectionPoint> points = intersectSides(
     //       side,
     //       s.sides[i],
@@ -974,38 +1208,45 @@ class Shape {
     //       begin2,
     //       end2,
     //     );
-    //     assert(
-    //       points.length < 2,
-    //     ); // this does not hold with circles later on, it is for now
     //
     //     // with circles we have to take the tangent line again
     Shape s = Shape(
       segments: [
-        Segment(vertices: [begin, end], sides: [StraightEdge()]),
+        Segment(vertices: [begin, end], sides: [side]),
       ],
     );
+
     var (points, _) = intersectionPoints(s, this, isForHit: true);
     for (IntersectionData p in points) {
-      var (begin2, end2) = getBeginAndEndFromIntersection(
-        this,
-        p.point,
-        p.indexInS2,
-      );
-      double detval = det(
-        LatLng(end.latitude - begin.latitude, end.longitude - begin.longitude),
-        LatLng(
-          end2.latitude - begin2.latitude,
-          end2.longitude - end2.longitude,
-        ),
-      );
+      // if (state != null) state.points.add(vec3ToLatLng(p.point));
+      Vector3 t1 = s.getTangentAtIntersection(p.indexInS1, p.point);
+      Vector3 t2 = getTangentAtIntersection(p.indexInS2, p.point);
+
+      switch (areOrientedPositively(t1, t2, p.point)) {
+        case OrientationResult.positive:
+          ++count;
+        case OrientationResult.negative:
+          --count;
+        default:
+        // do nothing
+        // We ignore it: think about turning the ray an infinitesimal amount making sure it does not intersect this line anymore. The other lines are still intersected the same way though
+      }
+
+      // double detval = det(
+      //   LatLng(end.latitude - begin.latitude, end.longitude - begin.longitude),
+      //   LatLng(
+      //     end2.latitude - begin2.latitude,
+      //     end2.longitude - end2.longitude,
+      //   ),
+      // );
 
       // if detval == 0 then we ignore it: think about turning the ray an infinitesimal amount making sure it does not intersect this line anymore. The other lines are still intersected the same way though
-      if (close(detval, 0)) continue;
-      if (detval < 0) {
-        --count;
-      } else {
-        ++count;
-      }
+      // if (close(detval, 0)) continue;
+      // if (detval < 0) {
+      //   --count;
+      // } else {
+      //   ++count;
+      // }
     }
     //   }
     // }

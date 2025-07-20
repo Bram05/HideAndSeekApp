@@ -6,7 +6,7 @@ import 'package:jetlag/Map.dart';
 import 'dart:math' as math;
 import 'dart:convert';
 import 'package:jetlag/Plane.dart';
-import 'package:vector_math/vector_math.dart' hide Colors;
+import 'package:vector_math/vector_math_64.dart' hide Colors, Plane;
 
 void main() => runApp(MyApp());
 
@@ -31,12 +31,29 @@ class OSMFlutterMap extends StatefulWidget {
 class _OSMFlutterMapState extends State<OSMFlutterMap> {
   @override
   Widget build(BuildContext context) {
-    print(
-      "dist= ${getDistanceAlongSphere(latLngToVec3(LatLng(0, 0)), latLngToVec3(LatLng(-10, 15))) / 1000}km",
-    );
-    print(
-      "d=${getDistanceAlongSphere(Vector3(0, 0, radiusEarth), Vector3(radiusEarth, 0, 0)) / 1000}",
-    );
+    // var p1 = LatLng(-10, 10);
+    // var p2 = LatLng(-10, -90);
+    // Vector3 v1 = latLngToVec3(p1);
+    // Vector3 v2 = latLngToVec3(p2);
+    // print(v1);
+    // print(v2);
+    //
+    // Plane p = Plane.fromTwoPointsAndOrigin(v1, v2);
+    // print(p.liesInside(v1));
+
+    // print(
+    //   "NORMAL: ${vec3ToLatLng(Vector3(-0.06448797987826106, 0.5957289207447599, 0.8005925014884318))}",
+    // );
+    // print(
+    //   "CROSS: ${vec3ToLatLng(Vector3(-0.10564873666214382, 0.6401757307854266, 0.7609292859096947))}",
+    // );
+    // return Text('hi');
+    // Vector3 point = Vector3(0, 0, radiusEarth);
+    // print(vec3ToLatLng(point));
+    // print(latLngToVec3(vec3ToLatLng(point)));
+    // LatLng point = LatLng(10, -80);
+    // print(latLngToVec3(point));
+    // print(vec3ToLatLng(latLngToVec3(point)));
     // return TextButton(
     //   onPressed: () async {
     //     var data = await request();
@@ -278,14 +295,29 @@ class _OSMFlutterMapState extends State<OSMFlutterMap> {
     // Shape s3 = intersect(shape21, shape22);
     // print(s3.segments[0].vertices.length);
 
+    LatLng centre = LatLng(51.84598708237366, 4.5466773833741705);
+    double radius = 10000;
+    var (p, p1, p2) = Plane.fromCircle(centre, radius, true);
+    Side s = CircleEdge(
+      center: centre,
+      radius: radius,
+      startAngle: 0,
+      sweepAngle: math.pi,
+      plane: p,
+    );
+    Side s2 = CircleEdge(
+      center: centre,
+      radius: radius,
+      startAngle: math.pi,
+      sweepAngle: math.pi,
+      plane: p,
+    );
+    Segment seg = Segment(vertices: [p1, p2], sides: [s, s2]);
+    Shape shape = Shape(segments: [seg]);
+
     return MaterialApp(
       home: Scaffold(
-        body: SafeArea(
-          child: MapWidget(
-            // shapes: [(shape1, shape2), (shape11, shape12), (shape21, shape22)],
-            shapes: [],
-          ),
-        ),
+        body: SafeArea(child: MapWidget(shapes: [shape])),
       ),
     );
     // return Text("Hello there");
