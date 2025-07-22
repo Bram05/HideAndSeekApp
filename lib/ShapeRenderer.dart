@@ -3,9 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/shape.dart';
 import 'dart:ui' as ui;
 import 'package:latlong2/latlong.dart';
+import 'dart:ffi' hide Size;
+import 'maths_generated_bindings.dart';
+import 'package:ffi/ffi.dart';
+import 'shape.dart';
 
 class Child extends StatefulWidget {
-  Shape shape;
+  Pointer<Void> shape;
   Color color;
   bool focussed;
   Child({
@@ -20,12 +24,13 @@ class Child extends StatefulWidget {
 
 class MyClipper extends CustomClipper<ui.Path> {
   BuildContext context;
-  Shape shape;
+  Pointer<Void> shape;
   MyClipper({required this.context, required this.shape});
 
   @override
   ui.Path getClip(Size size) {
-    return shape.getPath(MapCamera.of(context), size);
+    return getPath(shape, MapCamera.of(context), size);
+    // return shape.getPath(MapCamera.of(context), size);
   }
 
   @override
@@ -36,7 +41,7 @@ class MyClipper extends CustomClipper<ui.Path> {
 
 class BorderPainter extends CustomPainter {
   BuildContext context;
-  Shape shape;
+  Pointer<Void> shape;
   Color color;
   bool focussed;
   BorderPainter({
@@ -51,7 +56,7 @@ class BorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = focussed ? 30.0 : 10
       ..color = color;
-    canvas.drawPath(shape.getPath(MapCamera.of(context), size), p);
+    canvas.drawPath(getPath(shape, MapCamera.of(context), size), p);
   }
 
   @override

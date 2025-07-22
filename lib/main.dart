@@ -1,12 +1,20 @@
-import 'package:jetlag/constants.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:ffi/ffi.dart';
+// import 'package:jetlag/constants.dart';
+// import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
-import 'package:jetlag/shape.dart';
+// import 'package:jetlag/shape.dart';
 import 'package:jetlag/Map.dart';
-import 'dart:math' as math;
+// import 'dart:math' as math;
+// import 'dart:convert';
+// // import 'package:jetlag/Plane.dart' hide Plane;
+// import 'package:vector_math/vector_math_64.dart' hide Colors, Plane;
+
+import 'Maths.dart';
+import 'dart:ffi';
+import 'maths_generated_bindings.dart';
+import 'shape.dart';
+import 'dart:io';
 import 'dart:convert';
-import 'package:jetlag/Plane.dart';
-import 'package:vector_math/vector_math_64.dart' hide Colors, Plane;
 
 void main() => runApp(MyApp());
 
@@ -21,6 +29,16 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// void main() async {
+//   var file = File("tests/trivial.json");
+//   String content = await file.readAsString();
+//   print("File content is $content");
+//   var json = jsonDecode(content);
+//   Pointer<Void> shape1 = shapeFromJson(json["shapes"][0]);
+//   print("Shape1 address is ${shape1.address}");
+//   maths.FreeShape(shape1);
+// }
+
 class OSMFlutterMap extends StatefulWidget {
   const OSMFlutterMap({super.key});
 
@@ -28,9 +46,63 @@ class OSMFlutterMap extends StatefulWidget {
   State<OSMFlutterMap> createState() => _OSMFlutterMapState();
 }
 
+// Pointer<Void> getFirstShape() {
+//   Pointer<SegmentDart> segment = malloc<SegmentDart>();
+//   segment.ref.vertices = malloc<Vector3Dart>(3);
+//   segment.ref.vertices[0] =
+//       (malloc<Vector3Dart>()
+//             ..ref.x = 1
+//             ..ref.y = 0.0
+//             ..ref.z = 0.0)
+//           .ref;
+//   segment.ref.vertices[1] =
+//       (malloc<Vector3Dart>()
+//             ..ref.x = 0
+//             ..ref.y = 1
+//             ..ref.z = 0.0)
+//           .ref;
+//   segment.ref.vertices[2] =
+//       (malloc<Vector3Dart>()
+//             ..ref.x = 0
+//             ..ref.y = 0.0
+//             ..ref.z = 1.0)
+//           .ref;
+//   segment.ref.verticesCount = 3;
+//   segment.ref.sides = malloc<SideDart>(3);
+//   segment.ref.sides[0] = malloc<SideDart>().ref..isStraight = 1;
+//   segment.ref.sides[1] = malloc<SideDart>().ref..isStraight = 1;
+//   segment.ref.sides[2] = malloc<SideDart>().ref..isStraight = 1;
+//   Pointer<ShapeDart> shape = malloc<ShapeDart>();
+//   shape.ref.segments = malloc<SegmentDart>(1);
+//   shape.ref.segments[0] = segment.ref;
+//   Pointer<Void> cShape1 = maths.ConvertToShape(shape);
+//   print('Address of first is ${cShape1.address}');
+//   return cShape1;
+// }
+
+// Pointer<void> getSecondShape() {
+// 	Pointer<SegmentDart> segment = malloc<SegmentDart>();
+// 	segment.ref.vertices = malloc<Vector3Dart>(3);
+// 	segment.ref.vertices[0] = (malloc<Vector3Dart>()..ref.x = 1..ref.y = 0.0..ref.z = 0.0).ref;
+// 	segment.ref.vertices[1] = (malloc<Vector3Dart>()..ref.x = 0..ref.y = 1..ref.z = 0.0).ref;
+// 	segment.ref.vertices[2] = (malloc<Vector3Dart>()..ref.x = 0..ref.y = 0.0..ref.z = 1.0).ref;
+// 	segment.ref.verticesCount = 3;
+// 	segment.ref.sides = malloc<SideDart>(3);
+// 	segment.ref.sides[0] = malloc<SideDart>().ref..isStraight = 1;
+// 	segment.ref.sides[1] = malloc<SideDart>().ref..isStraight = 1;
+// 	segment.ref.sides[2] = malloc<SideDart>().ref..isStraight = 1;
+// 	Pointer<ShapeDart> shape = malloc<ShapeDart>();
+// 	shape.ref.segments = malloc<SegmentDart>(1);
+// 	shape.ref.segments[0] = segment.ref;
+// 	Pointer<void> cShape2 = _bindings.ConvertToShape(shape);
+// 	print('Address of second is ${cShape2.address}');
+// 	return cShape2;
+// }
+
 class _OSMFlutterMapState extends State<OSMFlutterMap> {
   @override
   Widget build(BuildContext context) {
+    // return Text('hi');
     // var p1 = LatLng(-10, 10);
     // var p2 = LatLng(-10, -90);
     // Vector3 v1 = latLngToVec3(p1);
@@ -295,31 +367,31 @@ class _OSMFlutterMapState extends State<OSMFlutterMap> {
     // Shape s3 = intersect(shape21, shape22);
     // print(s3.segments[0].vertices.length);
 
-    LatLng centre = LatLng(51.84598708237366, 4.5466773833741705);
-    double radius = 10000;
-    var (p, p1, p2) = Plane.fromCircle(centre, radius, true);
-    Side s = CircleEdge(
-      center: centre,
-      radius: radius,
-      startAngle: 0,
-      sweepAngle: math.pi,
-      plane: p,
-    );
-    Side s2 = CircleEdge(
-      center: centre,
-      radius: radius,
-      startAngle: math.pi,
-      sweepAngle: math.pi,
-      plane: p,
-    );
-    Segment seg = Segment(vertices: [p1, p2], sides: [s, s2]);
-    Shape shape = Shape(segments: [seg]);
-
+    //   LatLng centre = LatLng(51.84598708237366, 4.5466773833741705);
+    //   double radius = 10000;
+    //   var (p, p1, p2) = Plane.fromCircle(centre, radius, true);
+    //   Side s = CircleEdge(
+    //     center: centre,
+    //     radius: radius,
+    //     startAngle: 0,
+    //     sweepAngle: math.pi,
+    //     plane: p,
+    //   );
+    //   Side s2 = CircleEdge(
+    //     center: centre,
+    //     radius: radius,
+    //     startAngle: math.pi,
+    //     sweepAngle: math.pi,
+    //     plane: p,
+    //   );
+    //   Segment seg = Segment(vertices: [p1, p2], sides: [s, s2]);
+    //   Shape shape = Shape(segments: [seg]);
+    //
     return MaterialApp(
       home: Scaffold(
-        body: SafeArea(child: MapWidget(shapes: [shape])),
+        body: SafeArea(child: MapWidget(shapes: [])),
       ),
     );
-    // return Text("Hello there");
+    //   // return Text("Hello there");
   }
 }

@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
-import 'package:jetlag/Plane.dart';
+// import 'package:jetlag/Plane.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide Size;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/shape.dart';
 import 'package:jetlag/ShapeRenderer.dart';
@@ -13,19 +13,23 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:jetlag/Boundary.dart';
 import 'package:vector_math/vector_math_64.dart' hide Plane, Colors;
+import 'Maths.dart';
+import 'dart:ffi' hide Size;
+import 'maths_generated_bindings.dart';
+import 'package:ffi/ffi.dart';
 
-(List<Shape>, List<(int, int)>, List<Shape>) fromJson(
+(List<Pointer<Void>>, List<(int, int)>, List<Pointer<Void>>) fromJson(
   Map<String, dynamic> json,
 ) {
-  List<Shape> extraShapes = [];
+  List<Pointer<Void>> extraShapes = [];
   List<(int, int)> intersections = [];
-  List<Shape> solutions = [];
+  List<Pointer<Void>> solutions = [];
   for (var shape in json["shapes"]) {
-    extraShapes.add(Shape.fromJson(shape));
+    extraShapes.add(shapeFromJson(shape));
   }
   for (var intersection in json["intersections"]) {
     intersections.add((intersection["first"], intersection["second"]));
-    solutions.add(Shape.fromJson(intersection["solution"]));
+    solutions.add(shapeFromJson(intersection["solution"]));
   }
 
   print("Loaded ${extraShapes.length} extra shapes from json");
@@ -38,7 +42,7 @@ class PointPainter extends CustomPainter {
   List<LatLng> points;
   PointPainter({required this.points, required this.camera});
   @override
-  void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, ui.Size size) {
     List<Offset> ps = [];
     for (var data in points) {
       ps.add(camera.latLngToScreenOffset(data));
@@ -65,7 +69,7 @@ class LinePainter extends CustomPainter {
   List<(LatLng, LatLng)> lines;
   LinePainter({required this.lines, required this.camera});
   @override
-  void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, ui.Size size) {
     Paint p = Paint()
       ..color = Colors.black
       ..strokeWidth = 8
@@ -145,7 +149,7 @@ class MenuEntry {
 }
 
 class MapWidget extends StatefulWidget {
-  final List<Shape> shapes;
+  final List<Pointer<Void>> shapes;
   const MapWidget({super.key, required this.shapes});
   @override
   State<StatefulWidget> createState() {
@@ -166,12 +170,14 @@ class MapWidgetState extends State<MapWidget> {
   late TileLayer tileLayer;
   List<LatLng> points = [];
   List<(LatLng, LatLng)> lines = [];
-  List<Shape> extraShapes = [];
-  List<Shape> pinks = [];
+  List<Pointer<Void>> extraShapes = [];
+  List<Pointer<Void>> pinks = [];
   int focussedIndex = -1;
+  // List<LatLng> newSegment = [];
+  // List<Segment> newSegments = [];
   List<(int, int)> intersections = [];
   int firstIntersection = -1;
-  List<Shape> intended = [];
+  List<Pointer<Void>> intended = [];
   final mapController = MapController();
   TextEditingController filenameController = TextEditingController();
   late LatLng initialPos;
@@ -185,6 +191,24 @@ class MapWidgetState extends State<MapWidget> {
     );
 
     super.initState();
+  }
+
+  Future<int> loadStuff() async {
+    if (extraShapes.isNotEmpty) {
+      print("Already loaded shapes, not loading again");
+      return 0;
+    }
+    var file = File("tests/intersectSelf.json");
+    String content = await file.readAsString();
+    print("File content is $content");
+    var json = jsonDecode(content);
+    // setState(() {
+    var (extraShapesNew, intersectsNew, sol) = fromJson(json);
+    extraShapes = extraShapesNew;
+    intersections = intersectsNew;
+    intended = sol;
+    return 3;
+    // });
   }
 
   @override
@@ -202,14 +226,16 @@ class MapWidgetState extends State<MapWidget> {
     pinks.clear();
     lines.clear();
     // points.clear();
-    return FutureBuilder<Shape>(
-      future: (extraShapes.length > 0 && museums == true
-          ? updateBoundary(extraShapes.last, this, mapController.camera)
-          : Future(() => Shape(segments: []))),
+    return FutureBuilder<void>(
+      future: loadStuff(),
+      // future: /* (extraShapes.length > 0 && museums == true */
+      //     // ? updateBoundary(extraShapes.last, this, mapController.camera)
+      //     // ?
+      //     Future(() => Pointer<Void>.fromAddress(0)),
       builder: (context, asyncSnapshot) {
         if (!asyncSnapshot.hasData) return Text("waiting");
 
-        pinks.add(asyncSnapshot.data!);
+        // pinks.add(asyncSnapshot.data!);
         return Column(
           children: [
             Row(
@@ -348,14 +374,15 @@ class MapWidgetState extends State<MapWidget> {
                   setState(() {
                     if (hittest) {
                       for (int i = 0; i < extraShapes.length; i++) {
-                        if (extraShapes[i].hit(
-                          latLngToVec3(
-                            mapController.camera.screenOffsetToLatLng(
-                              e.localPosition,
-                            ),
-                          ),
-                          this,
-                        )) {
+                        if (1 ==
+                            maths.hit(
+                              extraShapes[i],
+                              latLngToLatLngDart(
+                                mapController.camera.screenOffsetToLatLng(
+                                  e.localPosition,
+                                ),
+                              ),
+                            )) {
                           focussedIndex = i;
                           return;
                         }
@@ -377,184 +404,184 @@ class MapWidgetState extends State<MapWidget> {
                     onTap: (TapPosition _, LatLng pos) {
                       print("Clicked at position $pos");
                       // return;
-                      if (drawingCircle) {
-                        if (lastCirclePoint != null) {
-                          Vector3 centre = latLngToVec3(lastCirclePoint!);
-                          Vector3 now = latLngToVec3(pos);
-                          lastCirclePoint = null;
-                          drawingCircle = false;
-                          print("adding cirlc");
-                          print("Centre is ${vec3ToLatLng(centre)}");
-                          var (p, _, _) = Plane.fromCircle(
-                            vec3ToLatLng(centre),
-                            getDistanceAlongSphere(centre, now),
-                            true,
-                          );
-                          print("LIES INSIDE: ${p.liesInside(now)}");
-                          points.add(vec3ToLatLng(now));
-                          points.add(
-                            vec3ToLatLng(
-                              (centre - (now - centre)).normalized(),
-                            ),
-                          );
-                          extraShapes.add(
-                            Shape(
-                              segments: [
-                                Segment(
-                                  vertices: [
-                                    now,
-                                    (centre - (now - centre)).normalized(),
-                                  ],
-                                  sides: [
-                                    CircleEdge(
-                                      center: vec3ToLatLng(centre),
-                                      radius: getDistanceAlongSphere(
-                                        centre,
-                                        now,
-                                      ),
-                                      startAngle: 0,
-                                      sweepAngle: math.pi,
-                                      plane: p,
-                                    ),
-                                    StraightEdge(),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                          print(
-                            extraShapes.last.segments.last.sides[0].getPlane(
-                              now,
-                              centre - (now - centre),
-                            ),
-                          );
-                          setState(() {});
-                          return;
-                        } else {
-                          lastCirclePoint = pos;
-                          return;
-                        }
-                      }
-                      if (drawingShape) {
-                        if (drewCirclePart) {
-                          drewCirclePart = false;
-                          Offset p1 = mapController.camera.latLngToScreenOffset(
-                            vec3ToLatLng(
-                              extraShapes.last.segments.last.vertices.last,
-                            ),
-                          );
-                          Offset p2 = mapController.camera.latLngToScreenOffset(
-                            circleThirdPoint,
-                          );
-                          Offset p3 = mapController.camera.latLngToScreenOffset(
-                            pos,
-                          );
-                          Offset delta1 = Offset(p1.dx - p2.dx, p1.dy - p2.dy);
-                          Offset delta1Rotated = Offset(delta1.dy, -delta1.dx);
-                          Offset delta1Middle = Offset(
-                            (p1.dx + p2.dx) / 2,
-                            (p1.dy + p2.dy) / 2,
-                          );
-                          Offset delta2 = Offset(p3.dx - p2.dx, p3.dy - p2.dy);
-                          Offset delta2Rotated = Offset(delta2.dy, -delta2.dx);
-                          Offset delta2Middle = Offset(
-                            (p3.dx + p2.dx) / 2,
-                            (p3.dy + p2.dy) / 2,
-                          );
-                          Line l1 = Line(
-                            Vector3(delta1Rotated.dx, delta1Rotated.dy, 0),
-                            Vector3(delta1Middle.dx, delta1Middle.dy, 0),
-                          );
-                          Line l2 = Line(
-                            Vector3(delta2Rotated.dx, delta2Rotated.dy, 0),
-                            Vector3(delta2Middle.dx, delta2Middle.dy, 0),
-                          );
-                          Vector3 centre = l1.intersect(l2);
-                          assert(close(centre.z, 0));
-                          extraShapes.last.segments.last.vertices.add(
-                            latLngToVec3(pos),
-                          );
-                          print('centre: $centre');
-                          Offset centreOffset = Offset(centre.x, centre.y);
-                          // points.add(
-                          //   mapController.camera.screenOffsetToLatLng(
-                          //     centreOffset,
-                          //   ),
-                          // );
-                          extraShapes.last.segments.last.sides.add(
-                            CircleEdge(
-                              center: mapController.camera.screenOffsetToLatLng(
-                                centreOffset,
-                              ),
-                              plane: Plane(0, 1, 0, 0), //todo:
-                              radius: getDistanceAlongSphere(
-                                latLngToVec3(
-                                  mapController.camera.screenOffsetToLatLng(
-                                    centreOffset,
-                                  ),
-                                ),
-                                latLngToVec3(pos),
-                              ),
-                              startAngle: 0,
-                              sweepAngle: math.pi,
-                            ),
-                          );
-                          print(extraShapes.last.segments.last.sides.last);
-                          return;
-                        }
-                        if (HardwareKeyboard.instance.isShiftPressed) {
-                          drewCirclePart = true;
-                          circleThirdPoint = pos;
-                          return;
-                        }
-
-                        setState(() {
-                          extraShapes.last.segments.last.vertices.add(
-                            latLngToVec3(pos),
-                          );
-                          // if (extraShapes.last.segments.last.vertices.length > 1) {
-                          extraShapes.last.segments.last.sides.add(
-                            StraightEdge(),
-                          );
-                          // }
-                        });
-                      } else {
-                        print("hit?");
-                        // todo: =----------------------------change to extrashapes
-                        for (int i = widget.shapes.length - 1; i >= 0; i--) {
-                          if (widget.shapes[i].hit(latLngToVec3(pos), this)) {
-                            print("hit index $i");
-                            // if (firstIntersection == -1) {
-                            //   firstIntersection = i;
-                            //   return;
-                            // } else {
-                            // setState(() {
-                            //   intersections.add((firstIntersection, i));
-                            //   firstIntersection = -1;
-                            //   print(
-                            //     "Now seeing ${intersections.length} intersections",
-                            //   );
-                            // });
-                            // return;
-                            // }
-                          }
-                        }
-                        print("Did not intersect anything");
-                      }
+                      // if (drawingCircle) {
+                      //   if (lastCirclePoint != null) {
+                      //     Vector3 centre = latLngToVec3(lastCirclePoint!);
+                      //     Vector3 now = latLngToVec3(pos);
+                      //     lastCirclePoint = null;
+                      //     drawingCircle = false;
+                      //     print("adding cirlc");
+                      //     print("Centre is ${vec3ToLatLng(centre)}");
+                      //     var (p, _, _) = Plane.fromCircle(
+                      //       vec3ToLatLng(centre),
+                      //       getDistanceAlongSphere(centre, now),
+                      //       true,
+                      //     );
+                      //     print("LIES INSIDE: ${p.liesInside(now)}");
+                      //     points.add(vec3ToLatLng(now));
+                      //     points.add(
+                      //       vec3ToLatLng(
+                      //         (centre - (now - centre)).normalized(),
+                      //       ),
+                      //     );
+                      //     extraShapes.add(
+                      //       Shape(
+                      //         segments: [
+                      //           Segment(
+                      //             vertices: [
+                      //               now,
+                      //               (centre - (now - centre)).normalized(),
+                      //             ],
+                      //             sides: [
+                      //               CircleEdge(
+                      //                 center: vec3ToLatLng(centre),
+                      //                 radius: getDistanceAlongSphere(
+                      //                   centre,
+                      //                   now,
+                      //                 ),
+                      //                 startAngle: 0,
+                      //                 sweepAngle: math.pi,
+                      //                 plane: p,
+                      //               ),
+                      //               StraightEdge(),
+                      //             ],
+                      //           ),
+                      //         ],
+                      //       ),
+                      //     );
+                      //     print(
+                      //       extraShapes.last.segments.last.sides[0].getPlane(
+                      //         now,
+                      //         centre - (now - centre),
+                      //       ),
+                      //     );
+                      //     setState(() {});
+                      //     return;
+                      //   } else {
+                      //     lastCirclePoint = pos;
+                      //     return;
+                      //   }
+                      // }
+                      // if (drawingShape) {
+                      //   if (drewCirclePart) {
+                      //     drewCirclePart = false;
+                      //     Offset p1 = mapController.camera.latLngToScreenOffset(
+                      //       vec3ToLatLng(
+                      //         extraShapes.last.segments.last.vertices.last,
+                      //       ),
+                      //     );
+                      //     Offset p2 = mapController.camera.latLngToScreenOffset(
+                      //       circleThirdPoint,
+                      //     );
+                      //     Offset p3 = mapController.camera.latLngToScreenOffset(
+                      //       pos,
+                      //     );
+                      //     Offset delta1 = Offset(p1.dx - p2.dx, p1.dy - p2.dy);
+                      //     Offset delta1Rotated = Offset(delta1.dy, -delta1.dx);
+                      //     Offset delta1Middle = Offset(
+                      //       (p1.dx + p2.dx) / 2,
+                      //       (p1.dy + p2.dy) / 2,
+                      //     );
+                      //     Offset delta2 = Offset(p3.dx - p2.dx, p3.dy - p2.dy);
+                      //     Offset delta2Rotated = Offset(delta2.dy, -delta2.dx);
+                      //     Offset delta2Middle = Offset(
+                      //       (p3.dx + p2.dx) / 2,
+                      //       (p3.dy + p2.dy) / 2,
+                      //     );
+                      //     Line l1 = Line(
+                      //       Vector3(delta1Rotated.dx, delta1Rotated.dy, 0),
+                      //       Vector3(delta1Middle.dx, delta1Middle.dy, 0),
+                      //     );
+                      //     Line l2 = Line(
+                      //       Vector3(delta2Rotated.dx, delta2Rotated.dy, 0),
+                      //       Vector3(delta2Middle.dx, delta2Middle.dy, 0),
+                      //     );
+                      //     Vector3 centre = l1.intersect(l2);
+                      //     assert(close(centre.z, 0));
+                      //     extraShapes.last.segments.last.vertices.add(
+                      //       latLngToVec3(pos),
+                      //     );
+                      //     print('centre: $centre');
+                      //     Offset centreOffset = Offset(centre.x, centre.y);
+                      //     // points.add(
+                      //     //   mapController.camera.screenOffsetToLatLng(
+                      //     //     centreOffset,
+                      //     //   ),
+                      //     // );
+                      //     extraShapes.last.segments.last.sides.add(
+                      //       CircleEdge(
+                      //         center: mapController.camera.screenOffsetToLatLng(
+                      //           centreOffset,
+                      //         ),
+                      //         plane: Plane(0, 1, 0, 0), //todo:
+                      //         radius: getDistanceAlongSphere(
+                      //           latLngToVec3(
+                      //             mapController.camera.screenOffsetToLatLng(
+                      //               centreOffset,
+                      //             ),
+                      //           ),
+                      //           latLngToVec3(pos),
+                      //         ),
+                      //         startAngle: 0,
+                      //         sweepAngle: math.pi,
+                      //       ),
+                      //     );
+                      //     print(extraShapes.last.segments.last.sides.last);
+                      //     return;
+                      //   }
+                      //   if (HardwareKeyboard.instance.isShiftPressed) {
+                      //     drewCirclePart = true;
+                      //     circleThirdPoint = pos;
+                      //     return;
+                      //   }
+                      //
+                      //   setState(() {
+                      //     extraShapes.last.segments.last.vertices.add(
+                      //       latLngToVec3(pos),
+                      //     );
+                      //     // if (extraShapes.last.segments.last.vertices.length > 1) {
+                      //     extraShapes.last.segments.last.sides.add(
+                      //       StraightEdge(),
+                      //     );
+                      //     // }
+                      //   });
+                      // } else {
+                      //   print("hit?");
+                      //   // todo: =----------------------------change to extrashapes
+                      //   for (int i = widget.shapes.length - 1; i >= 0; i--) {
+                      //     if (widget.shapes[i].hit(latLngToVec3(pos), this)) {
+                      //       print("hit index $i");
+                      //       // if (firstIntersection == -1) {
+                      //       //   firstIntersection = i;
+                      //       //   return;
+                      //       // } else {
+                      //       // setState(() {
+                      //       //   intersections.add((firstIntersection, i));
+                      //       //   firstIntersection = -1;
+                      //       //   print(
+                      //       //     "Now seeing ${intersections.length} intersections",
+                      //       //   );
+                      //       // });
+                      //       // return;
+                      //       // }
+                      //     }
+                      //   }
+                      //   print("Did not intersect anything");
+                      // }
                     },
                     onLongPress: (TapPosition _, LatLng pos) {
-                      print("Right click at position $pos");
-                      setState(() {
-                        if (drawingShape) {
-                          if (extraShapes.last.segments.last.vertices.length <=
-                              2) {
-                            extraShapes.removeLast();
-                          } else {
-                            // extraShapes.last.segments.last.sides.add(StraightEdge());
-                          }
-                        }
-                        drawingShape = false;
-                      });
+                      // print("Right click at position $pos");
+                      // setState(() {
+                      //   if (drawingShape) {
+                      //     if (extraShapes.last.segments.last.vertices.length <=
+                      //         2) {
+                      //       extraShapes.removeLast();
+                      //     } else {
+                      //       // extraShapes.last.segments.last.sides.add(StraightEdge());
+                      //     }
+                      //   }
+                      //   drawingShape = false;
+                      // });
                     },
                   ),
                   children: [
@@ -595,49 +622,49 @@ class MapWidgetState extends State<MapWidget> {
 
                     for (var (first, second) in intersections) ...[
                       Child(
-                        shape: intersect(
+                        shape: maths.IntersectShapes(
                           extraShapes[first],
                           extraShapes[second],
-                          this,
                         ),
                         color: Colors.red,
                         focussed: false,
                       ),
-                      CustomPaint(
-                        painter: PointPainter(
-                          points:
-                              intersectionPoints(
-                                    extraShapes[first],
-                                    extraShapes[second],
-                                  ).$1
-                                  .map<LatLng>((el) => vec3ToLatLng(el.point))
-                                  .toList(),
-                          camera: mapController.camera,
-                        ),
-                      ),
                     ],
-                    if (points.isNotEmpty)
-                      CustomPaint(
-                        painter: PointPainter(
-                          points: points,
-                          camera: mapController.camera,
-                        ),
-                      ),
-                    if (lines.isNotEmpty)
-                      CustomPaint(
-                        painter: LinePainter(
-                          lines: lines,
-                          camera: mapController.camera,
-                        ),
-                      ),
-                    // for (Shape shape in intended)
-                    //   Child(shape: shape, color: Colors.blue, focussed: false),
-                    Text(
-                      drawingShape
-                          ? "Click to add vertex to the shape"
-                          : "Click to intersect shapes",
-                      style: TextStyle(fontSize: 25, color: Colors.black),
-                    ),
+                    // CustomPaint(
+                    //   painter: PointPainter(
+                    //     points:
+                    //         intersectionPoints(
+                    //               extraShapes[first],
+                    //               extraShapes[second],
+                    //             ).$1
+                    //             .map<LatLng>((el) => vec3ToLatLng(el.point))
+                    //             .toList(),
+                    //     camera: mapController.camera,
+                    //   ),
+                    // ),
+                    // ],
+                    // if (points.isNotEmpty)
+                    //   CustomPaint(
+                    //     painter: PointPainter(
+                    //       points: points,
+                    //       camera: mapController.camera,
+                    //     ),
+                    //   ),
+                    // if (lines.isNotEmpty)
+                    //   CustomPaint(
+                    //     painter: LinePainter(
+                    //       lines: lines,
+                    //       camera: mapController.camera,
+                    //     ),
+                    //   ),
+                    // // for (Shape shape in intended)
+                    // //   Child(shape: shape, color: Colors.blue, focussed: false),
+                    // Text(
+                    //   drawingShape
+                    //       ? "Click to add vertex to the shape"
+                    //       : "Click to intersect shapes",
+                    //   style: TextStyle(fontSize: 25, color: Colors.black),
+                    // ),
                     // PolygonLayer(
                     //   polygons: [
                     //     Polygon(
@@ -693,15 +720,15 @@ class MapWidgetState extends State<MapWidget> {
               control: true,
             ),
             onPressed: () {
-              print("hi there");
-              setState(() {
-                drawingShape = true;
-                extraShapes.add(
-                  Shape(
-                    segments: [Segment(vertices: [], sides: [])],
-                  ),
-                );
-              });
+              // print("hi there");
+              // setState(() {
+              //   drawingShape = true;
+              //   extraShapes.add(
+              //     Shape(
+              //       segments: [Segment(vertices: [], sides: [])],
+              //     ),
+              //   );
+              // });
             },
           ),
           MenuEntry(
@@ -720,9 +747,9 @@ class MapWidgetState extends State<MapWidget> {
               // extraShapes.last.segments.last.sides.add(
               //   StraightEdge(),
               // ); // Close the previous shape
-              setState(() {
-                extraShapes.last.segments.add(Segment(vertices: [], sides: []));
-              });
+              // setState(() {
+              //   extraShapes.last.segments.add(Segment(vertices: [], sides: []));
+              // });
             },
           ),
           MenuEntry(
@@ -754,8 +781,9 @@ class MapWidgetState extends State<MapWidget> {
               var tempJson = {};
               tempJson["shapes"] = [];
 
-              for (Shape s in extraShapes) {
-                tempJson["shapes"].add(s.toJson());
+              for (Pointer<Void> s in extraShapes) {
+                print("Converting shape to json");
+                tempJson["shapes"].add(shapeToJson(s));
               }
 
               tempJson["intersections"] = [];
@@ -763,10 +791,11 @@ class MapWidgetState extends State<MapWidget> {
                 tempJson["intersections"].add({
                   "first": first,
                   "second": second,
-                  "solution": intersect(
-                    extraShapes[first],
-                    extraShapes[second],
-                    this,
+                  "solution": shapeToJson(
+                    maths.IntersectShapes(
+                      extraShapes[first],
+                      extraShapes[second],
+                    ),
                   ),
                 });
               }
@@ -857,13 +886,13 @@ class MapWidgetState extends State<MapWidget> {
             ),
             onPressed: () async {
               museums = true;
-              pinks.add(
-                await updateBoundary(
-                  extraShapes.last,
-                  this,
-                  mapController.camera,
-                ),
-              );
+              // pinks.add(
+              //   await updateBoundary(
+              //     extraShapes.last,
+              //     this,
+              //     mapController.camera,
+              //   ),
+              // );
             },
           ),
         ],
