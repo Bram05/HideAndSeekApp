@@ -2,6 +2,7 @@
 #include "Constants.h"
 #include "Equations.h"
 #include "Matrix3.h"
+#include <stdexcept>
 #include <vector>
 
 Plane::Plane(Double a, Double b, Double c, Double d)
@@ -10,7 +11,10 @@ Plane::Plane(Double a, Double b, Double c, Double d)
     , c(c)
     , d(d)
 {
-    assert(Vector3(a, b, c).length().close(1)); // normal must be normalized
+    if (!Vector3(a, b, c).length().close(1)) // normal must be normalized
+    {
+        throw std::runtime_error("Normal must be normalized!");
+    }
 }
 
 Plane::Plane(const Vector3& normal, const Vector3& point)
@@ -19,24 +23,11 @@ Plane::Plane(const Vector3& normal, const Vector3& point)
     , c(normal.z)
     , d(dot(normal, point))
 {
-    assert(normal.length().close(1)); // normal must be normalized
+    if (!normal.length().close(1)) // normal must be normalized
+    {
+        throw std::runtime_error("Normal must be normalized!");
+    }
 }
-
-//
-// Map<String, dynamic> toJson() {
-//   return {
-//     "coords": [a, b, c, d],
-//   };
-// }
-//
-// static Plane fromJson(var json) {
-//   return Plane(
-//     json["coords"][0],
-//     json["coords"][1],
-//     json["coords"][2],
-//     json["coords"][3],
-//   );
-// }
 
 Vector3 Plane::GetPointClosestToCentre() const
 {
@@ -59,9 +50,14 @@ Plane Plane::FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b)
 }
 
 // radius in metres
-std::tuple<Plane, Vector3, Vector3> FromCircle(Vector3 centre, double radius, bool clockwise)
+std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, const Double& radius,
+                                                      bool clockwise)
 {
-    assert(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth + Constants::epsilon);
+    if (!(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth + Constants::epsilon))
+    {
+        throw std::runtime_error(std::string("Invalid radius supplied: ") +
+                                 std::to_string(radius.ToDouble()));
+    }
     LatLng centreLatLng = centre.ToLatLng();
     Matrix3 rotation    = Matrix3::RotationX(
         -(0.5 * Constants::pi() -
@@ -96,7 +92,7 @@ std::tuple<Plane, Vector3, Vector3> FromCircle(Vector3 centre, double radius, bo
              pointOnPlaneOpposite };
 }
 
-bool Plane::LiesInside(const Vector3& point) const { return dot(GetNormal(), point).close(-d); }
+bool Plane::LiesInside(const Vector3& point) const { return dot(GetNormal(), point).close(d); }
 
 std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a, const Plane& b)
 {
@@ -134,4 +130,9 @@ std::tuple<IntersectionType, std::vector<Vector3>> IntersectOnEarth(const Plane&
 
     // print("IntersectOnEarth found ${ints.length} intersections: $ints");
     return { type, ints };
+}
+
+std::ostream& operator<<(std::ostream& os, const Plane& p)
+{
+    return os << p.a << ", " << p.b << ", " << p.c << ", " << p.d;
 }

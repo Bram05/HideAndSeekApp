@@ -72,6 +72,13 @@ public:
         , longitude(longitude)
     {
     }
+    ~LatLng() {}
+
+    bool operator==(const LatLng& other) const
+    {
+        return latitude == other.latitude && longitude == other.longitude;
+    }
+    bool operator!=(const LatLng& other) const { return !(*this == other); }
 
     bool isZero() const { return latitude.isZero() && longitude.isZero(); }
     bool close(const LatLng& other) const

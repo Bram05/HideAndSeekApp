@@ -4,7 +4,9 @@
 #include "Vector3.h"
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <vector>
 
@@ -19,12 +21,10 @@ class Side
 {
 public:
     SideType sideType;
-    bool isInfinite;
 
     // todo: begin and end?
-    Side(SideType type, bool isInfinite = false)
+    Side(SideType type)
         : sideType(type)
-        , isInfinite(isInfinite)
     {
     }
 
@@ -32,8 +32,7 @@ public:
 
     friend bool operator==(const Side& first, const Side& other)
     {
-        return first.equalsImpl(other) && first.sideType == other.sideType &&
-               first.isInfinite == other.isInfinite;
+        return first.equalsImpl(other) && first.sideType == other.sideType;
     }
     bool operator!=(const Side& other) const { return !(*this == other); }
     virtual bool equalsImpl(const Side& other) const { return true; }
@@ -50,8 +49,7 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& os, const Side& side)
     {
-        os << "Side(type: " << static_cast<int>(side.sideType)
-           << ", isInfinite: " << side.isInfinite << ")";
+        os << "Side(type: " << static_cast<int>(side.sideType) << ")\n";
         return os;
     }
 };
@@ -61,10 +59,6 @@ class StraightSide : public Side
 public:
     StraightSide()
         : Side(SideType::straight)
-    {
-    }
-    StraightSide(bool isInfinite)
-        : Side(SideType::straight, isInfinite)
     {
     }
 
@@ -85,7 +79,7 @@ class CircleSide : public Side
 {
 public:
     CircleSide(const Vector3& centre, Double radius, Double startAngle, Double sweepAngle,
-               const Plane& plane)
+               const Plane& plane, bool clockwise)
         : Side(SideType::circle)
         , center(centre)
         , radius(radius)
@@ -93,6 +87,7 @@ public:
         , sweepAngle(sweepAngle)
         , plane{ plane }
         , properCentre{ plane.GetPointClosestToCentre() }
+        , clockwise{ clockwise }
     {
     }
 
@@ -122,6 +117,7 @@ public:
     Vector3 properCentre;
     Double radius, startAngle, sweepAngle; // radius in metres
     Plane plane;
+    bool clockwise;
 };
 
 class Segment
@@ -168,8 +164,9 @@ public:
         {
             if (vertices[i] != other.vertices[(i + offset) % other.vertices.size()])
             {
-                std::cerr << "Side mismatch at index " << i << ": this = " << *sides[i]
-                          << ", other = " << *other.sides[i] << '\n';
+                std::cerr << "Vertex mismatch at index " << i << ": this = " << vertices[i]
+                          << ", other = " << other.vertices[(i + offset) % other.vertices.size()]
+                          << '\n';
                 return false;
             }
         }
@@ -191,7 +188,7 @@ class Shape
 {
 public:
     std::vector<Segment> segments;
-    Shape()             = default;
+    Shape()                     = default;
     mutable bool printDebugInfo = true;
     Shape(const std::vector<Segment>& segments)
         : segments(segments)
@@ -244,4 +241,51 @@ public:
     bool Hit(const Vector3& point) const;
 };
 
+struct IntersectionWithDistance
+{
+    Vector3 point;
+    Double distAlong1, distAlong2;
+};
+
+struct PositionOnShape
+{
+    int segmentIndex, sideIndex;
+};
+struct IntersectionWithIndex
+{
+    Vector3 point;
+    PositionOnShape indexInS1;
+    PositionOnShape indexInS2;
+};
+struct PositionForTwoShapes
+{
+    bool first;
+    PositionOnShape pos;
+};
+struct IntersectionOnLine
+{
+    Vector3 point;
+    Double distanceAlong;
+};
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& p)
+{
+    os << "vector[";
+    for (const T& t : p) { os << t << ", "; }
+    os << "]";
+    return os;
+}
+template <>
+std::ostream& operator<< <Vector3>(std::ostream& os, const std::vector<Vector3>& p);
+std::ostream& operator<<(std::ostream& os, const IntersectionWithDistance& i);
+std::ostream& operator<<(std::ostream& os, const IntersectionWithIndex& i);
+// Needed for some tests
+std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side& s2,
+                                                     const Vector3& begin1, const Vector3& end1,
+                                                     const Vector3& begin2, const Vector3& end2);
 Shape Intersect(const Shape& a, const Shape& b, bool firstIsForHit = false);
+std::tuple<std::vector<IntersectionWithIndex>,
+           std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>>
+    IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit = false,
+                       bool checkTransverse = true);

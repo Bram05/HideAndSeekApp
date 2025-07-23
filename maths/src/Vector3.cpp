@@ -104,7 +104,6 @@ LatLng Vector3::ToLatLng() const
             if (lon > 180)
             {
                 lon -= 360;
-                std::cerr << "lon: " << lon.ToDouble() << '\n';
                 assert(lon <= 180);
             }
         }

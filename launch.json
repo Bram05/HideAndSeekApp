@@ -1,0 +1,21 @@
+{
+    "version": "0.1.0",
+    "configurations": [
+        {
+            "type": "cppdbg",
+            "name": "cpp-launch",
+            "request": "launch",
+            "program": "maths/build/Test",
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "runInTerminal": true,
+            "setupCommands": [  
+                {
+                    "text": "-enable-pretty-printing",
+                    "description": "enable pretty printing",
+                    "ignoreFailures": false
+                }
+            ]
+        }
+    ]
+}

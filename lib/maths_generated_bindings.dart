@@ -202,6 +202,206 @@ class Maths {
               ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)>>('whyUnequal');
   late final _whyUnequal = _whyUnequalPtr.asFunction<
       void Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)>();
+
+  int ConversionTestFromLatLng(
+    LatLngDart point,
+    int printInfo,
+  ) {
+    return _ConversionTestFromLatLng(
+      point,
+      printInfo,
+    );
+  }
+
+  late final _ConversionTestFromLatLngPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(LatLngDart, ffi.Int)>>(
+          'ConversionTestFromLatLng');
+  late final _ConversionTestFromLatLng =
+      _ConversionTestFromLatLngPtr.asFunction<int Function(LatLngDart, int)>();
+
+  int ConversionTestFromVec3(
+    Vector3Dart point,
+    int printInfo,
+  ) {
+    return _ConversionTestFromVec3(
+      point,
+      printInfo,
+    );
+  }
+
+  late final _ConversionTestFromVec3Ptr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(Vector3Dart, ffi.Int)>>(
+          'ConversionTestFromVec3');
+  late final _ConversionTestFromVec3 =
+      _ConversionTestFromVec3Ptr.asFunction<int Function(Vector3Dart, int)>();
+
+  int IntersectionTest(
+    int printInfo,
+  ) {
+    return _IntersectionTest(
+      printInfo,
+    );
+  }
+
+  late final _IntersectionTestPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>(
+          'IntersectionTest');
+  late final _IntersectionTest =
+      _IntersectionTestPtr.asFunction<int Function(int)>();
+
+  int CircleStraightTest(
+    int printInfo,
+  ) {
+    return _CircleStraightTest(
+      printInfo,
+    );
+  }
+
+  late final _CircleStraightTestPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>(
+          'CircleStraightTest');
+  late final _CircleStraightTest =
+      _CircleStraightTestPtr.asFunction<int Function(int)>();
+
+  int CircleCircleTest(
+    int printInfo,
+  ) {
+    return _CircleCircleTest(
+      printInfo,
+    );
+  }
+
+  late final _CircleCircleTestPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>(
+          'CircleCircleTest');
+  late final _CircleCircleTest =
+      _CircleCircleTestPtr.asFunction<int Function(int)>();
+
+  int PlaneTest(
+    LatLngDart first,
+    LatLngDart second,
+    ffi.Pointer<Vector3Dart> normal,
+    int printInfo,
+  ) {
+    return _PlaneTest(
+      first,
+      second,
+      normal,
+      printInfo,
+    );
+  }
+
+  late final _PlaneTestPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(LatLngDart, LatLngDart, ffi.Pointer<Vector3Dart>,
+              ffi.Int)>>('PlaneTest');
+  late final _PlaneTest = _PlaneTestPtr.asFunction<
+      int Function(LatLngDart, LatLngDart, ffi.Pointer<Vector3Dart>, int)>();
+
+  int CircleTest(
+    LatLngDart centre,
+    double radius,
+    ffi.Pointer<Vector3Dart> normal,
+    ffi.Pointer<LatLngDart> points,
+    int numPoints,
+    int printInfo,
+  ) {
+    return _CircleTest(
+      centre,
+      radius,
+      normal,
+      points,
+      numPoints,
+      printInfo,
+    );
+  }
+
+  late final _CircleTestPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(LatLngDart, ffi.Double, ffi.Pointer<Vector3Dart>,
+              ffi.Pointer<LatLngDart>, ffi.Int, ffi.Int)>>('CircleTest');
+  late final _CircleTest = _CircleTestPtr.asFunction<
+      int Function(LatLngDart, double, ffi.Pointer<Vector3Dart>,
+          ffi.Pointer<LatLngDart>, int, int)>();
+
+  int TangentToLine(
+    LatLngDart begin,
+    LatLngDart end,
+    Vector3Dart tangent,
+    int printInfo,
+  ) {
+    return _TangentToLine(
+      begin,
+      end,
+      tangent,
+      printInfo,
+    );
+  }
+
+  late final _TangentToLinePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              LatLngDart, LatLngDart, Vector3Dart, ffi.Int)>>('TangentToLine');
+  late final _TangentToLine = _TangentToLinePtr.asFunction<
+      int Function(LatLngDart, LatLngDart, Vector3Dart, int)>();
+
+  int TangentToCircle(
+    LatLngDart centre,
+    double radius,
+    LatLngDart point,
+    Vector3Dart tangent,
+    int printInfo,
+  ) {
+    return _TangentToCircle(
+      centre,
+      radius,
+      point,
+      tangent,
+      printInfo,
+    );
+  }
+
+  late final _TangentToCirclePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(LatLngDart, ffi.Double, LatLngDart, Vector3Dart,
+              ffi.Int)>>('TangentToCircle');
+  late final _TangentToCircle = _TangentToCirclePtr.asFunction<
+      int Function(LatLngDart, double, LatLngDart, Vector3Dart, int)>();
+
+  int OneNonTransverseIntersection(
+    LatLngDart s1,
+    LatLngDart s2,
+    LatLngDart s3,
+    LatLngDart p1,
+    LatLngDart p2,
+    LatLngDart p3,
+    int printInfo,
+  ) {
+    return _OneNonTransverseIntersection(
+      s1,
+      s2,
+      s3,
+      p1,
+      p2,
+      p3,
+      printInfo,
+    );
+  }
+
+  late final _OneNonTransverseIntersectionPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              LatLngDart,
+              LatLngDart,
+              LatLngDart,
+              LatLngDart,
+              LatLngDart,
+              LatLngDart,
+              ffi.Int)>>('OneNonTransverseIntersection');
+  late final _OneNonTransverseIntersection =
+      _OneNonTransverseIntersectionPtr.asFunction<
+          int Function(LatLngDart, LatLngDart, LatLngDart, LatLngDart,
+              LatLngDart, LatLngDart, int)>();
 }
 
 final class LatLngDart extends ffi.Struct {
@@ -212,32 +412,16 @@ final class LatLngDart extends ffi.Struct {
   external double lon;
 }
 
-final class PlaneDart extends ffi.Struct {
-  @ffi.Double()
-  external double a;
-
-  @ffi.Double()
-  external double b;
-
-  @ffi.Double()
-  external double c;
-
-  @ffi.Double()
-  external double d;
-}
-
 final class SideDart extends ffi.Struct {
   @ffi.Int()
   external int isStraight;
 
   @ffi.Int()
-  external int isInfinte;
+  external int isClockwise;
 
   external LatLngDart centre;
 
   external LatLngDart properCentre;
-
-  external PlaneDart plane;
 
   @ffi.Double()
   external double radius;
@@ -266,4 +450,15 @@ final class ShapeDart extends ffi.Struct {
 
   @ffi.Int()
   external int segmentsCount;
+}
+
+final class Vector3Dart extends ffi.Struct {
+  @ffi.Double()
+  external double x;
+
+  @ffi.Double()
+  external double y;
+
+  @ffi.Double()
+  external double z;
 }

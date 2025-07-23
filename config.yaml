@@ -6,6 +6,7 @@ llvm-path:
 headers: 
   entry-points:
     - 'maths/src/Expose.h'
+    - 'maths/src/Tests.h'
 compiler-opts:
   - '${NORMAL_INCLUDE_COMMAND_C}'
   - '${NORMAL_INCLUDE_COMMAND_CPP}'

@@ -1286,17 +1286,17 @@ Map<String, dynamic> latLngToJson(LatLngDart latLng) {
   return {"latitude": latLng.lat, "longitude": latLng.lon};
 }
 
-PlaneDart planeFromJson(Map<String, dynamic> json) {
-  return malloc<PlaneDart>().ref
-    ..a = json["coords"][0] + .0
-    ..b = json["coords"][1] + .0
-    ..c = json["coords"][2] + .0
-    ..d = json["coords"][3] + .0;
-}
-
-Map<String, dynamic> planeToJson(PlaneDart plane) {
-  return {"a": plane.a, "b": plane.b, "c": plane.c, "d": plane.d};
-}
+// PlaneDart planeFromJson(Map<String, dynamic> json) {
+//   return malloc<PlaneDart>().ref
+//     ..a = json["coords"][0] + .0
+//     ..b = json["coords"][1] + .0
+//     ..c = json["coords"][2] + .0
+//     ..d = json["coords"][3] + .0;
+// }
+//
+// Map<String, dynamic> planeToJson(PlaneDart plane) {
+//   return {"a": plane.a, "b": plane.b, "c": plane.c, "d": plane.d};
+// }
 
 SideDart sideFromJson(Map<String, dynamic> json) {
   if (json["type"] == "circle") {
@@ -1306,7 +1306,8 @@ SideDart sideFromJson(Map<String, dynamic> json) {
       ..startAngle = json["startAngle"]
       ..sweepAngle = json["sweepAngle"]
       ..isStraight = 0
-      ..plane = planeFromJson(json["plane"]);
+      // ..plane = planeFromJson(json["plane"]);
+      ..isClockwise = json["isClockwise"];
   } else {
     return malloc<SideDart>().ref..isStraight = 1;
   }
@@ -1322,7 +1323,8 @@ Map<String, dynamic> sideToJson(SideDart side) {
       "radius": side.radius,
       "startAngle": side.startAngle,
       "sweepAngle": side.sweepAngle,
-      "plane": planeToJson(side.plane),
+      // "plane": planeToJson(side.plane),
+      "isClockwise": side.isClockwise
     };
   }
 }

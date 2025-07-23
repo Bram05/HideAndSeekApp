@@ -20,8 +20,14 @@ add_library(
   src/Plane.cpp
   src/Shape.cpp
   src/Vector3.cpp
+  src/Tests.cpp
   src/Expose.cpp)
-# find_library(mpfr REQUIRED)
+# find_library(mpfr REQUIRED) if(CMAKE_BUILD_TYPE MATCHES "Debug")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -O0") #
+# target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address) endif()
+add_executable(Test src/main.cpp)
+target_link_options(Test PUBLIC -lmpfr)
+target_link_libraries(Test PUBLIC ${PROJECT_NAME})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER src/Expose.h
                                                  OUTPUT_NAME "maths")

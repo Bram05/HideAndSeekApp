@@ -198,7 +198,7 @@ class MapWidgetState extends State<MapWidget> {
       print("Already loaded shapes, not loading again");
       return 0;
     }
-    var file = File("tests/intersectSelf.json");
+    var file = File("tests/intersectSelfNL.json");
     String content = await file.readAsString();
     print("File content is $content");
     var json = jsonDecode(content);

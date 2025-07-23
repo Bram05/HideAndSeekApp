@@ -1,4 +1,5 @@
 #include "Expose.h"
+#include "Plane.h"
 #include "Shape.h"
 #include <iostream>
 
@@ -33,7 +34,6 @@ const SideDart* GetSides(const void* segmentOrig, int index, int* length)
     for (size_t i = 0; i < segment.sides.size(); ++i)
     {
         sides[i].isStraight = static_cast<int>(segment.sides[i]->sideType);
-        sides[i].isInfinte  = segment.sides[i]->isInfinite;
         if (sides[i].isStraight != 1)
         {
             const std::shared_ptr<CircleSide>& circleSide =
@@ -47,8 +47,9 @@ const SideDart* GetSides(const void* segmentOrig, int index, int* length)
             LatLng properCentre       = circleSide->properCentre.ToLatLng();
             sides[i].properCentre.lat = properCentre.latitude.ToDouble();
             sides[i].properCentre.lon = properCentre.latitude.ToDouble();
-            sides[i].plane = { circleSide->plane.a.ToDouble(), circleSide->plane.b.ToDouble(),
-                               circleSide->plane.c.ToDouble(), circleSide->plane.d.ToDouble() };
+            sides[i].isClockwise      = circleSide->clockwise;
+            // sides[i].plane = { circleSide->plane.a.ToDouble(), circleSide->plane.b.ToDouble(),
+            //                    circleSide->plane.c.ToDouble(), circleSide->plane.d.ToDouble() };
         }
     }
     return sides;
@@ -73,17 +74,18 @@ void* ConvertToShape(const ShapeDart* shape)
         {
             if (segmentDart.sides[j].isStraight)
             {
-                sides.emplace_back(std::make_shared<StraightSide>(segmentDart.sides[j].isInfinte));
+                sides.emplace_back(std::make_shared<StraightSide>());
             }
             else
             {
                 LatLngDart centreDart = segmentDart.sides[j].centre;
                 Vector3 centre        = LatLng(centreDart.lat, centreDart.lon).ToVector3();
-                sides.push_back(std::make_shared<CircleSide>(
+                sides.emplace_back(std::make_shared<CircleSide>(
                     centre, segmentDart.sides[j].radius, segmentDart.sides[j].startAngle,
                     segmentDart.sides[j].sweepAngle,
-                    Plane(segmentDart.sides[j].plane.a, segmentDart.sides[j].plane.b,
-                          segmentDart.sides[j].plane.c, segmentDart.sides[j].plane.d)));
+                    std::get<0>(Plane::FromCircle(centre, segmentDart.sides[j].radius,
+                                                  segmentDart.sides[j].isClockwise)),
+                    segmentDart.sides[j].isClockwise));
             }
         }
         segments.emplace_back(vertices, sides);

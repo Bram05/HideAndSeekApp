@@ -12,17 +12,11 @@ extern "C"
         double lat;
         double lon;
     };
-    struct PlaneDart
-    {
-        double a, b, c, d;
-    };
 
     struct SideDart
     {
-        int isStraight; // 1 for straight, 0 for circle
-        int isInfinte;
+        int isStraight, isClockwise; // 1 for straight, 0 for circle
         struct LatLngDart centre, properCentre;
-        struct PlaneDart plane;
         double radius, startAngle, sweepAngle;
     };
 

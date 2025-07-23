@@ -1,11 +1,9 @@
-#include "Expose.h"
-#include "Shape.h"
+#include "Tests.h"
+#include <iostream>
 
-int main() {
-    Shape* s = new Shape({
-		Segment({
-			{LatLng(0, 0), LatLng(1, 1)},
-			{std::make_shared<StraightSide>(LatLng(0, 0), LatLng(1, 1))}
-		})
-	});
+int main()
+{
+    Vector3Dart v{ 0, 1, 0 };
+    int res = CircleTest(LatLngDart{ 0, 0 }, 100, &v, nullptr, 0, 1);
+    std::cerr << "Result is " << res << '\n';
 }

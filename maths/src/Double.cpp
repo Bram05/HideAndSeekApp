@@ -145,8 +145,12 @@ std::ostream& operator<<(std::ostream& os, const Double& d)
     os << d.ToDouble();
     // Use this second version for high precision output
     // mpfr_exp_t exponent;
-    // char* str = mpfr_get_str(0, &exponent, 10, 0, d.val, MPFR_RNDN);
-    // os << str;
+    // char* str     = mpfr_get_str(0, &exponent, 10, 0, d.val, MPFR_RNDN);
+    // std::string s = str;
+    // if (s.size() == 0) return os;
+    // int off = (s[0] == '-' || s[0] == '+') ? 1 : 0;
+    // s.insert(off + 1, 1, '.');
+    // os << s << "*10^" << exponent;
     // mpfr_free_str(str);
     return os;
 }

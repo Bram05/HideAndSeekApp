@@ -1,47 +1,81 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/Plane.dart';
 import 'package:jetlag/shape.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:vector_math/vector_math_64.dart';
+import 'package:ffi/ffi.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:jetlag/constants.dart';
+import 'package:jetlag/maths_generated_bindings.dart';
+import 'package:vector_math/vector_math_64.dart' hide Plane;
+import 'package:jetlag/Maths.dart';
+import 'dart:ffi';
 
-Shape getShape(List<LatLng> points) {
-  List<Vector3> vertices = [];
-  List<Side> sides = [];
-  for (var p in points) {
-    vertices.add(latLngToVec3(p));
-    sides.add(StraightEdge());
-  }
-  return Shape(
-    segments: [Segment(vertices: vertices, sides: sides)],
-  );
-}
-
-void checkShapesWithOneNonTransverseIntersections(Shape s1, Shape s2) {
-  var (ints, _) = intersectionPoints(s1, s2, checkTransverse: false);
-  assert(ints.length == 1, "ints = $ints");
-  var (list, _) = intersectionPoints(s1, s2);
-  assert(list.isEmpty, "List = $list");
+Pointer<LatLngDart> createLatLng(double lat, double lon) {
+  return malloc()
+    ..ref.lat = lat
+    ..ref.lon = lon;
 }
 
 void main() {
-  test("transverse1", () {
-    Shape s1 = getShape([
-      LatLng(10, 10),
-      LatLng(-9.9, 190),
-      LatLng(-10.1, 190),
-    ]);
-    Shape s2 = getShape([LatLng(10, 10), LatLng(12, 12), LatLng(10, 12)]);
-    checkShapesWithOneNonTransverseIntersections(s1, s2);
-    checkShapesWithOneNonTransverseIntersections(s2, s1);
-  });
-  test("transverse2", () {
-    Shape s1 = getShape([
-      LatLng(10, 10),
-      LatLng(-9.9, 190),
-      LatLng(-10.1, 190),
-    ]);
-    Shape s2 = getShape([LatLng(15, 10), LatLng(17, 12), LatLng(15, 12)]);
-    checkShapesWithOneNonTransverseIntersections(s1, s2);
-    checkShapesWithOneNonTransverseIntersections(s2, s1);
-  });
+  var datas = [
+    (
+      createLatLng(10, 10),
+      createLatLng(-9.9, 190),
+      createLatLng(-10.1, 190),
+      createLatLng(10, 10),
+      createLatLng(12, 12),
+      createLatLng(10, 12),
+    ),
+    (
+      createLatLng(10, 10),
+      createLatLng(-9.9, 190),
+      createLatLng(-10.1, 190),
+      createLatLng(15, 10),
+      createLatLng(17, 12),
+      createLatLng(15, 12),
+    ),
+  ];
+  //   Shape s2 = getShape([]);
+  //   checkShapesWithOneNonTransverseIntersections(s1, s2);
+  //   checkShapesWithOneNonTransverseIntersections(s2, s1);
+  // });
+  // test("transverse2", () {
+  //   Shape s1 = getShape([
+  //   ]);
+  //   Shape s2 = getShape([]);
+  //   checkShapesWithOneNonTransverseIntersections(s1, s2);
+  //   checkShapesWithOneNonTransverseIntersections(s2, s1);
+  // });
+  //
+  for (var data in datas) {
+    test("Transverse", () {
+      if (1 !=
+          maths.OneNonTransverseIntersection(
+            data.$1.ref,
+            data.$2.ref,
+            data.$3.ref,
+            data.$4.ref,
+            data.$5.ref,
+            data.$6.ref,
+            0,
+          )) {
+        maths.OneNonTransverseIntersection(
+          data.$1.ref,
+          data.$2.ref,
+          data.$3.ref,
+          data.$4.ref,
+          data.$5.ref,
+          data.$6.ref,
+          1,
+        );
+        assert(false);
+      }
+      malloc.free(data.$1);
+      malloc.free(data.$2);
+      malloc.free(data.$3);
+      malloc.free(data.$4);
+      malloc.free(data.$5);
+      malloc.free(data.$6);
+    });
+  }
 }

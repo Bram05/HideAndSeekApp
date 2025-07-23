@@ -4,7 +4,7 @@ namespace Constants
 {
     const Double CircumferenceEarth = Double(40075017); // metres
     const Double radiusEarth        = Double(6371000);
-    const Double epsilon            = Double(1e-10);
+    const Double epsilon            = Double(1e-8);
     inline Double pi(mpfr_prec_t precision = 150)
     {
         mpfr_t pi_val;

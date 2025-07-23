@@ -1,68 +1,70 @@
+import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/Plane.dart';
-import 'package:jetlag/shape.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:jetlag/constants.dart';
+import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:vector_math/vector_math_64.dart' hide Plane;
+import 'package:jetlag/Maths.dart';
+import 'dart:ffi';
+
+LatLngDart createLatLng(double lat, double lon) {
+  return malloc<LatLngDart>().ref
+    ..lat = lat
+    ..lon = lon;
+}
 
 void main() {
-  test("Tangent to line", () {
-    Side s = StraightEdge();
-    List<(LatLng, LatLng, Vector3)> tests = [
-      (LatLng(0, 0), LatLng(90, 0), Vector3(0, 0, 1)),
-      (LatLng(0, 0), LatLng(-90, 0), Vector3(0, 0, -1)),
-      (LatLng(0, 0), LatLng(-4, 0), Vector3(0, 0, -1)),
-      (LatLng(0, 0), LatLng(-4, 0), Vector3(0, 0, -1)),
-      (
-        LatLng(10, -10),
-        LatLng(0, 0),
-        Vector3(-0.6805157878878377, 0.24371732440918834, -0.6910138408297056),
-      ), // this result seemed reasonable
-    ];
-    for (var test in tests) {
-      Vector3 begin = latLngToVec3(test.$1);
-      Vector3 result = s.getTangent(begin, latLngToVec3(test.$2), begin);
-      if (!vec3Close(result, test.$3)) {
-        print("Test failed: $test got result $result");
+  var datas = [
+    (createLatLng(0, 0), createLatLng(90, 0), Vector3(0, 0, 1)),
+    (createLatLng(0, 0), createLatLng(-90, 0), Vector3(0, 0, -1)),
+    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1)),
+    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1)),
+    (
+      createLatLng(10, -10),
+      createLatLng(0, 0),
+      Vector3(-0.6805157878878377, 0.24371732440918834, -0.6910138408297056),
+    ), // this result seemed reasonable
+  ];
+  for (var data in datas) {
+    test("Tangent to line", () {
+      Vector3Dart p = malloc<Vector3Dart>().ref
+        ..x = data.$3.x
+        ..y = data.$3.y
+        ..z = data.$3.z;
+      if (1 != maths.TangentToLine(data.$1, data.$2, p, 0)) {
+        maths.TangentToLine(data.$1, data.$2, p, 1);
         assert(false);
       }
-    }
-  });
+    });
+  }
 
-  test("Tangent to circle", () {
-    Side s = CircleEdge(
-      center: LatLng(0, 0),
-      radius: 111111,
-      startAngle: 0,
-      sweepAngle: 5,
-      plane: Plane.fromCircle(LatLng(0, 0), 111111, true).$1,
-    );
-    Vector3 begin = latLngToVec3(LatLng(-1, 0));
-    Vector3 result = s.getTangent(begin, latLngToVec3(LatLng(0, 0)), begin);
+  var datas2 = [
+    (
+      createLatLng(0, 0),
+      111111.0,
+      createLatLng(-1, 0),
+      malloc<Vector3Dart>()
+        ..ref.x = -1
+        ..ref.y = 0
+        ..ref.z = 0,
+    ),
+    (
+      createLatLng(0, 180),
+      111111.0,
+      createLatLng(-1, 180),
+      malloc<Vector3Dart>()
+        ..ref.x = 1
+        ..ref.y = 0
+        ..ref.z = 0,
+    ),
+  ];
 
-    // This should be (-1, 0, 0) because the circle is vertical and the bottom its tangent is in this direction
-    if (!vec3Close(result, Vector3(-1, 0, 0))) {
-      print("circle tangent failed: got $result");
-      assert(false);
-    }
-    Side s2 = CircleEdge(
-      center: LatLng(0, 180),
-      radius: 111111,
-      startAngle: 0,
-      sweepAngle: 5,
-      plane: Plane.fromCircle(LatLng(0, -180), 111111, true).$1,
-    );
-    Vector3 begin2 = latLngToVec3(LatLng(-1, 180));
-
-    Vector3 result2 = s2.getTangent(
-      begin2,
-      latLngToVec3(LatLng(0, 180)),
-      begin2,
-    );
-
-    // This should be (1, 0, 0) because the circle turned (its inside is now to the left) and therefore it 'moves' in the positive x direction
-    if (!vec3Close(result2, Vector3(1, 0, 0))) {
-      print("circle tangent failed: got $result2");
-      assert(false);
-    }
-  });
+  for (var data in datas2) {
+    test("Tangent to circle", () {
+      if (1 !=
+          maths.TangentToCircle(data.$1, data.$2, data.$3, data.$4.ref, 0)) {
+        maths.TangentToCircle(data.$1, data.$2, data.$3, data.$4.ref, 1);
+      }
+      malloc.free(data.$4);
+    });
+  }
 }

@@ -2,6 +2,7 @@
 #include "Matrix3.h"
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -10,8 +11,8 @@
 
 // todo: calculateT??, liesBetween??
 //
-bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end, Plane plane,
-                     const Vector3& centre, bool isFirst)
+bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end,
+                     const Plane& plane, const Vector3& centre, bool isFirst)
 {
     assert(plane.LiesInside(point));
     assert(plane.LiesInside(begin));
@@ -24,6 +25,9 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     Vector3 delta3 = end - centre;
     Vector3 cross1 = NormalizedCrossProduct(delta1, delta2);
     Vector3 cross2 = NormalizedCrossProduct(delta2, delta3);
+    // std::cerr << "Cross1: " << cross1 << '\n';
+    // std::cerr << "Cross2: " << cross2 << '\n';
+    // std::cerr << "Normal: " << plane.GetNormal() << '\n';
     if (cross1 == plane.GetNormal() && cross2 == plane.GetNormal())
     {
         return true; // point is on the first side
@@ -33,10 +37,23 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     return false;
 }
 
-struct IntersectionWithDistance
+class Timer
 {
-    Vector3 point;
-    Double distAlong1, distAlong2;
+    std::chrono::time_point<std::chrono::steady_clock> begin;
+
+public:
+    Timer()
+        : begin(std::chrono::steady_clock::now())
+    {
+    }
+
+    void elapsed(const std::string& text)
+    {
+        auto end    = std::chrono::steady_clock::now();
+        double time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+        std::cerr << text << " took " << time << " micros\n";
+        begin = std::chrono::steady_clock::now(); // reset the timer
+    }
 };
 
 std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side& s2,
@@ -46,6 +63,7 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
     const Plane plane1         = s1.GetPlane(begin1, end1);
     const Plane plane2         = s2.GetPlane(begin2, end2);
     auto [type, intersections] = IntersectOnEarth(plane1, plane2);
+    // timer.elapsed("IntersectOnEarth");
     if (type == IntersectionType::parallel) { return {}; }
     else if (type == IntersectionType::coincide)
     {
@@ -68,31 +86,10 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
             result.push_back({ intersection, dist1, dist2 });
         }
     }
+    // timer.elapsed("The rest");
     return result;
 }
 
-struct PositionOnShape
-{
-    int segmentIndex, sideIndex;
-};
-struct IntersectionWithIndex
-{
-    Vector3 point;
-    PositionOnShape indexInS1;
-    PositionOnShape indexInS2;
-};
-
-struct IntersectionOnLine
-{
-    Vector3 point;
-    Double distanceAlong;
-};
-
-struct PositionForTwoShapes
-{
-    bool first;
-    PositionOnShape pos;
-};
 bool operator<(const PositionOnShape& lhs, const PositionOnShape& rhs)
 {
     if (lhs.segmentIndex != rhs.segmentIndex) return lhs.segmentIndex < rhs.segmentIndex;
@@ -256,8 +253,7 @@ bool IntersectTransversely(const Shape& s1, const Shape& s2, const IntersectionW
 
 std::tuple<std::vector<IntersectionWithIndex>,
            std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>>
-    IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit = false,
-                       bool checkTransverse = true)
+    IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit, bool checkTransverse)
 {
     std::vector<IntersectionWithIndex> intersections                                     = {};
     std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>> intersectionsPerSide = {};
@@ -266,19 +262,25 @@ std::tuple<std::vector<IntersectionWithIndex>,
     for (int seg1Index = 0; seg1Index < s1.segments.size(); seg1Index++)
     {
         Segment segment1 = s1.segments[seg1Index];
+        assert(segment1.vertices.size() == segment1.sides.size() ||
+               segment1.vertices.size() == segment1.sides.size() + 1);
         for (int side1Index = 0; side1Index < s1.segments[seg1Index].sides.size(); side1Index++)
         {
             for (int seg2Index = 0; seg2Index < s2.segments.size(); seg2Index++)
             {
                 Segment segment2 = s2.segments[seg2Index];
 
+                assert(segment2.vertices.size() == segment2.sides.size() ||
+                       segment2.vertices.size() == segment2.sides.size() + 1);
                 for (int side2Index = 0; side2Index < s2.segments[seg2Index].sides.size();
                      side2Index++)
                 {
-                    Vector3 begin1 = segment1.vertices[side1Index];
-                    Vector3 end1   = segment1.vertices[(side1Index + 1) % segment1.vertices.size()];
-                    Vector3 begin2 = segment2.vertices[side2Index];
-                    Vector3 end2   = segment2.vertices[(side2Index + 1) % segment2.vertices.size()];
+                    const Vector3& begin1 = segment1.vertices[side1Index];
+                    const Vector3& end1 =
+                        segment1.vertices[(side1Index + 1) % segment1.vertices.size()];
+                    const Vector3& begin2 = segment2.vertices[side2Index];
+                    const Vector3& end2 =
+                        segment2.vertices[(side2Index + 1) % segment2.vertices.size()];
 
                     std::vector<IntersectionWithDistance> currentIntersections = IntersectSides(
                         *s1.segments[seg1Index].sides[side1Index],
@@ -521,7 +523,7 @@ bool Shape::Hit(const Vector3& point) const
     // // loop around half the circle. We assume that this is enough and no curve will loop around
     // more than half the earth todo: add a check and explicitly fail otherwise todo: make sure that
     // the intersections also work when looping around the earth
-    std::unique_ptr<Side> side = std::make_unique<StraightSide>(true);
+    std::unique_ptr<Side> side = std::make_unique<StraightSide>();
     int count                  = 0;
     Shape s                    = Shape({
         Segment({ begin, end }, { std::move(side) }),
@@ -547,4 +549,22 @@ bool Shape::Hit(const Vector3& point) const
         }
     }
     return count != 0;
+}
+template <>
+std::ostream& operator<< <Vector3>(std::ostream& os, const std::vector<Vector3>& p)
+{
+    os << "vector[";
+    for (const Vector3& t : p) { os << t.ToLatLng() << ", "; }
+    os << "]";
+    return os;
+}
+std::ostream& operator<<(std::ostream& os, const IntersectionWithDistance& i)
+{
+    os << i.point.ToLatLng() << " with dist1: " << i.distAlong1 << " and dist2: " << i.distAlong2;
+    return os;
+}
+std::ostream& operator<<(std::ostream& os, const IntersectionWithIndex& i)
+{
+    os << i.point.ToLatLng();
+    return os;
 }
