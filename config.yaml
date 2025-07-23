@@ -1,0 +1,14 @@
+name: 'Maths'
+description: 'The maths library using MPFR for high precision'
+output: 'lib/maths_generated_bindings.dart'
+llvm-path:
+  - '${LIBCLANG_DIR}'
+headers: 
+  entry-points:
+    - 'maths/src/Expose.h'
+compiler-opts:
+  - '${NORMAL_INCLUDE_COMMAND_C}'
+  - '${NORMAL_INCLUDE_COMMAND_CPP}'
+  - '-isystem ${SPECIAL_INCLUDE_DIR}'
+  - '-isystem ${GMP_DIR}/include'
+  - '-isystem ${MPFR_DIR}/include'
