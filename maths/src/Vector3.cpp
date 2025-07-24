@@ -1,6 +1,8 @@
 #include "Vector3.h"
+#include "Constants.h"
 #include <cassert>
 #include <iostream>
+#include <sstream>
 
 Vector3::Vector3(double x, double y, double z)
     : x{ Double(x) }
@@ -56,30 +58,37 @@ Double clamp(Double val)
 {
     if (val > 1)
     {
-        assert(val - Constants::epsilon <= 1);
+        std::cerr << "WARNING: clamping value " << val << '\n';
+        assert(val - Constants::Precision::GetPrecision() <= 1);
         return 1;
     }
     else if (val < -1)
     {
-        assert(val + Constants::epsilon >= -1);
+        std::cerr << "WARNING: clamping value " << val << '\n';
+        assert(val + Constants::Precision::GetPrecision() >= -1);
         return -1.0;
     }
     return val;
 }
 
-Double GetDistanceAlongSphere(const Vector3& a, const Vector3& b)
+Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
 {
     // we don't care if a and b are on the scale of the planet, or between -1 and 1
     Double inner = clamp(dot(a.normalized(), b.normalized()));
     // return math.acos(inner) / (2 * math.pi) * circumferenceEarth;
-    return acos(inner) / (2 * Constants::pi());
+    return acos(inner) / (2 * Constants::pi()) * Constants::CircumferenceEarth;
 }
 
 LatLng Vector3::ToLatLng() const
 {
-    assert(length2().close(1));
+    // if (length2() != 1)
+    // {
+    //     std::cerr << *this << ", " << length() << '\n';
+    //     assert(false);
+    // }
     // Convert the vector to latitude and longitude
-    Double lat = asin(z / length()) * (180 / Constants::pi());
+    // Double lat = asin(z / length()) * ("180" / Constants::pi());
+    Double lat = asinu(z / length());
     Double lon = Double(-1);
     if (x.isZero() && y.isZero())
     {
@@ -99,7 +108,8 @@ LatLng Vector3::ToLatLng() const
         {
             Double inner = -x / s;
             inner        = clamp(inner);
-            lon          = asin(inner) / Constants::pi() * 180;
+            // lon          = asin(inner) / Constants::pi() * 180;
+            lon = asinu(inner);
             if (y < 0) { lon = 180 - lon; }
             if (lon > 180)
             {
@@ -113,17 +123,23 @@ LatLng Vector3::ToLatLng() const
 
 Vector3 LatLng::ToVector3() const
 {
-    Double theta = longitudeInRad();
-    Double phi   = latitudeInRad();
-    return Vector3(-sin(theta) * cos(phi), cos(theta) * cos(phi), sin(phi));
+    // Double theta = longitudeInRad();
+    // Double phi   = latitudeInRad();
+    // return Vector3(-sin(theta) * cos(phi), cos(theta) * cos(phi), sin(phi));
+    return Vector3(-sinu(longitude) * cosu(latitude), cosu(longitude) * cosu(latitude),
+                   sinu(latitude));
 }
-std::ostream& operator<<(std::ostream& os, const Vector3& v)
+std::ostream& operator<<(std::ostream& os, const Vector3& v) { return os << v.ToString(); }
+std::ostream& operator<<(std::ostream& os, const LatLng& l) { return os << l.ToString(); }
+std::string LatLng::ToString() const
 {
-    os << "Vector3(" << v.x << ", " << v.y << ", " << v.z << ")";
-    return os;
+    std::stringstream s;
+    s << "LatLng(" << latitude << ", " << longitude << ")";
+    return s.str();
 }
-std::ostream& operator<<(std::ostream& os, const LatLng& l)
+std::string Vector3::ToString() const
 {
-    os << "LatLng(" << l.latitude << ", " << l.longitude << ")";
-    return os;
+    std::stringstream os;
+    os << "Vector3(" << x << ", " << y << ", " << z << ")";
+    return os.str();
 }

@@ -23,7 +23,7 @@ extern "C"
 	    struct LatLngDart* points, int numPoints,
                           int printInfo);
 
-    EXPOSE int TangentToLine(struct LatLngDart begin, struct LatLngDart end, struct Vector3Dart tangent, int printInfo);
+    EXPOSE int TangentToLine(struct LatLngDart begin, struct LatLngDart end, struct Vector3Dart tangent, int printInfo, int reducePresision);
     EXPOSE int TangentToCircle(struct LatLngDart centre, double radius, struct LatLngDart point, struct Vector3Dart tangent, int printInfo);
     EXPOSE int OneNonTransverseIntersection(struct LatLngDart s1, struct LatLngDart s2, struct LatLngDart s3, struct LatLngDart p1, struct LatLngDart p2, struct LatLngDart p3 , int printInfo);
 

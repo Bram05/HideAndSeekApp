@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
 // import 'package:jetlag/Plane.dart';
 
@@ -11,8 +10,6 @@ import 'package:jetlag/ShapeRenderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:jetlag/Boundary.dart';
-import 'package:vector_math/vector_math_64.dart' hide Plane, Colors;
 import 'Maths.dart';
 import 'dart:ffi' hide Size;
 import 'maths_generated_bindings.dart';
@@ -167,6 +164,7 @@ class MapWidgetState extends State<MapWidget> {
   LatLng? lastCirclePoint = null;
   bool drewCirclePart = false;
   LatLng circleThirdPoint = LatLng(-1, -1);
+  double radius = 200;
   late TileLayer tileLayer;
   List<LatLng> points = [];
   List<(LatLng, LatLng)> lines = [];
@@ -194,11 +192,11 @@ class MapWidgetState extends State<MapWidget> {
   }
 
   Future<int> loadStuff() async {
+    // return 0;
     if (extraShapes.isNotEmpty) {
-      print("Already loaded shapes, not loading again");
       return 0;
     }
-    var file = File("tests/intersectSelfNL.json");
+    var file = File("tests/trivial.json");
     String content = await file.readAsString();
     print("File content is $content");
     var json = jsonDecode(content);
@@ -371,25 +369,34 @@ class MapWidgetState extends State<MapWidget> {
             Expanded(
               child: MouseRegion(
                 onHover: (PointerHoverEvent e) {
-                  setState(() {
-                    if (hittest) {
-                      for (int i = 0; i < extraShapes.length; i++) {
-                        if (1 ==
-                            maths.hit(
-                              extraShapes[i],
-                              latLngToLatLngDart(
-                                mapController.camera.screenOffsetToLatLng(
-                                  e.localPosition,
-                                ),
-                              ),
-                            )) {
-                          focussedIndex = i;
-                          return;
-                        }
-                        focussedIndex = -1;
-                      }
-                    }
-                  });
+                  // setState(() {
+                  // maths.FreeShape(extraShapes.last);
+                  // LatLng p = mapController.camera.screenOffsetToLatLng(
+                  //   e.localPosition,
+                  // );
+                  // Pointer<LatLngDart> ek = malloc<LatLngDart>()
+                  //   ..ref.lat = p.latitude
+                  //   ..ref.lon = p.longitude;
+                  // extraShapes.last = maths.AddCircle(ek, radius);
+                  // malloc.free(ek);
+                  // if (hittest) {
+                  //   for (int i = 0; i < extraShapes.length; i++) {
+                  //     if (1 ==
+                  //         maths.hit(
+                  //           extraShapes[i],
+                  //           latLngToLatLngDart(
+                  //             mapController.camera.screenOffsetToLatLng(
+                  //               e.localPosition,
+                  //             ),
+                  //           ),
+                  //         )) {
+                  //       focussedIndex = i;
+                  //       return;
+                  //     }
+                  //     focussedIndex = -1;
+                  //   }
+                  // }
+                  // });
                 },
                 child: FlutterMap(
                   mapController: mapController,
@@ -893,6 +900,30 @@ class MapWidgetState extends State<MapWidget> {
               //     mapController.camera,
               //   ),
               // );
+            },
+          ),
+          MenuEntry(
+            label: "Increase radius",
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyD,
+              control: false,
+            ),
+            onPressed: () async {
+              setState(() {
+                radius *= 1.1;
+              });
+            },
+          ),
+          MenuEntry(
+            label: "Decrease radius",
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyF,
+              control: false,
+            ),
+            onPressed: () async {
+              setState(() {
+                radius *= 0.9;
+              });
             },
           ),
         ],

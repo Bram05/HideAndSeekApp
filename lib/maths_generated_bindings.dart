@@ -38,12 +38,12 @@ class Maths {
           ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Int>)>();
 
   ffi.Pointer<LatLngDart> GetVertices(
-    ffi.Pointer<ffi.Void> segment,
+    ffi.Pointer<ffi.Void> segments,
     int index,
     ffi.Pointer<ffi.Int> length,
   ) {
     return _GetVertices(
-      segment,
+      segments,
       index,
       length,
     );
@@ -72,12 +72,12 @@ class Maths {
       _FreeVerticesPtr.asFunction<void Function(ffi.Pointer<LatLngDart>)>();
 
   ffi.Pointer<SideDart> GetSides(
-    ffi.Pointer<ffi.Void> segment,
+    ffi.Pointer<ffi.Void> segments,
     int index,
     ffi.Pointer<ffi.Int> length,
   ) {
     return _GetSides(
-      segment,
+      segments,
       index,
       length,
     );
@@ -202,6 +202,88 @@ class Maths {
               ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)>>('whyUnequal');
   late final _whyUnequal = _whyUnequalPtr.asFunction<
       void Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)>();
+
+  ffi.Pointer<LatLngDart> GetIntermediatePoints(
+    ffi.Pointer<ffi.Void> shape,
+    int segIndex,
+    int sideIndex,
+    int numIntermediatePoints,
+  ) {
+    return _GetIntermediatePoints(
+      shape,
+      segIndex,
+      sideIndex,
+      numIntermediatePoints,
+    );
+  }
+
+  late final _GetIntermediatePointsPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, ffi.Int,
+              ffi.Int, ffi.Int)>>('GetIntermediatePoints');
+  late final _GetIntermediatePoints = _GetIntermediatePointsPtr.asFunction<
+      ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, int, int, int)>();
+
+  void FreeIntermediatePoints(
+    ffi.Pointer<LatLngDart> points,
+  ) {
+    return _FreeIntermediatePoints(
+      points,
+    );
+  }
+
+  late final _FreeIntermediatePointsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LatLngDart>)>>(
+          'FreeIntermediatePoints');
+  late final _FreeIntermediatePoints = _FreeIntermediatePointsPtr.asFunction<
+      void Function(ffi.Pointer<LatLngDart>)>();
+
+  int GetNumberOfSegments(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _GetNumberOfSegments(
+      shape,
+    );
+  }
+
+  late final _GetNumberOfSegmentsPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+          'GetNumberOfSegments');
+  late final _GetNumberOfSegments =
+      _GetNumberOfSegmentsPtr.asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+
+  int GetNumberOfSidesInSegment(
+    ffi.Pointer<ffi.Void> shape,
+    int segmentIndex,
+  ) {
+    return _GetNumberOfSidesInSegment(
+      shape,
+      segmentIndex,
+    );
+  }
+
+  late final _GetNumberOfSidesInSegmentPtr = _lookup<
+          ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>, ffi.Int)>>(
+      'GetNumberOfSidesInSegment');
+  late final _GetNumberOfSidesInSegment = _GetNumberOfSidesInSegmentPtr
+      .asFunction<int Function(ffi.Pointer<ffi.Void>, int)>();
+
+  ffi.Pointer<ffi.Void> AddCircle(
+    ffi.Pointer<LatLngDart> centre,
+    double radius,
+  ) {
+    return _AddCircle(
+      centre,
+      radius,
+    );
+  }
+
+  late final _AddCirclePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<LatLngDart>, ffi.Double)>>('AddCircle');
+  late final _AddCircle = _AddCirclePtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<LatLngDart>, double)>();
 
   int ConversionTestFromLatLng(
     LatLngDart point,
@@ -329,21 +411,23 @@ class Maths {
     LatLngDart end,
     Vector3Dart tangent,
     int printInfo,
+    int reducePresision,
   ) {
     return _TangentToLine(
       begin,
       end,
       tangent,
       printInfo,
+      reducePresision,
     );
   }
 
   late final _TangentToLinePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(
-              LatLngDart, LatLngDart, Vector3Dart, ffi.Int)>>('TangentToLine');
+          ffi.Int Function(LatLngDart, LatLngDart, Vector3Dart, ffi.Int,
+              ffi.Int)>>('TangentToLine');
   late final _TangentToLine = _TangentToLinePtr.asFunction<
-      int Function(LatLngDart, LatLngDart, Vector3Dart, int)>();
+      int Function(LatLngDart, LatLngDart, Vector3Dart, int, int)>();
 
   int TangentToCircle(
     LatLngDart centre,
@@ -425,12 +509,6 @@ final class SideDart extends ffi.Struct {
 
   @ffi.Double()
   external double radius;
-
-  @ffi.Double()
-  external double startAngle;
-
-  @ffi.Double()
-  external double sweepAngle;
 }
 
 final class SegmentDart extends ffi.Struct {

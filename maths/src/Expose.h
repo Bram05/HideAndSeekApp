@@ -17,7 +17,7 @@ extern "C"
     {
         int isStraight, isClockwise; // 1 for straight, 0 for circle
         struct LatLngDart centre, properCentre;
-        double radius, startAngle, sweepAngle;
+        double radius;
     };
 
     struct SegmentDart
@@ -35,9 +35,9 @@ extern "C"
     };
 
     EXPOSE const void* GetSegments(const void* shape, int* length);
-    EXPOSE const struct LatLngDart* GetVertices(const void* segment, int index, int* length);
+    EXPOSE const struct LatLngDart* GetVertices(const void* segments, int index, int* length);
     EXPOSE void FreeVertices(struct LatLngDart* vertices);
-    EXPOSE const struct SideDart* GetSides(const void* segment, int index, int* length);
+    EXPOSE const struct SideDart* GetSides(const void* segments, int index, int* length);
     EXPOSE void FreeSides(struct SideDart* sides);
 
     EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart);
@@ -46,6 +46,12 @@ extern "C"
     EXPOSE void* IntersectShapes(const void* a, const void* b);
     EXPOSE int ShapesEqual(const void* a, const void* b);
     EXPOSE void whyUnequal(const void* a, const void* b);
+    EXPOSE struct LatLngDart* GetIntermediatePoints(const void* shape, int segIndex, int sideIndex,
+                                                    int numIntermediatePoints);
+    EXPOSE void FreeIntermediatePoints(struct LatLngDart* points);
+    EXPOSE int GetNumberOfSegments(const void* shape);
+    EXPOSE int GetNumberOfSidesInSegment(const void* shape, int segmentIndex);
+    EXPOSE void* AddCircle(struct LatLngDart* centre, double radius);
 
 #ifdef __cplusplus
 }

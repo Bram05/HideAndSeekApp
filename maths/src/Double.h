@@ -1,12 +1,16 @@
 #pragma once
 #include <iostream>
+#include <stdio.h>
 
 #include <mpfr.h>
 class Double
 {
 public:
+    Double() { mpfr_init(val); }
     Double(double x);
     Double(int x);
+    Double(const std::string& x);
+    Double(const char* x);
     Double(mpfr_t p)
     {
         mpfr_init2(val, mpfr_get_prec(p));
@@ -40,11 +44,16 @@ public:
     friend Double sin(const Double& x);
     friend Double cos(const Double& x);
     friend Double tan(const Double& x);
+    friend Double sinu(const Double& x);
+    friend Double cosu(const Double& x);
+    friend Double tanu(const Double& x);
     friend Double asin(const Double& x);
+    friend Double asinu(const Double& x);
     friend Double acos(const Double& x);
     friend Double atan(const Double& x);
     friend Double atan2(const Double& y, const Double& x);
     friend std::ostream& operator<<(std::ostream& os, const Double& d);
+    std::string ToString() const;
 
 private:
     mpfr_t val;

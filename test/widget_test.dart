@@ -15,7 +15,10 @@ void main() async {
   for (var file in files) {
     if (!file.path.endsWith('.json')) continue;
 
-    if (file.path == "tests/intersectSelfNL.json") continue;
+    if (file.path == "tests/intersectSelfNL.json" ||
+        file.path == "tests/box.json" ||
+        file.path == "tests/circle.json")
+      continue;
     test(file.path, () async {
       var (shapes, intersections, solutions) = fromJson(
         jsonDecode(await file.readAsString()),

@@ -33,8 +33,8 @@ public:
     Vector3 GetAPointOn() const { return GetPointClosestToCentre(); }
     static Plane FromThreePoints(const Vector3& a, const Vector3& b, const Vector3& c);
     static Plane FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b);
-    static std::tuple<Plane, Vector3, Vector3> FromCircle(const Vector3& centre, const Double& radius,
-                                                          bool clockwise);
+    static std::tuple<Plane, Vector3, Vector3> FromCircle(const Vector3& centre,
+                                                          const Double& radius, bool clockwise);
     bool LiesInside(const Vector3& point) const;
 
     friend std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a,

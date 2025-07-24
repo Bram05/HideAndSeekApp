@@ -53,7 +53,7 @@ Plane Plane::FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b)
 std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, const Double& radius,
                                                       bool clockwise)
 {
-    if (!(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth + Constants::epsilon))
+    if (!(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth + Constants::Precision::GetPrecision()))
     {
         throw std::runtime_error(std::string("Invalid radius supplied: ") +
                                  std::to_string(radius.ToDouble()));

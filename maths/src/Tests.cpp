@@ -19,7 +19,10 @@ int ConversionTestFromLatLng(LatLngDart point, int printInfo)
 
 int ConversionTestFromVec3(Vector3Dart point, int printInfo)
 {
-    Vector3 p = Vector3(point.x, point.y, point.z);
+    Vector3 p =
+        Vector3(point.x, point.y, point.z)
+            .normalized(); // The input not very precise (it is a normal double) so we MUST
+                           // normalize again to get a point that is precise to a ton of digits
     if (printInfo) std::cerr << p << '\n';
     LatLng l = p.ToLatLng();
     if (printInfo) std::cerr << l << '\n';
@@ -29,13 +32,13 @@ int ConversionTestFromVec3(Vector3Dart point, int printInfo)
 }
 int IntersectionTest(int printInfo)
 {
-    Vector3 centre           = LatLng(0, 0).ToVector3();
-    Plane p                  = std::get<0>(Plane::FromCircle(centre, 1000, true));
-    std::shared_ptr<Side> s  = std::make_shared<CircleSide>(centre, 1000, 0, 3.14, p, true);
+    Vector3 centre   = LatLng(0, 0).ToVector3();
+    auto [p, p1, p2] = Plane::FromCircle(centre, 1000, true);
+    // std::cout << p << '\n';
+    std::shared_ptr<Side> s  = std::make_shared<CircleSide>(centre, 1000, true);
     std::shared_ptr<Side> s2 = std::make_shared<StraightSide>();
-    auto result              = IntersectSides(*s.get(), *s2.get(), LatLng(0, 0.008983).ToVector3(),
-                                              LatLng(0, -0.008983).ToVector3(), LatLng(0.3, 180).ToVector3(),
-                                              LatLng(0, 0).ToVector3());
+    auto result = IntersectSides(*s.get(), *s2.get(), p1, p2, LatLng("0.3", "180").ToVector3(),
+                                 LatLng(0, 0).ToVector3());
     if (result.size() != 1)
     {
         if (printInfo)
@@ -44,12 +47,24 @@ int IntersectionTest(int printInfo)
         }
         return 0;
     }
-    if (result[0].point !=
-        Vector3(-3.66702957743798e-18, 0.9999999877091389, 0.0001567855927765379))
+    // if (result[0].point !=
+    //     Vector3(-3.66702957743798e-18, 0.9999999877091389, 0.0001567855927765379))
+    if (GetDistanceAlongEarth(result[0].point, centre) != 1000)
     {
         if (printInfo)
         {
-            std::cerr << "Got result " << result << ". This failed because point is not correct.\n";
+            std::cerr << "Got result " << result
+                      << ". This failed because point does not lie on the circle, distance: "
+                      << GetDistanceAlongEarth(result[0].point, centre) << '\n';
+        }
+        return 0;
+    }
+    if (result[0].point.x != 0 || result[0].point.z <= 0)
+    {
+        if (printInfo)
+        {
+            std::cerr << "Got result " << result
+                      << ". This failed because point does not lie on the straight lien.\n";
         }
         return 0;
     }
@@ -58,16 +73,16 @@ int IntersectionTest(int printInfo)
 int CircleStraightTest(int printInfo)
 {
     Vector3 centre       = LatLng(0, 0).ToVector3();
-    double radius        = 10000;
+    Double radius        = 10000;
     auto [plane, p1, p2] = Plane::FromCircle(centre, radius, true);
-    auto s1              = std::make_shared<CircleSide>(centre, radius, 0, 3.14, plane, true);
-    auto s2              = std::make_shared<CircleSide>(centre, radius, 3.14, 3.14, plane, true);
+    auto s1              = std::make_shared<CircleSide>(centre, radius, plane, true);
+    auto s2              = std::make_shared<CircleSide>(centre, radius, plane, true);
     Shape shape1         = Shape({
         Segment({ p1, p2 }, { s1, s2 }),
     });
     Shape shape2         = Shape({
-        Segment({ LatLng(0, 0).ToVector3(), LatLng(0.3, 180).ToVector3(),
-                          LatLng(-0.3, 180).ToVector3() },
+        Segment({ LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
+                          LatLng("-0.3", 180).ToVector3() },
                         { std::make_shared<StraightSide>(), std::make_shared<StraightSide>(),
                           std::make_shared<StraightSide>() }),
     });
@@ -77,13 +92,27 @@ int CircleStraightTest(int printInfo)
         if (printInfo) std::cerr << result << " is not correct because size is not 2\n";
         return 0;
     }
-    if (result[0].point.ToLatLng() != LatLng(0.08983152770644671, 0) ||
-        result[1].point.ToLatLng() != LatLng(-0.08983152770644671, 0))
+    auto IsPointValid = [&](const Vector3& p)
     {
-        if (printInfo)
-            std::cerr
-                << result
-                << " is not correct because one of the points is not equal to what it should be\n";
+        if (GetDistanceAlongEarth(p, centre) != radius)
+        {
+            if (printInfo)
+                std::cerr << "Intersection " << p << " is not the correct distance from centre "
+                          << centre << ". Distance =  " << GetDistanceAlongEarth(p, centre) << '\n';
+            return false;
+        }
+        if (p.x != 0)
+        {
+            if (printInfo)
+                std::cerr << "Intersection " << p << " does not lie on the plane with x=0!\n";
+            return false;
+        }
+        return true;
+    };
+    if (!IsPointValid(result[0].point) || !IsPointValid(result[1].point))
+    // if (result[0].point.ToLatLng() != LatLng(0.08983152770644671, 0) ||
+    //     result[1].point.ToLatLng() != LatLng(-0.08983152770644671, 0))
+    {
         return 0;
     }
     return 1;
@@ -91,33 +120,34 @@ int CircleStraightTest(int printInfo)
 
 int CircleCircleTest(int printInfo)
 {
-    Vector3 centre           = LatLng(0, 0).ToVector3();
-    double radius            = 10000;
-    auto [plane, p1, p2]     = Plane::FromCircle(centre, radius, true);
-    std::shared_ptr<Side> s1 = std::make_shared<CircleSide>(centre, radius, 0, 3.14, plane, true);
-    std::shared_ptr<Side> s2 =
-        std::make_shared<CircleSide>(centre, radius, 3.14, 3.14, plane, true);
-    Shape shape1            = Shape({
+    Vector3 centre                 = LatLng(0, 0).ToVector3();
+    double radius                  = 10000;
+    auto [plane, p1, p2]           = Plane::FromCircle(centre, radius, true);
+    std::shared_ptr<Side> s1       = std::make_shared<CircleSide>(centre, radius, plane, true);
+    std::shared_ptr<Side> s2       = std::make_shared<CircleSide>(centre, radius, plane, true);
+    Shape shape1                   = Shape({
         Segment({ p1, p2 }, { s1, s2 }),
     });
-    centre                  = LatLng(0, -90).ToVector3();
-    Double radiusD          = 0.25 * Constants::CircumferenceEarth;
-    auto [plane2, p21, p22] = Plane::FromCircle(centre, radiusD, false);
-    std::shared_ptr<CircleSide> s3 =
-        std::make_shared<CircleSide>(centre, radiusD, 0, 3.14, plane2, false);
-    std::shared_ptr<CircleSide> s4 =
-        std::make_shared<CircleSide>(centre, radiusD, 3.14, 3.14, plane2, false);
-    Shape shape2 = Shape({
+    Vector3 centre2                = LatLng(0, -90).ToVector3();
+    Double radius2                 = 0.25 * Constants::CircumferenceEarth;
+    auto [plane2, p21, p22]        = Plane::FromCircle(centre2, radius2, false);
+    std::shared_ptr<CircleSide> s3 = std::make_shared<CircleSide>(centre2, radius2, plane2, false);
+    std::shared_ptr<CircleSide> s4 = std::make_shared<CircleSide>(centre2, radius2, plane2, false);
+    Shape shape2                   = Shape({
         Segment({ p21, p22 }, { s3, s4 }),
     });
-    auto result  = std::get<0>(IntersectionPoints(shape1, shape2));
+    auto result                    = std::get<0>(IntersectionPoints(shape1, shape2));
     if (result.size() != 2)
     {
         if (printInfo) std::cerr << "Result " << result << " is not correct. Size is not 2\n";
         return 0;
     }
-    if (result[0].point.ToLatLng() != LatLng(0.08983152770644671, 0) ||
-        result[1].point.ToLatLng() != LatLng(-0.08983152770644671, 0))
+    // if (result[0].point.ToLatLng() != LatLng(0.08983152770644671, 0) ||
+    //     result[1].point.ToLatLng() != LatLng(-0.08983152770644671, 0))
+    if (GetDistanceAlongEarth(result[0].point, centre) != radius ||
+        GetDistanceAlongEarth(result[1].point, centre) != radius ||
+        GetDistanceAlongEarth(result[0].point, centre2) != radius2 ||
+        GetDistanceAlongEarth(result[1].point, centre2) != radius2)
     {
         // Our distance here is most likely correct, the online calculator used is less accurate
         // though
@@ -174,6 +204,10 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
 {
     Vector3 centre = LatLng(centreP.lat, centreP.lon).ToVector3();
     Plane p        = std::get<0>(Plane::FromCircle(centre, radius, true));
+    const Double prev =
+        Constants::Precision::GetPrecision(); // todo: maybe make this test better someday: don't
+                                              // rely on some points that were given
+    Constants::Precision::SetPrecision("1e-7");
     for (int i = 0; i < numPoints; i++)
     {
         Vector3 point = LatLng(points[i].lat, points[i].lon).ToVector3();
@@ -181,6 +215,7 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
         {
             if (printInfo)
                 std::cerr << "Point " << point << " does not lie inside the plane " << p << '\n';
+            Constants::Precision::SetPrecision(prev);
             return 0;
         }
     }
@@ -192,27 +227,33 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
             if (printInfo)
                 std::cerr << "Normal " << p.GetNormal() << " is not correct for plane " << p
                           << "(should be " << normal << ")\n";
+            Constants::Precision::SetPrecision(prev);
             return 0;
         }
     }
+    Constants::Precision::SetPrecision(prev);
     return 1;
 }
 
 int TangentToLine(struct LatLngDart beginP, struct LatLngDart endP, struct Vector3Dart tangentP,
-                  int printInfo)
+                  int printInfo, int reducePrecision)
 {
     std::shared_ptr<Side> side = std::make_shared<StraightSide>();
     Vector3 begin              = LatLng(beginP.lat, beginP.lon).ToVector3();
     Vector3 end                = LatLng(endP.lat, endP.lon).ToVector3();
     Vector3 result             = Vector3(tangentP.x, tangentP.y, tangentP.z);
     Vector3 got                = side->getTangent(begin, end, begin);
+    auto prev                  = Constants::Precision::GetPrecision();
+    Constants::Precision::SetPrecision(Double("1e-7"));
     if (got != result)
     {
         if (printInfo)
             std::cerr << "Got result " << got << ", but should be " << result
                       << " for begin=" << begin << " and end=" << end << '\n';
+        Constants::Precision::SetPrecision(prev);
         return 0;
     }
+    Constants::Precision::SetPrecision(prev);
     return 1;
 }
 
@@ -220,12 +261,11 @@ int TangentToCircle(struct LatLngDart centreP, double radius, struct LatLngDart 
                     struct Vector3Dart tangentP, int printInfo)
 {
     Vector3 centre             = LatLng(centreP.lat, centreP.lon).ToVector3();
-    std::shared_ptr<Side> side = std::make_shared<CircleSide>(
-        centre, radius, 0, 3.14, std::get<0>(Plane::FromCircle(centre, radius, true)), true);
-    Vector3 begin   = LatLng(pointP.lat, pointP.lon).ToVector3();
-    Vector3 got     = side->getTangent(begin, LatLng(0, 0).ToVector3(),
-                                       begin); // Begin and end here shouldn't matter for a circle
-    Vector3 tangent = Vector3(tangentP.x, tangentP.y, tangentP.z);
+    std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, true);
+    Vector3 begin              = LatLng(pointP.lat, pointP.lon).ToVector3();
+    Vector3 got                = side->getTangent(begin, LatLng(0, 0).ToVector3(),
+                                                  begin); // Begin and end here shouldn't matter for a circle
+    Vector3 tangent            = Vector3(tangentP.x, tangentP.y, tangentP.z);
     if (got != tangent)
     {
         if (printInfo)

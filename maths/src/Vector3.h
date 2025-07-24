@@ -6,6 +6,7 @@ class LatLng;
 class Vector3
 {
 public:
+    Vector3() {}
     Vector3(double x, double y, double z);
     Vector3(const Double& x, const Double& y, const Double& z);
     Vector3(const Vector3& other);
@@ -37,13 +38,14 @@ public:
         return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
     }
     friend Vector3 NormalizedCrossProduct(const Vector3& a, const Vector3& b);
-    Double length() const { return sqrt(x * x + y * y + z * z); }
+    Double length() const { return sqrt(length2()); }
     Double length2() const { return x * x + y * y + z * z; }
     Vector3 normalized() const
     {
         // todo: compare with zero vector?
-        Double len = length2();
-        if (len.isZero()) return Vector3(0, 0, 0);
+        Double len = length();
+        // if (len.isZero()) return Vector3(0, 0, 0);
+        if (x.isZero() && y.isZero() && z.isZero()) return Vector3(0, 0, 0);
         return Vector3(x / len, y / len, z / len);
     }
     friend Double dot(const Vector3 a, const Vector3& b)
@@ -56,8 +58,9 @@ public:
     }
     friend Double distance(const Vector3& a, const Vector3& b) { return (a - b).length(); }
     friend Double distance2(const Vector3& a, const Vector3& b) { return (a - b).length2(); }
-    friend Double GetDistanceAlongSphere(const Vector3& a, const Vector3& b);
+    friend Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b);
     friend std::ostream& operator<<(std::ostream& os, const Vector3& v);
+    std::string ToString() const;
 
     LatLng ToLatLng() const;
     Double x, y, z;
@@ -67,6 +70,7 @@ class LatLng
 {
 public:
     Double latitude, longitude;
+    LatLng() {}
     LatLng(const Double& latitude, const Double& longitude)
         : latitude(latitude)
         , longitude(longitude)
@@ -85,9 +89,10 @@ public:
     {
         return latitude.close(other.latitude) && longitude.close(other.longitude);
     }
-    Double longitudeInRad() const { return longitude * Constants::pi() / Double(180); }
-    Double latitudeInRad() const { return latitude * Constants::pi() / Double(180); }
+    Double longitudeInRad() const { return longitude * Constants::pi() / Double("180"); }
+    Double latitudeInRad() const { return latitude * Constants::pi() / Double("180"); }
 
     Vector3 ToVector3() const;
     friend std::ostream& operator<<(std::ostream& os, const LatLng& l);
+    std::string ToString() const;
 };

@@ -3,7 +3,7 @@
 # plugin to fail to compile for some customers of the plugin.
 cmake_minimum_required(VERSION 3.10)
 
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+# set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 project(
   Maths
   VERSION 0.0.1
@@ -21,10 +21,15 @@ add_library(
   src/Shape.cpp
   src/Vector3.cpp
   src/Tests.cpp
+  src/Constants.cpp
   src/Expose.cpp)
-# find_library(mpfr REQUIRED) if(CMAKE_BUILD_TYPE MATCHES "Debug")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -O0") #
-# target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address) endif()
+# find_library(mpfr REQUIRED)
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer
+  # -fsanitize=address") target_link_options(${PROJECT_NAME} PRIVATE
+  # -fno-omit-frame-pointer -fsanitize=address)
+endif()
 add_executable(Test src/main.cpp)
 target_link_options(Test PUBLIC -lmpfr)
 target_link_libraries(Test PUBLIC ${PROJECT_NAME})

@@ -17,8 +17,9 @@ public:
         : m{ { a.x, b.x, c.x }, { a.y, b.y, c.y }, { a.z, b.z, c.z } }
     {
     }
-    
-    Matrix3 Invert() const;
+
+    Matrix3 Inverse() const;
+    std::string ToString() const;
 
     static Matrix3 RotationX(Double angle);
     static Matrix3 RotationY(Double angle);

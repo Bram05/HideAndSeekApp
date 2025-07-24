@@ -78,13 +78,19 @@ public:
 class CircleSide : public Side
 {
 public:
-    CircleSide(const Vector3& centre, Double radius, Double startAngle, Double sweepAngle,
-               const Plane& plane, bool clockwise)
+    CircleSide(const Vector3& centre, Double radius, bool clockwise)
         : Side(SideType::circle)
         , center(centre)
         , radius(radius)
-        , startAngle(startAngle)
-        , sweepAngle(sweepAngle)
+        , plane{ std::get<0>(Plane::FromCircle(centre, radius, clockwise)) }
+        , clockwise{ clockwise }
+    {
+        properCentre = plane.GetPointClosestToCentre();
+    }
+    CircleSide(const Vector3& centre, Double radius, const Plane& plane, bool clockwise)
+        : Side(SideType::circle)
+        , center(centre)
+        , radius(radius)
         , plane{ plane }
         , properCentre{ plane.GetPointClosestToCentre() }
         , clockwise{ clockwise }
@@ -97,7 +103,6 @@ public:
         if (other.sideType != SideType::circle) return false;
         const CircleSide& otherCircle = static_cast<const CircleSide&>(other);
         return center == otherCircle.center && radius == otherCircle.radius &&
-               startAngle == otherCircle.startAngle && sweepAngle == otherCircle.sweepAngle &&
                plane == otherCircle.plane;
     }
 
@@ -115,7 +120,7 @@ public:
 
     Vector3 center;
     Vector3 properCentre;
-    Double radius, startAngle, sweepAngle; // radius in metres
+    Double radius; // radius in metres
     Plane plane;
     bool clockwise;
 };

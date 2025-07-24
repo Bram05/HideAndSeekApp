@@ -14,14 +14,15 @@ LatLngDart createLatLng(double lat, double lon) {
 
 void main() {
   var datas = [
-    (createLatLng(0, 0), createLatLng(90, 0), Vector3(0, 0, 1)),
-    (createLatLng(0, 0), createLatLng(-90, 0), Vector3(0, 0, -1)),
-    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1)),
-    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1)),
+    (createLatLng(0, 0), createLatLng(90, 0), Vector3(0, 0, 1), false),
+    (createLatLng(0, 0), createLatLng(-90, 0), Vector3(0, 0, -1), false),
+    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1), false),
+    (createLatLng(0, 0), createLatLng(-4, 0), Vector3(0, 0, -1), false),
     (
       createLatLng(10, -10),
       createLatLng(0, 0),
       Vector3(-0.6805157878878377, 0.24371732440918834, -0.6910138408297056),
+      true,
     ), // this result seemed reasonable
   ];
   for (var data in datas) {
@@ -30,8 +31,8 @@ void main() {
         ..x = data.$3.x
         ..y = data.$3.y
         ..z = data.$3.z;
-      if (1 != maths.TangentToLine(data.$1, data.$2, p, 0)) {
-        maths.TangentToLine(data.$1, data.$2, p, 1);
+      if (1 != maths.TangentToLine(data.$1, data.$2, p, 0, data.$4 ? 1 : 0)) {
+        maths.TangentToLine(data.$1, data.$2, p, 1, data.$4 ? 1 : 0);
         assert(false);
       }
     });

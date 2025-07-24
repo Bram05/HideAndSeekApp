@@ -32,6 +32,8 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     {
         return true; // point is on the first side
     }
+    // std::cerr << cross1 << '\n';
+    // std::cerr << plane.GetNormal() << '\n';
     assert(cross1 == plane.GetNormal() || cross1 == -plane.GetNormal() || cross1.isZero());
     assert(cross2 == plane.GetNormal() || cross2 == -plane.GetNormal() || cross2.isZero());
     return false;
@@ -81,8 +83,8 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
             vec3LiesBetween(intersection, begin2, end2, plane2, s2.GetProperCentre(), false);
         if (first && second)
         {
-            Double dist1 = GetDistanceAlongSphere(begin1, intersection);
-            Double dist2 = GetDistanceAlongSphere(begin2, intersection);
+            Double dist1 = GetDistanceAlongEarth(begin1, intersection);
+            Double dist2 = GetDistanceAlongEarth(begin2, intersection);
             result.push_back({ intersection, dist1, dist2 });
         }
     }
@@ -121,7 +123,7 @@ void AddBeginAndEnds(std::map<PositionForTwoShapes, std::vector<IntersectionOnLi
             auto [begin, end]             = GetBeginAndEnd(s, pos);
             intersections[{ first, pos }] = {
                 IntersectionOnLine{ begin, 0 },
-                IntersectionOnLine{ end, GetDistanceAlongSphere(begin, end) },
+                IntersectionOnLine{ end, GetDistanceAlongEarth(begin, end) },
             };
         }
     }
@@ -164,7 +166,7 @@ bool VectorLiesBetween(const Vector3& vector1, const Vector3& vector2, const Vec
         return false;
     }
     Matrix3 transformation = Matrix3(vector1, vector2, cross);
-    transformation         = transformation.Invert();
+    transformation         = transformation.Inverse();
     Vector3 transformed    = transformation * other;
     if (transformed.z != 0) { throw std::runtime_error("Transformed z was not close to zero"); }
     std::pair<Double, Double> otherAs2   = { transformed.x, transformed.y };

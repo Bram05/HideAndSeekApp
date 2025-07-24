@@ -69,6 +69,7 @@ void main() {
     for (var p in test2) {
       if (1 != maths.ConversionTestFromVec3(p.ref, 0)) {
         maths.ConversionTestFromVec3(p.ref, 1);
+        print("${p.ref.x}, ${p.ref.y}, ${p.ref.z}");
         assert(false);
       }
       // LatLng l = vec3ToLatLng(p);

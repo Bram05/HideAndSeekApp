@@ -1302,9 +1302,7 @@ SideDart sideFromJson(Map<String, dynamic> json) {
   if (json["type"] == "circle") {
     return malloc<SideDart>().ref
       ..centre = latLngFromJson(json["center"])
-      ..radius = json["radius"]
-      ..startAngle = json["startAngle"]
-      ..sweepAngle = json["sweepAngle"]
+      ..radius = json["radius"] + .0
       ..isStraight = 0
       // ..plane = planeFromJson(json["plane"]);
       ..isClockwise = json["isClockwise"];
@@ -1321,10 +1319,7 @@ Map<String, dynamic> sideToJson(SideDart side) {
       "type": "circle",
       "center": latLngToJson(side.centre),
       "radius": side.radius,
-      "startAngle": side.startAngle,
-      "sweepAngle": side.sweepAngle,
-      // "plane": planeToJson(side.plane),
-      "isClockwise": side.isClockwise
+      "isClockwise": side.isClockwise,
     };
   }
 }
@@ -1402,96 +1397,97 @@ Pointer<LatLngDart> latLngToLatLngDart(LatLng latLng) {
     ..ref.lon = latLng.longitude;
 }
 
-void extendPath(
-  ui.Path path,
-  LatLng begin,
-  LatLng end,
-  MapCamera camera,
-  SideDart side,
-) {
-  if (side.isStraight != 0) {
-    extendPathLine(path, begin, end, camera, side);
-  } else {
-    extendPathCircle(path, begin, end, camera, side);
-  }
+// void extendPath(
+//   ui.Path path,
+//   LatLng begin,
+//   LatLng end,
+//   MapCamera camera,
+//   SideDart side,
+// ) {
+//   if (side.isStraight != 0) {
+//     extendPathLine(path, begin, end, camera, side);
+//   } else {
+//     extendPathCircle(path, begin, end, camera, side);
+//   }
+// }
+//
+// void extendPathLine(
+//   ui.Path path,
+//   LatLng begin,
+//   LatLng end,
+//   MapCamera camera,
+//   SideDart line,
+// ) {
+//   ui.Offset endof = camera.latLngToScreenOffset(end);
+//   path.lineTo(endof.dx, endof.dy);
+// }
+//
+ui.Offset getCoordinates(LatLngDart point, MapCamera camera) {
+  return camera.latLngToScreenOffset(latLngDartToLatLng(point));
 }
 
-void extendPathLine(
-  ui.Path path,
-  LatLng begin,
-  LatLng end,
-  MapCamera camera,
-  SideDart line,
-) {
-  ui.Offset endof = camera.latLngToScreenOffset(end);
-  path.lineTo(endof.dx, endof.dy);
-}
-
-void extendPathCircle(
-  ui.Path path,
-  LatLng begin,
-  LatLng end,
-  MapCamera camera,
-  SideDart circle,
-) {
-  double radiusInLongitude = 2 * circle.radius / circumferenceEarth * 360;
-  double radiusInLatitude = 2 * circle.radius / circumferenceEarth * 180;
-  ui.Offset bottomLeft = camera.latLngToScreenOffset(
-    LatLng(
-      circle.centre.lat - radiusInLatitude,
-      circle.centre.lon - radiusInLongitude,
-    ),
-  );
-  ui.Offset topRight = camera.latLngToScreenOffset(
-    LatLng(
-      circle.centre.lat + radiusInLatitude,
-      circle.centre.lon + radiusInLongitude,
-    ),
-  );
-  ui.Rect oval = ui.Rect.fromLTRB(
-    bottomLeft.dx,
-    topRight.dy,
-    topRight.dx,
-    bottomLeft.dy,
-  );
-
-  // todo: maybe create a path.linto the beginning of the arc
-  // This shouldn't actually matter in a normal shape though
-  // sweepangle doesn't really work yet
-  // We need an extra path because methods like arcto create a new sub-path thereby not connecting the entire boundary.
-  // In this way we can do it
-  ui.Path extra = ui.Path();
-  extra.arcTo(oval, circle.startAngle, -circle.sweepAngle, true);
-  path.extendWithPath(extra, ui.Offset(0, 0));
-}
-
+//
+// void extendPathCircle(
+//   ui.Path path,
+//   LatLng begin,
+//   LatLng end,
+//   MapCamera camera,
+//   SideDart circle,
+// ) {
+//   double radiusInLongitude = 2 * circle.radius / circumferenceEarth * 360;
+//   double radiusInLatitude = 2 * circle.radius / circumferenceEarth * 180;
+//   ui.Offset bottomLeft = camera.latLngToScreenOffset(
+//     LatLng(
+//       circle.centre.lat - radiusInLatitude,
+//       circle.centre.lon - radiusInLongitude,
+//     ),
+//   );
+//   ui.Offset topRight = camera.latLngToScreenOffset(
+//     LatLng(
+//       circle.centre.lat + radiusInLatitude,
+//       circle.centre.lon + radiusInLongitude,
+//     ),
+//   );
+//   ui.Rect oval = ui.Rect.fromLTRB(
+//     bottomLeft.dx,
+//     topRight.dy,
+//     topRight.dx,
+//     bottomLeft.dy,
+//   );
+//
+//   // todo: maybe create a path.linto the beginning of the arc
+//   // This shouldn't actually matter in a normal shape though
+//   // sweepangle doesn't really work yet
+//   // We need an extra path because methods like arcto create a new sub-path thereby not connecting the entire boundary.
+//   // In this way we can do it
+//   ui.Path extra = ui.Path();
+//   extra.arcTo(oval, circle.startAngle, -circle.sweepAngle, true);
+//   path.extendWithPath(extra, ui.Offset(0, 0));
+// }
+//
 ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   // We need this because rotating the circles doesn't work as we have to provide the bounding rectangle, which should also rotate. Therefore we calculate without rotation and then rotate everything at the end
   MapCamera cameraWithoutRotation = camera.withRotation(0);
-  Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
-  Pointer<Void> segments = maths.GetSegments(shape, lengthPtr);
-  int length = lengthPtr.value;
-  if (length == 0) {
+  int numSegments = maths.GetNumberOfSegments(shape);
+  if (numSegments == 0) {
     return ui.Path();
   }
 
+  const int numIntermediatePoints = 100;
+
   ui.Path path = ui.Path();
-  // path.fillType = ui.PathFillType.nonZero;
-  for (int i = 0; i < length; i++) {
-    // Pointer<SegmentDart> segment = Pointer<SegmentDart>.fromAddress(
-    // segments.address + i * sizeOf<SegmentDart>(),
-    // ).cast<SegmentDart>();
-    // Pointer<SegmentDart> segment = segments.cast<Pointer<SegmentDart>>()[i];
-    Pointer<Int> numVerticesPtr = malloc.allocate<Int>(sizeOf<Int>());
-    Pointer<LatLngDart> vertices = maths.GetVertices(
-      segments,
-      i,
-      numVerticesPtr,
-    );
-    int numVertices = numVerticesPtr.value;
-    Pointer<Int> numSidesPtr = malloc.allocate<Int>(sizeOf<Int>());
-    Pointer<SideDart> sides = maths.GetSides(segments, i, numSidesPtr);
-    int numSides = numSidesPtr.value;
+  path.fillType = ui.PathFillType.nonZero;
+  for (int i = 0; i < numSegments; i++) {
+    // Pointer<Int> numVerticesPtr = malloc.allocate<Int>(sizeOf<Int>());
+    // Pointer<LatLngDart> vertices = maths.GetVertices(
+    //   segments,
+    //   i,
+    //   numVerticesPtr,
+    // );
+    // int numVertices = numVerticesPtr.value;
+    // Pointer<Int> numSidesPtr = malloc.allocate<Int>(sizeOf<Int>());
+    // Pointer<SideDart> sides = maths.GetSides(segments, i, numSidesPtr);
+    // int numSides = numSidesPtr.value;
     // print(
     //   "Rendering segment $i with ${numVertices} vertices and ${numSides} sides",
     // );
@@ -1500,25 +1496,48 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     //     "Number of vertices (${s.vertices.length}) must equal the number of sides (${s.sides.length}) in the shape when rendering it",
     //   );
     // }
+    int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     if (numSides == 0) return ui.Path();
-
-    ui.Offset begin = cameraWithoutRotation.latLngToScreenOffset(
-      latLngDartToLatLng(vertices[0]),
-    );
-    path.moveTo(begin.dx, begin.dy);
-
-    for (int i = 0; i < numSides; i++) {
-      extendPath(
-        path,
-        latLngDartToLatLng(vertices[i]),
-        latLngDartToLatLng(vertices[(i + 1) % numVertices]),
-        cameraWithoutRotation,
-        sides[i],
+    for (int j = 0; j < numSides; j++) {
+      Pointer<LatLngDart> intermediatePoints = maths.GetIntermediatePoints(
+        shape,
+        i,
+        j,
+        numIntermediatePoints,
       );
+
+      ui.Offset coords = getCoordinates(
+        intermediatePoints[0],
+        cameraWithoutRotation,
+      );
+      if (j == 0) path.moveTo(coords.dx, coords.dy);
+      for (int k = 1; k < numIntermediatePoints; k++) {
+        coords = getCoordinates(intermediatePoints[k], cameraWithoutRotation);
+        path.lineTo(coords.dx, coords.dy);
+      }
+
+      maths.FreeIntermediatePoints(intermediatePoints);
     }
     path.close();
-    maths.FreeVertices(vertices);
-    maths.FreeSides(sides);
+    // ui.Offset begin = cameraWithoutRotation.latLngToScreenOffset(
+    //   latLngDartToLatLng(vertices[0]),
+    // );
+    // path.moveTo(begin.dx, begin.dy);
+    //
+    // for (int i = 0; i < numSides; i++) {
+    // // intvertices = maths.getintvertices (&num);
+    // //
+    //   extendPath(
+    //     path,
+    //     latLngDartToLatLng(vertices[i]),
+    //     latLngDartToLatLng(vertices[(i + 1) % numVertices]),
+    //     cameraWithoutRotation,
+    //     sides[i],
+    //   );
+    // }
+    // path.close();
+    // maths.FreeVertices(vertices);
+    // maths.FreeSides(sides);
   }
   double angle = camera.rotationRad;
   Matrix4 trans = Matrix4.translationValues(

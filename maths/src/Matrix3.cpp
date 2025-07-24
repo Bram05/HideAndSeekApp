@@ -1,4 +1,5 @@
 #include "Matrix3.h"
+#include <sstream>
 #include <stdexcept>
 
 Matrix3 Matrix3::RotationX(Double angle)
@@ -22,12 +23,14 @@ Matrix3 Matrix3::RotationZ(Double angle)
     return Matrix3(c, -s, 0, s, c, 0, 0, 0, 1);
 }
 
-Matrix3 Matrix3::Invert() const
+Matrix3 Matrix3::Inverse() const
 {
     Double det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
                  m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
                  m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-    if (det.isZero()) throw std::runtime_error("Matrix is not invertible");
+    if (det.isZero())
+        throw std::runtime_error("Matrix is not invertible, determinant was " + det.ToString() +
+                                 " for matrix: " + ToString());
 
     Double invDet = 1 / det;
     return Matrix3((m[1][1] * m[2][2] - m[1][2] * m[2][1]) * invDet,
@@ -59,4 +62,14 @@ Vector3 operator*(const Matrix3& m, const Vector3& v)
     return Vector3(m.m[0][0] * v.x + m.m[0][1] * v.y + m.m[0][2] * v.z,
                    m.m[1][0] * v.x + m.m[1][1] * v.y + m.m[1][2] * v.z,
                    m.m[2][0] * v.x + m.m[2][1] * v.y + m.m[2][2] * v.z);
+}
+std::string Matrix3::ToString() const
+{
+    std::stringstream os;
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++) { os << m[i][j] << ';'; }
+        os << '\n';
+    }
+    return os.str();
 }
