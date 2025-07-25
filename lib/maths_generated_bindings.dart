@@ -120,6 +120,71 @@ class Maths {
   late final _ConvertToShape = _ConvertToShapePtr.asFunction<
       ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>)>();
 
+  void AddVertex(
+    ffi.Pointer<ffi.Void> shape,
+    LatLngDart point,
+    ffi.Pointer<SideDart> side,
+  ) {
+    return _AddVertex(
+      shape,
+      point,
+      side,
+    );
+  }
+
+  late final _AddVertexPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<ffi.Void>, LatLngDart,
+              ffi.Pointer<SideDart>)>>('AddVertex');
+  late final _AddVertex = _AddVertexPtr.asFunction<
+      void Function(
+          ffi.Pointer<ffi.Void>, LatLngDart, ffi.Pointer<SideDart>)>();
+
+  void ModifyLastVertex(
+    ffi.Pointer<ffi.Void> shape,
+    LatLngDart point,
+  ) {
+    return _ModifyLastVertex(
+      shape,
+      point,
+    );
+  }
+
+  late final _ModifyLastVertexPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Pointer<ffi.Void>, LatLngDart)>>('ModifyLastVertex');
+  late final _ModifyLastVertex = _ModifyLastVertexPtr.asFunction<
+      void Function(ffi.Pointer<ffi.Void>, LatLngDart)>();
+
+  void NewSegment(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _NewSegment(
+      shape,
+    );
+  }
+
+  late final _NewSegmentPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'NewSegment');
+  late final _NewSegment =
+      _NewSegmentPtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void RemoveLastVertexAndSide(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _RemoveLastVertexAndSide(
+      shape,
+    );
+  }
+
+  late final _RemoveLastVertexAndSidePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'RemoveLastVertexAndSide');
+  late final _RemoveLastVertexAndSide = _RemoveLastVertexAndSidePtr.asFunction<
+      void Function(ffi.Pointer<ffi.Void>)>();
+
   void FreeShape(
     ffi.Pointer<ffi.Void> shape,
   ) {
@@ -486,6 +551,20 @@ class Maths {
       _OneNonTransverseIntersectionPtr.asFunction<
           int Function(LatLngDart, LatLngDart, LatLngDart, LatLngDart,
               LatLngDart, LatLngDart, int)>();
+
+  int IntermediatePointsTest(
+    int printInfo,
+  ) {
+    return _IntermediatePointsTest(
+      printInfo,
+    );
+  }
+
+  late final _IntermediatePointsTestPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>(
+          'IntermediatePointsTest');
+  late final _IntermediatePointsTest =
+      _IntermediatePointsTestPtr.asFunction<int Function(int)>();
 }
 
 final class LatLngDart extends ffi.Struct {

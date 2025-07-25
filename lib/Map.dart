@@ -1,149 +1,16 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
-// import 'package:jetlag/Plane.dart';
-
+import 'package:jetlag/draw_shape.dart';
+import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' hide Size;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/shape.dart';
-import 'package:jetlag/ShapeRenderer.dart';
+import 'package:jetlag/renderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'Maths.dart';
 import 'dart:ffi' hide Size;
-import 'maths_generated_bindings.dart';
-import 'package:ffi/ffi.dart';
-
-(List<Pointer<Void>>, List<(int, int)>, List<Pointer<Void>>) fromJson(
-  Map<String, dynamic> json,
-) {
-  List<Pointer<Void>> extraShapes = [];
-  List<(int, int)> intersections = [];
-  List<Pointer<Void>> solutions = [];
-  for (var shape in json["shapes"]) {
-    extraShapes.add(shapeFromJson(shape));
-  }
-  for (var intersection in json["intersections"]) {
-    intersections.add((intersection["first"], intersection["second"]));
-    solutions.add(shapeFromJson(intersection["solution"]));
-  }
-
-  print("Loaded ${extraShapes.length} extra shapes from json");
-  return (extraShapes, intersections, solutions);
-}
-
-class PointPainter extends CustomPainter {
-  MapCamera camera;
-  // (List<IntersectionData>, Map<(bool, int, int), List<IntersectionOnLine>>)
-  List<LatLng> points;
-  PointPainter({required this.points, required this.camera});
-  @override
-  void paint(Canvas canvas, ui.Size size) {
-    List<Offset> ps = [];
-    for (var data in points) {
-      ps.add(camera.latLngToScreenOffset(data));
-    }
-    canvas.drawPoints(
-      ui.PointMode.points,
-      ps,
-      Paint()
-        ..color = Colors.black
-        ..strokeWidth = 20
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-class LinePainter extends CustomPainter {
-  MapCamera camera;
-  // (List<IntersectionData>, Map<(bool, int, int), List<IntersectionOnLine>>)
-  List<(LatLng, LatLng)> lines;
-  LinePainter({required this.lines, required this.camera});
-  @override
-  void paint(Canvas canvas, ui.Size size) {
-    Paint p = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round;
-    for (var data in lines) {
-      canvas.drawLine(
-        camera.latLngToScreenOffset(data.$1),
-        camera.latLngToScreenOffset(data.$2),
-        p,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-/// A class for consolidating the definition of menu entries.
-///
-/// This sort of class is not required, but illustrates one way that defining
-/// menus could be done.
-class MenuEntry {
-  const MenuEntry({
-    required this.label,
-    this.shortcut,
-    this.onPressed,
-    this.menuChildren,
-  }) : assert(
-         menuChildren == null || onPressed == null,
-         'onPressed is ignored if menuChildren are provided',
-       );
-  final String label;
-
-  final MenuSerializableShortcut? shortcut;
-  final VoidCallback? onPressed;
-  final List<MenuEntry>? menuChildren;
-
-  static List<Widget> build(List<MenuEntry> selections) {
-    Widget buildSelection(MenuEntry selection) {
-      if (selection.menuChildren != null) {
-        return SubmenuButton(
-          menuChildren: MenuEntry.build(selection.menuChildren!),
-          child: Text(selection.label),
-        );
-      }
-      return MenuItemButton(
-        shortcut: selection.shortcut,
-        onPressed: selection.onPressed,
-        child: Text(selection.label),
-      );
-    }
-
-    return selections.map<Widget>(buildSelection).toList();
-  }
-
-  static Map<MenuSerializableShortcut, Intent> shortcuts(
-    List<MenuEntry> selections,
-  ) {
-    final Map<MenuSerializableShortcut, Intent> result =
-        <MenuSerializableShortcut, Intent>{};
-    for (final MenuEntry selection in selections) {
-      if (selection.menuChildren != null) {
-        result.addAll(MenuEntry.shortcuts(selection.menuChildren!));
-      } else {
-        if (selection.shortcut != null && selection.onPressed != null) {
-          // print("adding shortcut ${selection.shortcut}"); todo: this prints a lot - why?
-          result[selection.shortcut!] = VoidCallbackIntent(
-            selection.onPressed!,
-          );
-        }
-      }
-    }
-    return result;
-  }
-}
 
 class MapWidget extends StatefulWidget {
   final List<Pointer<Void>> shapes;
@@ -157,75 +24,66 @@ class MapWidget extends StatefulWidget {
 const Size size = Size(10, 10);
 
 class MapWidgetState extends State<MapWidget> {
-  bool drawingShape = false;
   bool museums = false;
   bool hittest = false;
   bool drawingCircle = false;
+  late ShapeCreator creator;
+  bool creatorActive = false;
   LatLng? lastCirclePoint = null;
   bool drewCirclePart = false;
   LatLng circleThirdPoint = LatLng(-1, -1);
   double radius = 200;
   late TileLayer tileLayer;
-  List<LatLng> points = [];
-  List<(LatLng, LatLng)> lines = [];
   List<Pointer<Void>> extraShapes = [];
-  List<Pointer<Void>> pinks = [];
   int focussedIndex = -1;
-  // List<LatLng> newSegment = [];
-  // List<Segment> newSegments = [];
   List<(int, int)> intersections = [];
   int firstIntersection = -1;
   List<Pointer<Void>> intended = [];
   final mapController = MapController();
   TextEditingController filenameController = TextEditingController();
   late LatLng initialPos;
+  void addShape(Pointer<Void> shape) {
+    setState(() {
+      extraShapes.add(shape);
+      creatorActive = false;
+    });
+  }
+
+  void newShapeCreator() {
+    setState(() {
+      creatorActive = true;
+      creator = ShapeCreator(key: UniqueKey(), callback: addShape);
+    });
+  }
+
   @override
   void initState() {
     initialPos = LatLng(52.358430, 4.883357);
     tileLayer = TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       userAgentPackageName: 'www.example.com',
-      // tileProvider: CancellableNetworkTileProvider(),
     );
-
     super.initState();
   }
 
-  Future<int> loadStuff() async {
-    // return 0;
+  Future<int> initialize() async {
     if (extraShapes.isNotEmpty) {
       return 0;
     }
     var file = File("tests/trivial.json");
     String content = await file.readAsString();
-    print("File content is $content");
     var json = jsonDecode(content);
-    // setState(() {
     var (extraShapesNew, intersectsNew, sol) = fromJson(json);
     extraShapes = extraShapesNew;
     intersections = intersectsNew;
     intended = sol;
     return 3;
-    // });
   }
 
   @override
   Widget build(BuildContext context) {
-    // if (museums) {
-    //                 pinks.add(
-    //               await updateBoundary(
-    //                 extraShapes.last,
-    //                 this,
-    //                 mapController.camera,
-    //               ),
-    //             );
-    //
-    // }
-    pinks.clear();
-    lines.clear();
-    // points.clear();
     return FutureBuilder<void>(
-      future: loadStuff(),
+      future: initialize(),
       // future: /* (extraShapes.length > 0 && museums == true */
       //     // ? updateBoundary(extraShapes.last, this, mapController.camera)
       //     // ?
@@ -246,11 +104,6 @@ class MapWidgetState extends State<MapWidget> {
               //   TextButton(
               //     onPressed: () {
               //       setState(() {
-              //         drawingShape = true;
-              //         extraShapes.add(
-              //           Shape(
-              //             segments: [Segment(vertices: [], sides: [])],
-              //           ),
               //         );
               //       });
               //     },
@@ -402,14 +255,14 @@ class MapWidgetState extends State<MapWidget> {
                   mapController: mapController,
                   options: MapOptions(
                     initialCenter: initialPos,
-                    initialZoom: 7, // 17
+                    initialZoom: 3, // 17
                     onMapEvent: (MapEvent e) {
                       setState(() {});
                     },
 
                     // Tapposition contains screen coordinates, which we do not want
                     onTap: (TapPosition _, LatLng pos) {
-                      print("Clicked at position $pos");
+                      // print("Clicked at position $pos");
                       // return;
                       // if (drawingCircle) {
                       //   if (lastCirclePoint != null) {
@@ -593,8 +446,9 @@ class MapWidgetState extends State<MapWidget> {
                   ),
                   children: [
                     tileLayer,
+                    if (creatorActive) creator,
                     for (var s in widget.shapes) ...[
-                      Child(shape: s, color: Colors.blueGrey, focussed: false),
+                      Shape(shape: s, color: Colors.blueGrey, focussed: false),
                       // Child(shape: s2, color: Colors.grey, focussed: false),
                       // Child(
                       //   shape: intersect(s1, s2, this),
@@ -609,26 +463,13 @@ class MapWidgetState extends State<MapWidget> {
                     ) // todo: this should not fail
                       // if (extraShapes[i].segments.length > 0 &&
                       //     extraShapes[i].segments.last.vertices.length > 2)
-                      Child(
+                      Shape(
                         shape: extraShapes[i],
                         color: Colors.white,
                         focussed: (focussedIndex == i),
                       ),
-                    for (
-                      int i = 0;
-                      i < pinks.length;
-                      i++
-                    ) // todo: this should not fail
-                      // if (extraShapes[i].segments.length > 0 &&
-                      //     extraShapes[i].segments.last.vertices.length > 2)
-                      Child(
-                        shape: pinks[i],
-                        color: Colors.pink,
-                        focussed: false,
-                      ),
-
                     for (var (first, second) in intersections) ...[
-                      Child(
+                      Shape(
                         shape: maths.IntersectShapes(
                           extraShapes[first],
                           extraShapes[second],
@@ -727,6 +568,7 @@ class MapWidgetState extends State<MapWidget> {
               control: true,
             ),
             onPressed: () {
+              newShapeCreator();
               // print("hi there");
               // setState(() {
               //   drawingShape = true;
@@ -738,27 +580,27 @@ class MapWidgetState extends State<MapWidget> {
               // });
             },
           ),
-          MenuEntry(
-            label: 'Add new segment',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyN,
-              control: true,
-            ),
-            onPressed: () {
-              if (!drawingShape || hittest) {
-                print(
-                  "Cannot add segment when not drawing a shape or being in a hittest!",
-                );
-                return;
-              }
-              // extraShapes.last.segments.last.sides.add(
-              //   StraightEdge(),
-              // ); // Close the previous shape
-              // setState(() {
-              //   extraShapes.last.segments.add(Segment(vertices: [], sides: []));
-              // });
-            },
-          ),
+          // MenuEntry(
+          //   label: 'Add new segment',
+          //   shortcut: const SingleActivator(
+          //     LogicalKeyboardKey.keyN,
+          //     control: true,
+          //   ),
+          //   onPressed: () {
+          //     // if (!drawingShape || hittest) {
+          //     //   print(
+          //     //     "Cannot add segment when not drawing a shape or being in a hittest!",
+          //     //   );
+          //     //   return;
+          //     // }
+          //     // extraShapes.last.segments.last.sides.add(
+          //     //   StraightEdge(),
+          //     // ); // Close the previous shape
+          //     // setState(() {
+          //     //   extraShapes.last.segments.add(Segment(vertices: [], sides: []));
+          //     // });
+          //   },
+          // ),
           MenuEntry(
             label: 'Clear all extra shapes',
             shortcut: const SingleActivator(
@@ -770,11 +612,8 @@ class MapWidgetState extends State<MapWidget> {
                 extraShapes.clear();
                 intersections.clear();
                 museums = false;
-                pinks.clear();
-                lines.clear();
-                points.clear();
                 firstIntersection = -1;
-                drawingShape = false;
+                // drawingShape = false;
               });
             },
           ),
@@ -854,10 +693,10 @@ class MapWidgetState extends State<MapWidget> {
                   ),
                   label: "Start hittest",
                   onPressed: () {
-                    if (drawingShape) {
-                      print("Stop drawing first!");
-                      return;
-                    }
+                    // if (drawingShape) {
+                    //   print("Stop drawing first!");
+                    //   return;
+                    // }
                     setState(() {
                       hittest = true;
                     });

@@ -4,22 +4,19 @@ import 'package:jetlag/shape.dart';
 import 'dart:ui' as ui;
 import 'package:latlong2/latlong.dart';
 import 'dart:ffi' hide Size;
-import 'maths_generated_bindings.dart';
-import 'package:ffi/ffi.dart';
-import 'shape.dart';
 
-class Child extends StatefulWidget {
-  Pointer<Void> shape;
-  Color color;
-  bool focussed;
-  Child({
+class Shape extends StatefulWidget {
+  final Pointer<Void> shape;
+  final Color color;
+  final bool focussed;
+  const Shape({
     super.key,
     required this.shape,
     required this.color,
     required this.focussed,
   });
   @override
-  State<Child> createState() => ChildState();
+  State<Shape> createState() => ShapeState();
 }
 
 class MyClipper extends CustomClipper<ui.Path> {
@@ -30,7 +27,6 @@ class MyClipper extends CustomClipper<ui.Path> {
   @override
   ui.Path getClip(Size size) {
     return getPath(shape, MapCamera.of(context), size);
-    // return shape.getPath(MapCamera.of(context), size);
   }
 
   @override
@@ -65,16 +61,16 @@ class BorderPainter extends CustomPainter {
   }
 }
 
-class ChildState extends State<Child> {
+class ShapeState extends State<Shape> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         MapCamera c = MapCamera.of(context);
         double width = constraints.maxWidth, height = constraints.maxHeight;
-        double stop = 0.05;
-        Offset o = c.latLngToScreenOffset(LatLng(stop, 0));
-        Offset end = c.latLngToScreenOffset(LatLng(0, stop));
+        double deltaPixels = 30;
+        Offset o = c.latLngToScreenOffset(LatLng(0, 0));
+        Offset end = o + Offset(deltaPixels, deltaPixels);
         Alignment topleft = Alignment(
           o.dx / width * 2 - 1,
           o.dy / height * 2 - 1,
@@ -83,14 +79,6 @@ class ChildState extends State<Child> {
           end.dx / width * 2 - 1,
           end.dy / height * 2 - 1,
         );
-        // return Container(
-        //   width: width,
-        //   height: height,
-        //   child: CustomPaint(
-        //     painter: BorderPainter(context: context, shape: widget.shape),
-        //   ),
-        //   color: Colors.white,
-        // );
 
         return ClipPath(
           clipper: MyClipper(context: context, shape: widget.shape),
@@ -101,7 +89,7 @@ class ChildState extends State<Child> {
               gradient: LinearGradient(
                 begin: topleft,
                 end: bottomright,
-                stops: [0.0, 0.5, 0.5, 1.0],
+                stops: [0.0, 0.4, 0.4, 1.0],
                 colors: [
                   widget.color,
                   widget.color,

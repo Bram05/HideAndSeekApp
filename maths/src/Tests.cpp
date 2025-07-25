@@ -1,5 +1,6 @@
 #include "Tests.h"
 #include "Constants.h"
+#include "Expose.h"
 #include "Shape.h"
 #include "Vector3.h"
 #include <cstdio>
@@ -317,4 +318,73 @@ int OneNonTransverseIntersection(struct LatLngDart s1, struct LatLngDart s2, str
         return 0;
     }
     return 1;
+}
+bool VerifyPoints(const Plane& p, const Vector3& begin, const Vector3& centre, const Vector3& end,
+                  LatLngDart* points, int number, int printInfo)
+{
+    // Neede because of conversion to LatLngDart
+    auto prev = Constants::Precision::GetPrecision();
+    Constants::Precision::SetPrecision("1e-7");
+    for (int i = 0; i < number; i++)
+    {
+        Vector3 point = LatLng(points[i].lat, points[i].lon).ToVector3();
+        if (!vec3LiesBetween(point, begin, end, p, centre) && point != end)
+        { // Vec3liesbetween ignores the end
+            if (printInfo)
+                std::cerr << "Point with index " << i << ": " << point.ToLatLng()
+                          << " does not lie between the begin and end (delta = " << (point - end)
+                          << ")\n";
+            Constants::Precision::SetPrecision(prev);
+            return false;
+        }
+        if (GetDistanceAlongEarth(point, centre) != GetDistanceAlongEarth(begin, centre))
+        {
+            if (printInfo)
+                std::cerr << "Distance of point " << point << " (index " << i
+                          << ") is not correct: dist of point="
+                          << GetDistanceAlongEarth(begin, centre)
+                          << " and dist of begin=" << GetDistanceAlongEarth(begin, centre) << '\n';
+            Constants::Precision::SetPrecision(prev);
+            return false;
+        }
+    }
+    Constants::Precision::SetPrecision(prev);
+    return true;
+}
+bool CheckShape(const Shape& shape, int number, int printInfo)
+{
+    for (int j = 0; j < shape.segments.size(); j++)
+    {
+        const Segment& s = shape.segments[j];
+        for (int i = 0; i < s.sides.size(); i++)
+        {
+            const Vector3& begin = s.vertices[i];
+            const Vector3& end   = s.vertices[(i + 1) % s.vertices.size()];
+            LatLngDart* points   = GetIntermediatePoints(&shape, j, i, number);
+            if (!VerifyPoints(s.sides[i]->GetPlane(begin, end), begin,
+                              s.sides[i]->GetProperCentre(), end, points, number, printInfo))
+            {
+                if (printInfo) std::cerr << "Side " << i << " in segment " << j << " failed\n";
+                return false;
+            }
+            FreeIntermediatePoints(points);
+        }
+    }
+    return true;
+}
+int IntermediatePointsTest(int printInfo)
+{
+    std::shared_ptr<Side> straightSide = std::make_shared<StraightSide>();
+    Vector3 centre                     = LatLng(-53, 10).ToVector3();
+    Double radius                      = 10;
+    auto [p, p1, p2]                   = Plane::FromCircle(centre, radius, true);
+    std::shared_ptr<Side> circleSide   = std::make_shared<CircleSide>(centre, radius, p, true);
+    Shape shape = Shape({ Segment({ LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
+                                    LatLng("-0.3", 180).ToVector3() },
+                                  { straightSide, straightSide, straightSide }),
+
+                          Segment({ p1, p2 }, { circleSide, circleSide }) });
+    return CheckShape(shape, 2, printInfo) &&
+
+           CheckShape(shape, 100, printInfo) && CheckShape(shape, 1000, printInfo);
 }

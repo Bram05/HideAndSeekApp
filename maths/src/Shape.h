@@ -294,3 +294,5 @@ std::tuple<std::vector<IntersectionWithIndex>,
            std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>>
     IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit = false,
                        bool checkTransverse = true);
+bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end,
+                     const Plane& plane, const Vector3& centre);

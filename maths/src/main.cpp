@@ -7,5 +7,5 @@
 
 int main()
 {
-    IntersectionTest(1);
+    IntermediatePointsTest(1);
 }

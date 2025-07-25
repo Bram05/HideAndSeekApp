@@ -12,7 +12,7 @@
 // todo: calculateT??, liesBetween??
 //
 bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end,
-                     const Plane& plane, const Vector3& centre, bool isFirst)
+                     const Plane& plane, const Vector3& centre)
 {
     assert(plane.LiesInside(point));
     assert(plane.LiesInside(begin));
@@ -77,10 +77,8 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
     std::vector<IntersectionWithDistance> result;
     for (const Vector3& intersection : intersections)
     {
-        bool first =
-            vec3LiesBetween(intersection, begin1, end1, plane1, s1.GetProperCentre(), true);
-        bool second =
-            vec3LiesBetween(intersection, begin2, end2, plane2, s2.GetProperCentre(), false);
+        bool first  = vec3LiesBetween(intersection, begin1, end1, plane1, s1.GetProperCentre());
+        bool second = vec3LiesBetween(intersection, begin2, end2, plane2, s2.GetProperCentre());
         if (first && second)
         {
             Double dist1 = GetDistanceAlongEarth(begin1, intersection);
@@ -377,7 +375,6 @@ void SetNextPoint(
 Shape Intersect(const Shape& s1, const Shape& s2, bool firstIsForHit)
 {
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
-    std::cerr << "Found " << intersections.size() << " intersections\n";
     std::map<Vector3, std::pair<PositionOnShape, PositionOnShape>> intersectionsTotal = {};
     std::set<Vector3> intersectionsLeft                                               = {};
     int count                                                                         = 0;

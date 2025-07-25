@@ -41,6 +41,10 @@ extern "C"
     EXPOSE void FreeSides(struct SideDart* sides);
 
     EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart);
+    EXPOSE void AddVertex(void* shape, struct LatLngDart point, struct SideDart* side);
+    EXPOSE void ModifyLastVertex(void* shape, struct LatLngDart point);
+    EXPOSE void NewSegment(void* shape);
+    EXPOSE void RemoveLastVertexAndSide(void* shape);
     EXPOSE void FreeShape(void* shape);
     EXPOSE int hit(const void* shape, const struct LatLngDart* point);
     EXPOSE void* IntersectShapes(const void* a, const void* b);

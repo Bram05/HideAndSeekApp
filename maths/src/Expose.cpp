@@ -5,6 +5,7 @@
 #include "Shape.h"
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 
 const void* GetSegments(const void* shape, int* length)
 {
@@ -58,10 +59,21 @@ const SideDart* GetSides(const void* segmentOrig, int index, int* length)
 
 void FreeSides(SideDart* sides) { delete[] sides; }
 
+std::shared_ptr<Side> CreateSide(SideDart side)
+{
+    std::shared_ptr<Side> res;
+    if (side.isStraight) { res = std::make_shared<StraightSide>(); }
+    else
+    {
+        LatLngDart centreDart = side.centre;
+        Vector3 centre        = LatLng(centreDart.lat, centreDart.lon).ToVector3();
+        res                   = std::make_shared<CircleSide>(centre, side.radius, side.isClockwise);
+    }
+    return res;
+}
+
 void* ConvertToShape(const ShapeDart* shape)
 {
-    // LatLngDart p{ 52.358430, 4.883357 };
-    // return AddCircle(&p, 200);
     std::vector<Segment> segments;
     for (int i = 0; i < shape->segmentsCount; ++i)
     {
@@ -75,21 +87,36 @@ void* ConvertToShape(const ShapeDart* shape)
         std::vector<std::shared_ptr<Side>> sides;
         for (int j = 0; j < segmentDart.sidesCount; ++j)
         {
-            if (segmentDart.sides[j].isStraight)
-            {
-                sides.emplace_back(std::make_shared<StraightSide>());
-            }
-            else
-            {
-                LatLngDart centreDart = segmentDart.sides[j].centre;
-                Vector3 centre        = LatLng(centreDart.lat, centreDart.lon).ToVector3();
-                sides.emplace_back(std::make_shared<CircleSide>(centre, segmentDart.sides[j].radius,
-                                                                segmentDart.sides[j].isClockwise));
-            }
+            sides.push_back(CreateSide(segmentDart.sides[i]));
         }
         segments.emplace_back(vertices, sides);
     }
     return new Shape(segments);
+}
+void AddVertex(void* shapeP, struct LatLngDart pointP, struct SideDart* sideP)
+{
+    Shape* shape  = (Shape*)shapeP;
+    Vector3 point = LatLng(pointP.lat, pointP.lon).ToVector3();
+    shape->segments.back().vertices.push_back(point);
+    if (sideP) shape->segments.back().sides.push_back(CreateSide(*sideP));
+}
+void ModifyLastVertex(void* shapeP, struct LatLngDart pointP)
+{
+    Shape* shape  = (Shape*)shapeP;
+    Vector3 point = LatLng(pointP.lat, pointP.lon).ToVector3();
+    if (shape->segments.size() > 0 && shape->segments.back().vertices.size() > 0)
+        shape->segments.back().vertices.back() = point;
+}
+void RemoveLastVertexAndSide(void* shapeP)
+{
+    Shape* shape = (Shape*)shapeP;
+    shape->segments.back().vertices.pop_back();
+    shape->segments.back().sides.pop_back();
+}
+void NewSegment(void* shapeP)
+{
+    Shape* shape = (Shape*)shapeP;
+    shape->segments.push_back({});
 }
 
 void FreeShape(void* shape) { delete (Shape*)shape; }
@@ -141,51 +168,63 @@ void whyUnequal(const void* a, const void* b)
 LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideIndex,
                                   int numIntermediatePoints)
 {
-    const Shape* shape = (const Shape*)shapeP;
-    // LatLngDart* results = new LatLngDart[numIntermediatePoints];
-    // auto po             = shape->segments[0].vertices[0].ToLatLng();
-    // for (int i = 0; i < numIntermediatePoints; i++)
-    //     results[i] = LatLngDart{ po.latitude.ToDouble(), po.longitude.ToDouble() };
-    // return results;
-    if (numIntermediatePoints < 2) throw std::runtime_error("Too little intermediate points");
-    const Segment& segment            = shape->segments[segIndex];
-    const Vector3& begin              = segment.vertices[sideIndex];
-    const Vector3& end                = segment.vertices[(sideIndex + 1) % segment.vertices.size()];
-    const std::shared_ptr<Side>& side = segment.sides[sideIndex];
-    Vector3 beginRelative             = begin - side->GetProperCentre();
-    Vector3 endRelative               = end - side->GetProperCentre();
-    const Vector3& normal             = side->GetPlane(begin, end).GetNormal();
-    const Vector3 cross    = NormalizedCrossProduct(normal, beginRelative) * beginRelative.length();
-    Matrix3 transformation = Matrix3(beginRelative, cross, normal);
-    Matrix3 inverse        = transformation.Inverse();
-    LatLngDart* result     = new LatLngDart[numIntermediatePoints];
-    Vector3 endTransformed = inverse * endRelative;
-    if (endTransformed.z != 0)
-        std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
-                  << side->GetProperCentre() << "\n";
-    Double angle = atan2(endTransformed.y, endTransformed.x);
-    if (angle == -Constants::pi())
+    try
     {
-        // If y is slightly negative then atan2 returns a negative value, but it should be just zero
-        angle = Constants::pi();
-    }
-    // std::cerr << "Final angle: " << angle;
-    // std::cerr << "Begin: " << begin.ToLatLng() << ", end: " << end.ToLatLng() << '\n';
-    // std::cerr << "centre: " << side->GetProperCentre() << '\n';
-    Double delta = angle / (numIntermediatePoints - 1);
-    for (int i = 0; i < numIntermediatePoints; i++)
-    {
-        Double t = i * delta;
-        Vector3 point(cos(t), sin(t), 0);
+        const Shape* shape = (const Shape*)shapeP;
+        // LatLngDart* results = new LatLngDart[numIntermediatePoints];
+        // auto po             = shape->segments[0].vertices[0].ToLatLng();
+        // for (int i = 0; i < numIntermediatePoints; i++)
+        //     results[i] = LatLngDart{ po.latitude.ToDouble(), po.longitude.ToDouble() };
+        // return results;
+        if (numIntermediatePoints < 2) throw std::runtime_error("Too little intermediate points");
+        const Segment& segment = shape->segments[segIndex];
+        const Vector3& begin   = segment.vertices[sideIndex];
+        const Vector3& end     = segment.vertices[(sideIndex + 1) % segment.vertices.size()];
+        const std::shared_ptr<Side>& side = segment.sides[sideIndex];
+        Vector3 beginRelative             = begin - side->GetProperCentre();
+        Vector3 endRelative               = end - side->GetProperCentre();
+        const Vector3& normal             = side->GetPlane(begin, end).GetNormal();
+        const Vector3 cross =
+            NormalizedCrossProduct(normal, beginRelative) * beginRelative.length();
+        Matrix3 transformation = Matrix3(beginRelative, cross, normal);
+        Matrix3 inverse        = transformation.Inverse();
+        LatLngDart* result     = new LatLngDart[numIntermediatePoints];
+        Vector3 endTransformed = inverse * endRelative;
+        if (endTransformed.z != 0)
+            std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
+                      << side->GetProperCentre() << "\n";
+        Double angle = atan2(endTransformed.y, endTransformed.x);
+        if (angle == -Constants::pi())
+        {
+            // If y is slightly negative then atan2 returns a negative value, but it should be just
+            // zero
+            angle = Constants::pi();
+        }
+        // std::cerr << "Final angle: " << angle;
+        // std::cerr << "Begin: " << begin.ToLatLng() << ", end: " << end.ToLatLng() << '\n';
+        // std::cerr << "centre: " << side->GetProperCentre() << '\n';
+        Double delta = angle / (numIntermediatePoints - 1);
+        for (int i = 0; i < numIntermediatePoints; i++)
+        {
+            Double t = i * delta;
+            Vector3 point(cos(t), sin(t), 0);
 
-        LatLng transformed = (transformation * point + side->GetProperCentre()).ToLatLng();
-        // std::cerr << "Got intermediate point " << i << ": " << transformed << '\n';
-        // std::cerr << "Intermediate point " << i << "/" << numIntermediatePoints
-        //           << " is: " << transformed << ", cross = " << cross << ", by t = " << t << '\n'
-        //           << std::flush;
-        result[i] = LatLngDart{ transformed.latitude.ToDouble(), transformed.longitude.ToDouble() };
+            LatLng transformed = (transformation * point + side->GetProperCentre()).ToLatLng();
+            // std::cerr << "Got intermediate point " << i << ": " << transformed << '\n';
+            // std::cerr << "Intermediate point " << i << "/" << numIntermediatePoints
+            //           << " is: " << transformed << ", cross = " << cross << ", by t = " << t <<
+            //           '\n'
+            //           << std::flush;
+            result[i] =
+                LatLngDart{ transformed.latitude.ToDouble(), transformed.longitude.ToDouble() };
+        }
+        return result;
     }
-    return result;
+    catch (std::exception e)
+    {
+        std::cerr << "Failed to render object: " << e.what() << '\n';
+        return nullptr;
+    }
 }
 
 void FreeIntermediatePoints(LatLngDart* points) { delete[] points; }
