@@ -16,6 +16,22 @@
                     "ignoreFailures": false
                 }
             ]
+        },
+	{
+            "type": "cppdbg",
+            "name": "Debug entire program",
+            "request": "launch",
+            "program": "build/linux/x64/debug/bundle/jetlag",
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "runInTerminal": true,
+            "setupCommands": [  
+                {
+                    "text": "-enable-pretty-printing",
+                    "description": "enable pretty printing",
+                    "ignoreFailures": false
+                }
+            ]
         }
     ]
 }

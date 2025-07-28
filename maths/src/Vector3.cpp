@@ -58,13 +58,13 @@ Double clamp(Double val)
 {
     if (val > 1)
     {
-        std::cerr << "WARNING: clamping value " << val << '\n';
+        // std::cerr << "WARNING: clamping value " << val << '\n';
         assert(val - Constants::Precision::GetPrecision() <= 1);
         return 1;
     }
     else if (val < -1)
     {
-        std::cerr << "WARNING: clamping value " << val << '\n';
+        // std::cerr << "WARNING: clamping value " << val << '\n';
         assert(val + Constants::Precision::GetPrecision() >= -1);
         return -1.0;
     }

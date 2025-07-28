@@ -2,7 +2,7 @@
 #include "Double.h"
 namespace Constants
 {
-    const mpfr_prec_t precision     = 150;
+    const mpfr_prec_t precision     = 450;
     const Double CircumferenceEarth = Double("40075017"); // metres
     const Double radiusEarth        = Double("6371000");
     // const Double epsilon            = Double("1e-30");

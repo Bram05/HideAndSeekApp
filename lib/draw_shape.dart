@@ -8,6 +8,7 @@ import 'package:jetlag/Maths.dart';
 import 'package:jetlag/renderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'maths_generated_bindings.dart';
+import 'dart:math' as math;
 
 class ShapeCreator extends StatefulWidget {
   final Function(Pointer<Void>) callback;
@@ -21,6 +22,7 @@ class ShapeCreator extends StatefulWidget {
 
 class ShapeCreatorState extends State<ShapeCreator> {
   bool firstClick = true;
+  LatLngDart? lastclick;
   late Pointer<Void> shape;
   late Shape shapeWidget;
 
@@ -40,9 +42,9 @@ class ShapeCreatorState extends State<ShapeCreator> {
     super.initState();
     Pointer<SegmentDart> s = malloc()
       ..ref.vertices = Pointer.fromAddress(0)
-      ..ref.verticesCount = 0
-      ..ref.sides = Pointer.fromAddress(0)
-      ..ref.sidesCount = 0;
+      ..ref.verticesCount = 0;
+    // ..ref.sides = Pointer.fromAddress(0)
+    // ..ref.sidesCount = 0;
     Pointer<ShapeDart> shapeDart = malloc()
       ..ref.segmentsCount = 1
       ..ref.segments = s;
@@ -60,42 +62,44 @@ class ShapeCreatorState extends State<ShapeCreator> {
         LatLng pos = MapCamera.of(
           context,
         ).screenOffsetToLatLng(e.localPosition);
-        print("Modifying");
-        Pointer<LatLngDart> point = malloc()
-          ..ref.lat = pos.latitude
-          ..ref.lon = pos.longitude;
-        maths.ModifyLastVertex(shape, point.ref);
-        malloc.free(point);
+        // print("Modifying");
+        LatLngDart point = Struct.create()
+          ..lat = pos.latitude
+          ..lon = pos.longitude;
+        if (firstClick ||
+            (point.lat - lastclick!.lat).abs() < 0.0001 &&
+                (point.lon - lastclick!.lon).abs() < 0.0001)
+          return;
+        maths.ModifyLastVertex(shape, point);
         createShapeWidget();
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (TapUpDetails details) {
+          print("tapped up");
           LatLng pos = MapCamera.of(
             context,
           ).screenOffsetToLatLng(details.localPosition);
-          Pointer<LatLngDart> posDart = malloc()
-            ..ref.lat = pos.latitude
-            ..ref.lon = pos.longitude;
-          Pointer<SideDart> side = malloc()..ref.isStraight = 1;
+          LatLngDart posDart = Struct.create()
+            ..lat = pos.latitude
+            ..lon = pos.longitude;
+          // Pointer<SideDart> side = malloc()..ref.isStraight = 1;
           if (firstClick) {
-            maths.AddVertex(shape, posDart.ref, side);
-            maths.AddVertex(shape, posDart.ref, side);
+            maths.AddFirstSide(shape, posDart);
           } else {
-            maths.ModifyLastVertex(shape, posDart.ref);
-            maths.AddVertex(
+            print("Here");
+            maths.ModifyLastVertex(shape, posDart);
+            maths.AddStraightSide(
               shape,
-              posDart.ref,
-              side,
             ); // The next one: to be modified by hovering
           }
-          malloc.free(side);
-          malloc.free(posDart);
+          lastclick = posDart;
           firstClick = false;
           createShapeWidget();
         },
         onLongPress: () {
           maths.RemoveLastVertexAndSide(shape);
+          maths.CloseShape(shape);
           widget.callback(shape);
         },
         child: shapeWidget,

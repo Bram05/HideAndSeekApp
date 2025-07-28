@@ -9,15 +9,15 @@ import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:ffi/ffi.dart';
 
 void main() async {
-  final directory = Directory('tests');
+  final directory = Directory('newtests');
   List<FileSystemEntity> entities = await directory.list().toList();
   final Iterable<File> files = entities.whereType<File>();
   for (var file in files) {
     if (!file.path.endsWith('.json')) continue;
 
-    if (file.path == "tests/intersectSelfNL.json" ||
-        file.path == "tests/box.json" ||
-        file.path == "tests/circle.json")
+    if (file.path == "newtests/intersectSelfNL.json")
+      // file.path == "newtests/box.json" ||
+      // file.path == "newtests/circle.json")
       continue;
     test(file.path, () async {
       var (shapes, intersections, solutions) = fromJson(

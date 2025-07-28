@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/constants.dart';
 import 'package:jetlag/Maths.dart';
 import 'dart:ffi';
 import 'package:jetlag/maths_generated_bindings.dart';
@@ -59,11 +58,7 @@ void main() {
     CreateVec3(0, 0, -1),
     CreateVec3(-1, 0, 0),
     CreateVec3(0, -1, 0),
-    CreateVec3(
-      6178890.84351351 / radiusEarth,
-      1089505.166563918 / radiusEarth,
-      1106312.5399160131 / radiusEarth,
-    ),
+    CreateVec3(0.96984631, 0.171010072, 0.173648178),
   ];
   test("vec3 -> LatLng -> vec3", () {
     for (var p in test2) {

@@ -30,6 +30,58 @@ class MyApp extends StatelessWidget {
 }
 
 // void main() async {
+//   File f = File("newtests/trivial.json");
+//   var (shapes, ints, sols) = fromJson(jsonDecode(await f.readAsString()));
+//   maths.IntersectShapes(shapes[0], shapes[1]);
+// }
+
+// void main() async {
+//   final directory = Directory('tests');
+//   final newDirectory = Directory('newtests');
+//   List<FileSystemEntity> entities = await directory.list().toList();
+//   final Iterable<File> files = entities.whereType<File>();
+//   // var files = [File("tests/nl.json")];
+//   for (var file in files) {
+//     if (!file.path.endsWith('.json')) continue;
+//
+//     // if (file.path == "tests/intersectSelfNL.json" ||
+//     //     file.path == "tests/box.json" ||
+//     //     file.path == "tests/circle.json")
+//     //   continue;
+//     print("Starting file $file");
+//     var json = jsonDecode(await file.readAsString());
+//     var (shape, intersections, solutions) = fromJsonOld(json);
+//     json = {};
+//     json["shapes"] = shape
+//         .map((Pointer<Void> shape) => shapeToJson(shape))
+//         .toList();
+//     json["intersections"] = [];
+//     for (int i = 0; i < solutions.length; i++) {
+//       json["intersections"].add({
+//         "first": intersections[i].$1,
+//         "second": intersections[i].$2,
+//         "solution": shapeToJson(solutions[i]),
+//       });
+//     }
+//     String newpath = file.path.replaceAll(directory.path, newDirectory.path);
+//     var fileP = File(newpath);
+//     fileP.writeAsString(jsonEncode(json));
+//     // File(newpath).writeAsString(jsonEncode(json));
+//     print("Finished file $file");
+//   }
+// }
+
+// void main() async {
+//   var file = File("newtests/trivial.json");
+//   String content = await file.readAsString();
+//   print("File content is $content");
+//   var json = jsonDecode(content);
+//   Pointer<Void> shape1 = shapeFromJson(json["shapes"][0]);
+//   print("Shape1 address is ${shape1.address}");
+//   maths.FreeShape(shape1);
+// }
+
+// void main() async {
 //   var file = File("tests/trivial.json");
 //   String content = await file.readAsString();
 //   print("File content is $content");

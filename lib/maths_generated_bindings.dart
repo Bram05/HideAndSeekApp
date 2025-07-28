@@ -37,23 +37,23 @@ class Maths {
       ffi.Pointer<ffi.Void> Function(
           ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Int>)>();
 
-  ffi.Pointer<LatLngDart> GetVertices(
+  ffi.Pointer<LatLngDart> GetAllVertices(
     ffi.Pointer<ffi.Void> segments,
-    int index,
+    int segmentIndex,
     ffi.Pointer<ffi.Int> length,
   ) {
-    return _GetVertices(
+    return _GetAllVertices(
       segments,
-      index,
+      segmentIndex,
       length,
     );
   }
 
-  late final _GetVerticesPtr = _lookup<
+  late final _GetAllVerticesPtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, ffi.Int,
-              ffi.Pointer<ffi.Int>)>>('GetVertices');
-  late final _GetVertices = _GetVerticesPtr.asFunction<
+              ffi.Pointer<ffi.Int>)>>('GetAllVertices');
+  late final _GetAllVertices = _GetAllVerticesPtr.asFunction<
       ffi.Pointer<LatLngDart> Function(
           ffi.Pointer<ffi.Void>, int, ffi.Pointer<ffi.Int>)>();
 
@@ -71,40 +71,6 @@ class Maths {
   late final _FreeVertices =
       _FreeVerticesPtr.asFunction<void Function(ffi.Pointer<LatLngDart>)>();
 
-  ffi.Pointer<SideDart> GetSides(
-    ffi.Pointer<ffi.Void> segments,
-    int index,
-    ffi.Pointer<ffi.Int> length,
-  ) {
-    return _GetSides(
-      segments,
-      index,
-      length,
-    );
-  }
-
-  late final _GetSidesPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<SideDart> Function(ffi.Pointer<ffi.Void>, ffi.Int,
-              ffi.Pointer<ffi.Int>)>>('GetSides');
-  late final _GetSides = _GetSidesPtr.asFunction<
-      ffi.Pointer<SideDart> Function(
-          ffi.Pointer<ffi.Void>, int, ffi.Pointer<ffi.Int>)>();
-
-  void FreeSides(
-    ffi.Pointer<SideDart> sides,
-  ) {
-    return _FreeSides(
-      sides,
-    );
-  }
-
-  late final _FreeSidesPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<SideDart>)>>(
-          'FreeSides');
-  late final _FreeSides =
-      _FreeSidesPtr.asFunction<void Function(ffi.Pointer<SideDart>)>();
-
   ffi.Pointer<ffi.Void> ConvertToShape(
     ffi.Pointer<ShapeDart> shapeDart,
   ) {
@@ -120,25 +86,36 @@ class Maths {
   late final _ConvertToShape = _ConvertToShapePtr.asFunction<
       ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>)>();
 
-  void AddVertex(
+  void AddFirstSide(
     ffi.Pointer<ffi.Void> shape,
-    LatLngDart point,
-    ffi.Pointer<SideDart> side,
+    LatLngDart begin,
   ) {
-    return _AddVertex(
+    return _AddFirstSide(
       shape,
-      point,
-      side,
+      begin,
     );
   }
 
-  late final _AddVertexPtr = _lookup<
+  late final _AddFirstSidePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<ffi.Void>, LatLngDart,
-              ffi.Pointer<SideDart>)>>('AddVertex');
-  late final _AddVertex = _AddVertexPtr.asFunction<
-      void Function(
-          ffi.Pointer<ffi.Void>, LatLngDart, ffi.Pointer<SideDart>)>();
+          ffi.Void Function(
+              ffi.Pointer<ffi.Void>, LatLngDart)>>('AddFirstSide');
+  late final _AddFirstSide = _AddFirstSidePtr.asFunction<
+      void Function(ffi.Pointer<ffi.Void>, LatLngDart)>();
+
+  void AddStraightSide(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _AddStraightSide(
+      shape,
+    );
+  }
+
+  late final _AddStraightSidePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'AddStraightSide');
+  late final _AddStraightSide =
+      _AddStraightSidePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   void ModifyLastVertex(
     ffi.Pointer<ffi.Void> shape,
@@ -156,6 +133,20 @@ class Maths {
               ffi.Pointer<ffi.Void>, LatLngDart)>>('ModifyLastVertex');
   late final _ModifyLastVertex = _ModifyLastVertexPtr.asFunction<
       void Function(ffi.Pointer<ffi.Void>, LatLngDart)>();
+
+  void CloseShape(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _CloseShape(
+      shape,
+    );
+  }
+
+  late final _CloseShapePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'CloseShape');
+  late final _CloseShape =
+      _CloseShapePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   void NewSegment(
     ffi.Pointer<ffi.Void> shape,
@@ -349,6 +340,72 @@ class Maths {
               ffi.Pointer<LatLngDart>, ffi.Double)>>('AddCircle');
   late final _AddCircle = _AddCirclePtr.asFunction<
       ffi.Pointer<ffi.Void> Function(ffi.Pointer<LatLngDart>, double)>();
+
+  ffi.Pointer<ffi.Void> UpdateBoundaryWithClosestToObject(
+    ffi.Pointer<ffi.Void> boundary,
+    LatLngDart position,
+    LatLngDart object,
+    int closerToObject,
+  ) {
+    return _UpdateBoundaryWithClosestToObject(
+      boundary,
+      position,
+      object,
+      closerToObject,
+    );
+  }
+
+  late final _UpdateBoundaryWithClosestToObjectPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
+              LatLngDart, ffi.Int)>>('UpdateBoundaryWithClosestToObject');
+  late final _UpdateBoundaryWithClosestToObject =
+      _UpdateBoundaryWithClosestToObjectPtr.asFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>, LatLngDart, LatLngDart, int)>();
+
+  ffi.Pointer<ffi.Void> UpdateBoundaryWithClosests(
+    ffi.Pointer<ffi.Void> boundary,
+    LatLngDart position,
+    ffi.Pointer<LatLngDart> objects,
+    int numObjects,
+    int answer,
+  ) {
+    return _UpdateBoundaryWithClosests(
+      boundary,
+      position,
+      objects,
+      numObjects,
+      answer,
+    );
+  }
+
+  late final _UpdateBoundaryWithClosestsPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>,
+              LatLngDart,
+              ffi.Pointer<LatLngDart>,
+              ffi.Int,
+              ffi.Int)>>('UpdateBoundaryWithClosests');
+  late final _UpdateBoundaryWithClosests =
+      _UpdateBoundaryWithClosestsPtr.asFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
+              ffi.Pointer<LatLngDart>, int, int)>();
+
+  void Reverse(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _Reverse(
+      shape,
+    );
+  }
+
+  late final _ReversePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'Reverse');
+  late final _Reverse =
+      _ReversePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   int ConversionTestFromLatLng(
     LatLngDart point,
@@ -575,31 +632,11 @@ final class LatLngDart extends ffi.Struct {
   external double lon;
 }
 
-final class SideDart extends ffi.Struct {
-  @ffi.Int()
-  external int isStraight;
-
-  @ffi.Int()
-  external int isClockwise;
-
-  external LatLngDart centre;
-
-  external LatLngDart properCentre;
-
-  @ffi.Double()
-  external double radius;
-}
-
 final class SegmentDart extends ffi.Struct {
   external ffi.Pointer<LatLngDart> vertices;
 
   @ffi.Int()
   external int verticesCount;
-
-  external ffi.Pointer<SideDart> sides;
-
-  @ffi.Int()
-  external int sidesCount;
 }
 
 final class ShapeDart extends ffi.Struct {

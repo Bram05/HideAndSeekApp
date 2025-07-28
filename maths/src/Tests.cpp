@@ -4,7 +4,6 @@
 #include "Shape.h"
 #include "Vector3.h"
 #include <cstdio>
-#include <locale>
 #include <memory>
 
 int ConversionTestFromLatLng(LatLngDart point, int printInfo)
@@ -34,12 +33,13 @@ int ConversionTestFromVec3(Vector3Dart point, int printInfo)
 int IntersectionTest(int printInfo)
 {
     Vector3 centre   = LatLng(0, 0).ToVector3();
-    auto [p, p1, p2] = Plane::FromCircle(centre, 1000, true);
+    Double radius    = 1000;
+    auto [p, p1, p2] = Plane::FromCircle(centre, radius, true);
     // std::cout << p << '\n';
-    std::shared_ptr<Side> s  = std::make_shared<CircleSide>(centre, 1000, true);
-    std::shared_ptr<Side> s2 = std::make_shared<StraightSide>();
-    auto result = IntersectSides(*s.get(), *s2.get(), p1, p2, LatLng("0.3", "180").ToVector3(),
-                                 LatLng(0, 0).ToVector3());
+    std::shared_ptr<Side> s = Side::HalfCircle(centre, 1000, true);
+    std::shared_ptr<Side> s2 =
+        Side::StraightSide(LatLng("0.3", "180").ToVector3(), LatLng(0, 0).ToVector3());
+    auto result = IntersectSides(*s.get(), *s2.get());
     if (result.size() != 1)
     {
         if (printInfo)
@@ -73,21 +73,21 @@ int IntersectionTest(int printInfo)
 }
 int CircleStraightTest(int printInfo)
 {
-    Vector3 centre       = LatLng(0, 0).ToVector3();
-    Double radius        = 10000;
-    auto [plane, p1, p2] = Plane::FromCircle(centre, radius, true);
-    auto s1              = std::make_shared<CircleSide>(centre, radius, plane, true);
-    auto s2              = std::make_shared<CircleSide>(centre, radius, plane, true);
-    Shape shape1         = Shape({
-        Segment({ p1, p2 }, { s1, s2 }),
+    Vector3 centre = LatLng(0, 0).ToVector3();
+    Double radius  = 10000;
+    // auto [plane, p1, p2] = Plane::FromCircle(centre, radius, true);
+    // auto s1              = std::make_shared<CircleSide>(centre, radius, plane, true);
+    // auto s2              = std::make_shared<CircleSide>(centre, radius, plane, true);
+    Shape shape1       = Side::FullCircle(centre, radius, true);
+    Vector3 vertices[] = { LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
+                           LatLng("-0.3", 180).ToVector3() };
+    auto straight1     = Side::StraightSide(vertices[0], vertices[1]);
+    auto straight2     = Side::StraightSide(vertices[1], vertices[2]);
+    auto straight3     = Side::StraightSide(vertices[2], vertices[0]);
+    Shape shape2       = Shape({
+        Segment({ straight1, straight2, straight3 }),
     });
-    Shape shape2         = Shape({
-        Segment({ LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
-                          LatLng("-0.3", 180).ToVector3() },
-                        { std::make_shared<StraightSide>(), std::make_shared<StraightSide>(),
-                          std::make_shared<StraightSide>() }),
-    });
-    auto result          = std::get<0>(IntersectionPoints(shape1, shape2));
+    auto result        = std::get<0>(IntersectionPoints(shape1, shape2));
     if (result.size() != 2)
     {
         if (printInfo) std::cerr << result << " is not correct because size is not 2\n";
@@ -121,23 +121,20 @@ int CircleStraightTest(int printInfo)
 
 int CircleCircleTest(int printInfo)
 {
-    Vector3 centre                 = LatLng(0, 0).ToVector3();
-    double radius                  = 10000;
-    auto [plane, p1, p2]           = Plane::FromCircle(centre, radius, true);
-    std::shared_ptr<Side> s1       = std::make_shared<CircleSide>(centre, radius, plane, true);
-    std::shared_ptr<Side> s2       = std::make_shared<CircleSide>(centre, radius, plane, true);
-    Shape shape1                   = Shape({
-        Segment({ p1, p2 }, { s1, s2 }),
-    });
-    Vector3 centre2                = LatLng(0, -90).ToVector3();
-    Double radius2                 = 0.25 * Constants::CircumferenceEarth;
-    auto [plane2, p21, p22]        = Plane::FromCircle(centre2, radius2, false);
-    std::shared_ptr<CircleSide> s3 = std::make_shared<CircleSide>(centre2, radius2, plane2, false);
-    std::shared_ptr<CircleSide> s4 = std::make_shared<CircleSide>(centre2, radius2, plane2, false);
-    Shape shape2                   = Shape({
-        Segment({ p21, p22 }, { s3, s4 }),
-    });
-    auto result                    = std::get<0>(IntersectionPoints(shape1, shape2));
+    Vector3 centre = LatLng(0, 0).ToVector3();
+    double radius  = 10000;
+    // auto [plane, p1, p2]           = Plane::FromCircle(centre, radius, true);
+    // std::shared_ptr<Side> s1       = std::make_shared<CircleSide>(centre, radius, plane, true);
+    // std::shared_ptr<Side> s2       = std::make_shared<CircleSide>(centre, radius, plane, true);
+    Shape shape1    = Side::FullCircle(centre, radius, true);
+    Vector3 centre2 = LatLng(0, -90).ToVector3();
+    Double radius2  = 0.25 * Constants::CircumferenceEarth;
+    // auto [plane2, p21, p22]        = Plane::FromCircle(centre2, radius2, false);
+    // std::shared_ptr<CircleSide> s3 = std::make_shared<CircleSide>(centre2, radius2, plane2,
+    // false); std::shared_ptr<CircleSide> s4 = std::make_shared<CircleSide>(centre2, radius2,
+    // plane2, false);
+    Shape shape2 = Side::FullCircle(centre2, radius2, true);
+    auto result  = std::get<0>(IntersectionPoints(shape1, shape2));
     if (result.size() != 2)
     {
         if (printInfo) std::cerr << "Result " << result << " is not correct. Size is not 2\n";
@@ -239,12 +236,13 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
 int TangentToLine(struct LatLngDart beginP, struct LatLngDart endP, struct Vector3Dart tangentP,
                   int printInfo, int reducePrecision)
 {
-    std::shared_ptr<Side> side = std::make_shared<StraightSide>();
-    Vector3 begin              = LatLng(beginP.lat, beginP.lon).ToVector3();
-    Vector3 end                = LatLng(endP.lat, endP.lon).ToVector3();
-    Vector3 result             = Vector3(tangentP.x, tangentP.y, tangentP.z);
-    Vector3 got                = side->getTangent(begin, end, begin);
-    auto prev                  = Constants::Precision::GetPrecision();
+    // std::shared_ptr<Side> side = std::make_shared<StraightSide>();
+    Vector3 begin  = LatLng(beginP.lat, beginP.lon).ToVector3();
+    Vector3 end    = LatLng(endP.lat, endP.lon).ToVector3();
+    Vector3 result = Vector3(tangentP.x, tangentP.y, tangentP.z);
+    auto side      = Side::StraightSide(begin, end);
+    Vector3 got    = side->getTangent(begin);
+    auto prev      = Constants::Precision::GetPrecision();
     Constants::Precision::SetPrecision(Double("1e-7"));
     if (got != result)
     {
@@ -261,12 +259,16 @@ int TangentToLine(struct LatLngDart beginP, struct LatLngDart endP, struct Vecto
 int TangentToCircle(struct LatLngDart centreP, double radius, struct LatLngDart pointP,
                     struct Vector3Dart tangentP, int printInfo)
 {
-    Vector3 centre             = LatLng(centreP.lat, centreP.lon).ToVector3();
-    std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, true);
-    Vector3 begin              = LatLng(pointP.lat, pointP.lon).ToVector3();
-    Vector3 got                = side->getTangent(begin, LatLng(0, 0).ToVector3(),
-                                                  begin); // Begin and end here shouldn't matter for a circle
-    Vector3 tangent            = Vector3(tangentP.x, tangentP.y, tangentP.z);
+    Vector3 centre = LatLng(centreP.lat, centreP.lon).ToVector3();
+    // std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, true);
+    auto side     = Side::HalfCircle(centre, radius, true);
+    Vector3 begin = LatLng(pointP.lat, pointP.lon).ToVector3();
+    auto prev     = Constants::Precision::GetPrecision();
+    Constants::Precision::SetPrecision("1e-6"); // The pointP may not lie exactly on the circle and
+                                                // assertion in side->getTangent therefore fails
+    Vector3 got = side->getTangent(begin);
+    Constants::Precision::SetPrecision(prev);
+    Vector3 tangent = Vector3(tangentP.x, tangentP.y, tangentP.z);
     if (got != tangent)
     {
         if (printInfo)
@@ -297,16 +299,22 @@ int OneNonTransverseIntersection(struct LatLngDart s1, struct LatLngDart s2, str
                                  struct LatLngDart p1, struct LatLngDart p2, struct LatLngDart p3,
                                  int printInfo)
 {
-    std::shared_ptr<Side> side = std::make_shared<StraightSide>();
-    Vector3 ps1                = LatLng(s1.lat, s1.lon).ToVector3();
-    Vector3 ps2                = LatLng(s2.lat, s2.lon).ToVector3();
-    Vector3 ps3                = LatLng(s3.lat, s3.lon).ToVector3();
-    Vector3 pp1                = LatLng(p1.lat, p1.lon).ToVector3();
-    Vector3 pp2                = LatLng(p2.lat, p2.lon).ToVector3();
-    Vector3 pp3                = LatLng(p3.lat, p3.lon).ToVector3();
+    // std::shared_ptr<Side> side = std::make_shared<StraightSide>();
+    Vector3 ps1 = LatLng(s1.lat, s1.lon).ToVector3();
+    Vector3 ps2 = LatLng(s2.lat, s2.lon).ToVector3();
+    Vector3 ps3 = LatLng(s3.lat, s3.lon).ToVector3();
+    Vector3 pp1 = LatLng(p1.lat, p1.lon).ToVector3();
+    Vector3 pp2 = LatLng(p2.lat, p2.lon).ToVector3();
+    Vector3 pp3 = LatLng(p3.lat, p3.lon).ToVector3();
+    auto side1  = Side::StraightSide(ps1, ps2);
+    auto side2  = Side::StraightSide(ps2, ps3);
+    auto side3  = Side::StraightSide(ps3, ps1);
+    auto tside1 = Side::StraightSide(pp1, pp2);
+    auto tside2 = Side::StraightSide(pp2, pp3);
+    auto tside3 = Side::StraightSide(pp3, pp1);
 
-    Shape shape1 = Shape({ Segment({ ps1, ps2, ps3 }, { side, side, side }) });
-    Shape shape2 = Shape({ Segment({ pp1, pp2, pp3 }, { side, side, side }) });
+    Shape shape1 = Shape({ Segment({ side1, side2, side3 }) });
+    Shape shape2 = Shape({ Segment({ tside1, tside2, tside3 }) });
     if (CheckShapesWithOneNonTransverseIntersections(shape1, shape2, printInfo) != 1)
     {
         if (printInfo) std::cerr << "Intersection first two failed\n";
@@ -358,11 +366,11 @@ bool CheckShape(const Shape& shape, int number, int printInfo)
         const Segment& s = shape.segments[j];
         for (int i = 0; i < s.sides.size(); i++)
         {
-            const Vector3& begin = s.vertices[i];
-            const Vector3& end   = s.vertices[(i + 1) % s.vertices.size()];
+            const Vector3& begin = s.sides[i]->begin;
+            const Vector3& end   = s.sides[i]->end;
             LatLngDart* points   = GetIntermediatePoints(&shape, j, i, number);
-            if (!VerifyPoints(s.sides[i]->GetPlane(begin, end), begin,
-                              s.sides[i]->GetProperCentre(), end, points, number, printInfo))
+            if (!VerifyPoints(s.sides[i]->plane, begin, s.sides[i]->properCentre, end, points,
+                              number, printInfo))
             {
                 if (printInfo) std::cerr << "Side " << i << " in segment " << j << " failed\n";
                 return false;
@@ -374,16 +382,20 @@ bool CheckShape(const Shape& shape, int number, int printInfo)
 }
 int IntermediatePointsTest(int printInfo)
 {
-    std::shared_ptr<Side> straightSide = std::make_shared<StraightSide>();
-    Vector3 centre                     = LatLng(-53, 10).ToVector3();
-    Double radius                      = 10;
-    auto [p, p1, p2]                   = Plane::FromCircle(centre, radius, true);
-    std::shared_ptr<Side> circleSide   = std::make_shared<CircleSide>(centre, radius, p, true);
-    Shape shape = Shape({ Segment({ LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
-                                    LatLng("-0.3", 180).ToVector3() },
-                                  { straightSide, straightSide, straightSide }),
+    // std::shared_ptr<Side> straightSide = std::make_shared<StraightSide>();
+    Vector3 vertices[]            = { LatLng(0, 0).ToVector3(), LatLng("0.3", 180).ToVector3(),
+                                      LatLng("-0.3", 180).ToVector3() };
+    std::shared_ptr<Side> sides[] = { Side::StraightSide(vertices[0], vertices[1]),
+                                      Side::StraightSide(vertices[1], vertices[2]),
+                                      Side::StraightSide(vertices[2], vertices[0]) };
+    Vector3 centre                = LatLng(-53, 10).ToVector3();
+    Double radius                 = 10;
+    Shape shape                   = Side::FullCircle(centre, radius, true);
+    shape.segments.push_back(Segment({ sides[0], sides[1], sides[2] }));
 
-                          Segment({ p1, p2 }, { circleSide, circleSide }) });
+    // Shape shape                   = Shape({ Segment({ sides[0], sides[1], sides[2] }),
+    //
+    //                                         Segment({ circle1, circle2 }) });
     return CheckShape(shape, 2, printInfo) &&
 
            CheckShape(shape, 100, printInfo) && CheckShape(shape, 1000, printInfo);

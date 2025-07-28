@@ -1,6 +1,5 @@
 import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/constants.dart';
 import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:vector_math/vector_math_64.dart' hide Plane;
 import 'package:jetlag/Maths.dart';
@@ -82,7 +81,7 @@ void main() {
     (createLatLng(90, 0), .0, [createLatLng(90, 0)]),
     (
       createLatLng(90, 0),
-      0.5 * circumferenceEarth,
+      0.5 * 40075017,
       [createLatLng(-90, 0), createLatLng(-90, 15)],
     ),
   ];

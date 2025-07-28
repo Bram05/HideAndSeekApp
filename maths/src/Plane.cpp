@@ -40,7 +40,7 @@ Plane Plane::FromThreePoints(const Vector3& a, const Vector3& b, const Vector3& 
     Vector3 d1  = a - b;
     Vector3 d2  = c - b;
     Vector3 res = NormalizedCrossProduct(d1, d2);
-    return Plane(res, a);
+    return Plane(-res, a);
 }
 
 Plane Plane::FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b)
@@ -53,7 +53,8 @@ Plane Plane::FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b)
 std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, const Double& radius,
                                                       bool clockwise)
 {
-    if (!(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth + Constants::Precision::GetPrecision()))
+    if (!(radius >= 0 &&
+          radius <= 0.5 * Constants::CircumferenceEarth + Constants::Precision::GetPrecision()))
     {
         throw std::runtime_error(std::string("Invalid radius supplied: ") +
                                  std::to_string(radius.ToDouble()));

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:ui' as ui;
@@ -18,11 +19,11 @@ LatLngDart latLngFromJson(Map<String, dynamic> json) {
     LatLng v = vec3ToLatLng(
       Vector3(json["x"] + .0, json["y"] + .0, json["z"] + .0),
     );
-    return malloc<LatLngDart>().ref
+    return Struct.create()
       ..lat = v.latitude
       ..lon = v.longitude;
   }
-  return malloc<LatLngDart>().ref
+  return Struct.create()
     ..lat = json["latitude"] + .0
     ..lon = json["longitude"] + .0;
 }
@@ -31,93 +32,73 @@ Map<String, dynamic> latLngToJson(LatLngDart latLng) {
   return {"latitude": latLng.lat, "longitude": latLng.lon};
 }
 
-SideDart sideFromJson(Map<String, dynamic> json) {
-  if (json["type"] == "circle") {
-    return malloc<SideDart>().ref
-      ..centre = latLngFromJson(json["center"])
-      ..radius = json["radius"] + .0
-      ..isStraight = 0
-      // ..plane = planeFromJson(json["plane"]);
-      ..isClockwise = json["isClockwise"];
-  } else {
-    return malloc<SideDart>().ref..isStraight = 1;
+SegmentDart segmentfromJson(List<dynamic> json) {
+  // print("Adding segment of length ${json.length}");
+
+  Pointer<LatLngDart> vertices = malloc(json.length);
+  for (int i = 0; i < json.length; i++) {
+    vertices[i] = latLngFromJson(json[i]);
   }
+  return malloc<SegmentDart>().ref
+    ..vertices = vertices
+    ..verticesCount = json.length;
+  // return Struct.create()
+  //   ..vertices = vertices
+  //   ..verticesCount = json.length;
 }
 
-Map<String, dynamic> sideToJson(SideDart side) {
-  if (side.isStraight != 0) {
-    return {"type": "straight"};
-  } else {
-    return {
-      "type": "circle",
-      "center": latLngToJson(side.centre),
-      "radius": side.radius,
-      "isClockwise": side.isClockwise,
-    };
-  }
-}
-
-SegmentDart segmentfromJson(Map<String, dynamic> json) {
-  Pointer<LatLngDart> vertices = malloc<LatLngDart>(json["vertices"].length);
-  for (int i = 0; i < json["vertices"].length; i++) {
-    vertices[i] = latLngFromJson(json["vertices"][i]);
-  }
-  Pointer<SideDart> sides = malloc<SideDart>(json["sides"].length);
-  for (int i = 0; i < json["sides"].length; i++) {
-    sides[i] = sideFromJson(json["sides"][i]);
-  }
-  var p = malloc<SegmentDart>()
-    ..ref.vertices = vertices
-    ..ref.verticesCount = json["vertices"].length
-    ..ref.sides = sides
-    ..ref.sidesCount = json["sides"].length;
-  return p.ref;
-}
-
-Map<String, dynamic> segmentToJson(Pointer<Void> segments, int index) {
-  List<Map<String, dynamic>> sidesJson = [];
+List<Map<String, dynamic>> segmentToJson(Pointer<Void> segments, int index) {
+  List<Map<String, dynamic>> vertices = [];
   Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
-  Pointer<SideDart> sides = maths.GetSides(segments, index, lengthPtr);
-  int sidesCount = lengthPtr.value;
-  for (int i = 0; i < sidesCount; i++) {
-    sidesJson.add(sideToJson(sides[i]));
+  Pointer<LatLngDart> verticesP = maths.GetAllVertices(
+    segments,
+    index,
+    lengthPtr,
+  );
+  for (int i = 0; i < lengthPtr.value; i++) {
+    vertices.add(latLngToJson(verticesP[i]));
   }
-  Pointer<LatLngDart> vertices = maths.GetVertices(segments, index, lengthPtr);
-  List<Map<String, dynamic>> verticesJson = [];
-  int length = lengthPtr.value;
-  for (int i = 0; i < length; i++) {
-    verticesJson.add(latLngToJson(vertices[i]));
-  }
+  // int numVertices = lengthPtr.value;
+  // Pointer<SideDart> sidesP = maths.GetSides(segments, index, lengthPtr);
+  // for (int i = 0; i < numVertices; i++) {
+  //   vertices.add(latLngToJson(verticesP[i]));
+  //   vertices.add(latLngToJson(sidesP[i].thirdPointOn));
+  // }
+  // maths.FreeSides(sidesP);
+  maths.FreeVertices(verticesP);
   malloc.free(lengthPtr);
-  return {"vertices": verticesJson, "sides": sidesJson};
+
+  return vertices;
 }
 
-Pointer<Void> shapeFromJson(Map<String, dynamic> json) {
-  Pointer<SegmentDart> segments = malloc<SegmentDart>(
-    json["segments"].length,
-  ); // Not entirely sure that this needs the size or the count
-  for (int i = 0; i < json["segments"].length; i++) {
-    segments[i] = segmentfromJson(json["segments"][i]);
+Pointer<Void> shapeFromJson(List<dynamic> json) {
+  Pointer<SegmentDart> segments = malloc(json.length);
+  // print("Lengte: ${json.length}");
+  for (int i = 0; i < json.length; i++) {
+    segments[i] = segmentfromJson(json[i]);
   }
+  // print("a: ${segments[1].verticesCount}");
   var p = malloc<ShapeDart>()
     ..ref.segments = segments
-    ..ref.segmentsCount = json["segments"].length;
+    ..ref.segmentsCount = json.length;
   var res = maths.ConvertToShape(p);
+  for (int i = 0; i < p.ref.segmentsCount; i++) {
+    SegmentDart s = p.ref.segments[i];
+    malloc.free(s.vertices);
+  }
   return res;
 }
 
-Map<String, dynamic> shapeToJson(Pointer<Void> shape) {
+List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
   Pointer<Void> segments = maths.GetSegments(shape, lengthPtr);
   int length = lengthPtr.value;
-  List<Map<String, dynamic>> segmentsJson = [];
+  List<List<Map<String, dynamic>>> segmentsJson = [];
   for (int i = 0; i < length; i++) {
-    print("Converting to json");
     segmentsJson.add(segmentToJson(segments, i));
-    print("Converted to json");
   }
   malloc.free(lengthPtr);
-  return {"segments": segmentsJson};
+  return segmentsJson;
 }
 
 (List<Pointer<Void>>, List<(int, int)>, List<Pointer<Void>>) fromJson(
@@ -134,7 +115,7 @@ Map<String, dynamic> shapeToJson(Pointer<Void> shape) {
     solutions.add(shapeFromJson(intersection["solution"]));
   }
 
-  print("Loaded ${extraShapes.length} extra shapes from json");
+  // print("Loaded ${extraShapes.length} extra shapes from json");
   return (extraShapes, intersections, solutions);
 }
 
@@ -185,7 +166,19 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     }
     path.close();
   }
+  // // ui.Path path = getPath(shape, MapCamera.of(context), size);
+  // ui.Path otherPath = ui.Path();
+  // otherPath.moveTo(0, 0);
+  // // otherPath.lineTo(200, 200);
+  // // otherPath.lineTo(100, 200);
+  // otherPath.lineTo(0, containerSize.height);
+  // otherPath.lineTo(containerSize.width, containerSize.height);
+  // otherPath.lineTo(containerSize.width, 0);
+  // otherPath.close();
+  // path.addPath(otherPath, ui.Offset(0, 0));
+
   return path;
+  // return otherPath;
 }
 
 double epsilon = 0.000001;

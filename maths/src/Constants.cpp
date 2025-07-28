@@ -2,7 +2,7 @@
 
 namespace Constants
 {
-    static Precision instance = Precision("1e-20");
+    static Precision instance = Precision("1e-30");
     Precision::Precision(const Double& val)
         : precision{ val }
     {

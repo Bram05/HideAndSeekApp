@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'Maths.dart';
 import 'dart:ffi' hide Size;
+import 'Boundary.dart';
 
 class MapWidget extends StatefulWidget {
   final List<Pointer<Void>> shapes;
@@ -70,26 +71,32 @@ class MapWidgetState extends State<MapWidget> {
     if (extraShapes.isNotEmpty) {
       return 0;
     }
-    var file = File("tests/trivial.json");
+    var file = File("newtests/box.json");
     String content = await file.readAsString();
     var json = jsonDecode(content);
     var (extraShapesNew, intersectsNew, sol) = fromJson(json);
     extraShapes = extraShapesNew;
     intersections = intersectsNew;
-    intended = sol;
+    // extraShapes.addAll(sol);
+    // intended = sol;
     return 3;
   }
 
   @override
   Widget build(BuildContext context) {
+    // print("Rendering
     return FutureBuilder<void>(
-      future: initialize(),
-      // future: /* (extraShapes.length > 0 && museums == true */
-      //     // ? updateBoundary(extraShapes.last, this, mapController.camera)
-      //     // ?
-      //     Future(() => Pointer<Void>.fromAddress(0)),
+      // future: initialize(),
+      future: (extraShapes.isNotEmpty && museums == true
+          ? updateBoundary(extraShapes.last, true)
+          : Future(() => Pointer<Void>.fromAddress(0))),
       builder: (context, asyncSnapshot) {
         if (!asyncSnapshot.hasData) return Text("waiting");
+        if (asyncSnapshot.data as Pointer<Void> != Pointer.fromAddress(0)) {
+          print("TODO:");
+          // museums = false;
+          // extraShapes.add(asyncSnapshot.data as Pointer<Void>);
+        }
 
         // pinks.add(asyncSnapshot.data!);
         return Column(
@@ -255,7 +262,7 @@ class MapWidgetState extends State<MapWidget> {
                   mapController: mapController,
                   options: MapOptions(
                     initialCenter: initialPos,
-                    initialZoom: 3, // 17
+                    initialZoom: 17, // 17
                     onMapEvent: (MapEvent e) {
                       setState(() {});
                     },
@@ -649,7 +656,7 @@ class MapWidgetState extends State<MapWidget> {
               print(json);
               FilePicker.platform.saveFile(
                 dialogTitle: 'Please select an output file:',
-                initialDirectory: "${Directory.current.path}/tests/",
+                initialDirectory: "${Directory.current.path}/newtests/",
                 bytes: utf8.encode(json),
                 allowedExtensions: ["json"],
                 fileName: ".json",
@@ -661,7 +668,7 @@ class MapWidgetState extends State<MapWidget> {
             onPressed: () async {
               var result = await FilePicker.platform.pickFiles(
                 dialogTitle: "Select file to load",
-                initialDirectory: "${Directory.current.path}/tests/",
+                initialDirectory: "${Directory.current.path}/newtests/",
               );
               if (result == null) {
                 print("No file selected");
@@ -678,7 +685,7 @@ class MapWidgetState extends State<MapWidget> {
                 intended = sol;
               });
 
-              print("Have new shape ${extraShapes.last}");
+              print("Added ${extraShapes.length} new things");
             },
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyO,
@@ -731,7 +738,11 @@ class MapWidgetState extends State<MapWidget> {
               control: true,
             ),
             onPressed: () async {
-              museums = true;
+              // museums = true;
+              if (extraShapes.isEmpty) return;
+              Pointer<Void> boundary = extraShapes.removeLast();
+              extraShapes.add(await updateBoundary(boundary, true));
+              setState(() {});
               // pinks.add(
               //   await updateBoundary(
               //     extraShapes.last,

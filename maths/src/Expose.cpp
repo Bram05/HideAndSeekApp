@@ -4,8 +4,8 @@
 #include "Plane.h"
 #include "Shape.h"
 #include <iostream>
+#include <memory>
 #include <stdexcept>
-#include <utility>
 
 const void* GetSegments(const void* shape, int* length)
 {
@@ -14,63 +14,80 @@ const void* GetSegments(const void* shape, int* length)
     return shapePtr->segments.data();
 }
 
-const LatLngDart* GetVertices(const void* segment, int index, int* length)
+LatLngDart* GetIntermediatePoints(const void* segment, int index, int num)
 {
-    const Segment* segmentPtr = &((Segment*)segment)[index];
-    *length                   = segmentPtr->vertices.size();
-    LatLngDart* vertices      = new LatLngDart[*length];
-    for (size_t i = 0; i < segmentPtr->vertices.size(); ++i)
+    Segment* seg = (Segment*)segment;
+    Shape s      = Shape({ *seg });
+    return GetIntermediatePoints(&s, 0, index, num);
+}
+
+const LatLngDart* GetAllVertices(const void* segmentP, int segmentIndex, int* length)
+{
+    const Segment* segment = (Segment*)segmentP;
+    *length                = segment->sides.size() * 2;
+    LatLngDart* vertices   = new LatLngDart[*length];
+    for (size_t i = 0; i < segment->sides.size(); ++i)
     {
-        LatLng vertex   = segmentPtr->vertices[i].ToLatLng();
-        vertices[i].lat = vertex.latitude.ToDouble();
-        vertices[i].lon = vertex.longitude.ToDouble();
+        LatLng vertex         = segment->sides[i]->begin.ToLatLng();
+        vertices[2 * i].lat   = vertex.latitude.ToDouble();
+        vertices[2 * i].lon   = vertex.longitude.ToDouble();
+        LatLngDart* intPoints = GetIntermediatePoints(segment, i, 3);
+        vertices[2 * i + 1]   = intPoints[1];
+        FreeIntermediatePoints(intPoints);
     }
     return vertices;
 }
 
 void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
 
-const SideDart* GetSides(const void* segmentOrig, int index, int* length)
-{
-    const Segment& segment = ((Segment*)segmentOrig)[index];
-    *length                = segment.sides.size();
-    SideDart* sides        = new SideDart[*length];
-    for (size_t i = 0; i < segment.sides.size(); ++i)
-    {
-        sides[i].isStraight = static_cast<int>(segment.sides[i]->sideType);
-        if (sides[i].isStraight != 1)
-        {
-            const std::shared_ptr<CircleSide>& circleSide =
-                std::dynamic_pointer_cast<CircleSide>(segment.sides[i]);
-            sides[i].radius           = circleSide->radius.ToDouble();
-            LatLng centre             = circleSide->center.ToLatLng();
-            sides[i].centre.lat       = centre.latitude.ToDouble();
-            sides[i].centre.lon       = centre.longitude.ToDouble();
-            LatLng properCentre       = circleSide->properCentre.ToLatLng();
-            sides[i].properCentre.lat = properCentre.latitude.ToDouble();
-            sides[i].properCentre.lon = properCentre.latitude.ToDouble();
-            sides[i].isClockwise      = circleSide->clockwise;
-            // sides[i].plane = { circleSide->plane.a.ToDouble(), circleSide->plane.b.ToDouble(),
-            //                    circleSide->plane.c.ToDouble(), circleSide->plane.d.ToDouble() };
-        }
-    }
-    return sides;
-}
-
-void FreeSides(SideDart* sides) { delete[] sides; }
-
-std::shared_ptr<Side> CreateSide(SideDart side)
-{
-    std::shared_ptr<Side> res;
-    if (side.isStraight) { res = std::make_shared<StraightSide>(); }
-    else
-    {
-        LatLngDart centreDart = side.centre;
-        Vector3 centre        = LatLng(centreDart.lat, centreDart.lon).ToVector3();
-        res                   = std::make_shared<CircleSide>(centre, side.radius, side.isClockwise);
-    }
-    return res;
-}
+// const SideDart* GetSides(const void* segmentOrig, int index, int* length)
+// {
+//     const Segment& segment = ((Segment*)segmentOrig)[index];
+//     *length                = segment.sides.size();
+//     SideDart* sides        = new SideDart[*length];
+//     for (size_t i = 0; i < segment.sides.size(); ++i)
+//     {
+//         LatLngDart* intPoints = GetIntermediatePoints(&segment, i, 3);
+//         sides[i].thirdPointOn = intPoints[1];
+//         FreeIntermediatePoints(intPoints);
+//         // sides[i].isStraight = static_cast<int>(segment.sides[i]->sideType);
+//         // if (sides[i].isStraight != 1)
+//         // {
+//         //     const std::shared_ptr<CircleSide>& circleSide =
+//         //         std::dynamic_pointer_cast<CircleSide>(segment.sides[i]);
+//         //     // sides[i].radius           = circleSide->radius.ToDouble();
+//         //     // LatLng properCentre       = circleSide->properCentre.ToLatLng();
+//         //     // sides[i].properCentre.lat = properCentre.latitude.ToDouble();
+//         //     // sides[i].properCentre.lon = properCentre.latitude.ToDouble();
+//         //     // sides[i].isClockwise      = circleSide->clockwise;
+//         //     // sides[i].plane = { circleSide->plane.a.ToDouble(),
+//         circleSide->plane.b.ToDouble(),
+//             //     //                    circleSide->plane.c.ToDouble(),
+//             circleSide->plane.d.ToDouble()
+//         //     };
+//         // }
+//     }
+//     return sides;
+// }
+//
+// void FreeSides(SideDart* sides) { delete[] sides; }
+//
+// std::shared_ptr<Side> CreateSide(SideDart side)
+// {
+//     std::shared_ptr<Side> res;
+//     if (side.isStraight) { res = std::make_shared<StraightSide>(); }
+//     else
+//     {
+//         std::cerr << "INFO: Creating circle\n Side = " << side.isStraight << " and " <<
+//         side.radius
+//                   << " and " << LatLng(side.properCentre.lat, side.properCentre.lon) << '\n';
+//         LatLngDart centreDart = side.centre;
+//         Vector3 centre        = LatLng(centreDart.lat, centreDart.lon).ToVector3();
+//         res                   = std::make_shared<CircleSide>(centre, side.radius,
+//         side.isClockwise);
+//     }
+//     return res;
+// }
 
 void* ConvertToShape(const ShapeDart* shape)
 {
@@ -78,39 +95,92 @@ void* ConvertToShape(const ShapeDart* shape)
     for (int i = 0; i < shape->segmentsCount; ++i)
     {
         const SegmentDart& segmentDart = shape->segments[i];
-        std::vector<Vector3> vertices;
-        for (int j = 0; j < segmentDart.verticesCount; ++j)
-        {
-            LatLng vertex = LatLng(segmentDart.vertices[j].lat, segmentDart.vertices[j].lon);
-            vertices.push_back(vertex.ToVector3());
-        }
+        // std::vector<Vector3> vertices;
+        // for (int j = 0; j < segmentDart.verticesCount; ++j)
+        // {
+        //     LatLng vertex = LatLng(segmentDart.vertices[j].lat, segmentDart.vertices[j].lon);
+        //     vertices.push_back(vertex.ToVector3());
+        // }
         std::vector<std::shared_ptr<Side>> sides;
-        for (int j = 0; j < segmentDart.sidesCount; ++j)
+        assert(segmentDart.verticesCount % 2 == 0);
+        for (int j = 0; j < segmentDart.verticesCount; j += 2)
         {
-            sides.push_back(CreateSide(segmentDart.sides[i]));
+            auto convert    = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
+            Vector3 begin   = convert(segmentDart.vertices[j]);
+            Vector3 between = convert(segmentDart.vertices[j + 1]);
+            Vector3 end     = convert(segmentDart.vertices[(j + 2) % segmentDart.verticesCount]);
+            sides.push_back(std::make_shared<Side>(begin, between, end));
+            // sides.emplace_back(segmentDart.vertices[i], segmentDart.vertices[i + 1],
+            //                    segmentDart.vertices[(i + 2) % segmentDart.verticesCount]);
         }
-        segments.emplace_back(vertices, sides);
+        // std::vector<std::shared_ptr<Side>> sides;
+        // for (int j = 0; j < segmentDart.sidesCount; ++j)
+        // {
+        //     sides.push_back(CreateSide(segmentDart.sides[j]));
+        // }
+        segments.push_back(sides);
+        // std::cerr << "Segment " << i << " consisted of " << segmentDart.verticesCount
+        //           << " vertices\n";
     }
     return new Shape(segments);
 }
-void AddVertex(void* shapeP, struct LatLngDart pointP, struct SideDart* sideP)
+Double delta = "0.000001";
+void AddFirstSide(void* shapeP, struct LatLngDart beginP)
 {
-    Shape* shape  = (Shape*)shapeP;
-    Vector3 point = LatLng(pointP.lat, pointP.lon).ToVector3();
-    shape->segments.back().vertices.push_back(point);
-    if (sideP) shape->segments.back().sides.push_back(CreateSide(*sideP));
+    Shape* shape    = (Shape*)shapeP;
+    Vector3 begin   = LatLng(beginP.lat, beginP.lon).ToVector3();
+    Double lat      = beginP.lat + delta;
+    Vector3 end     = LatLng(lat, beginP.lon).ToVector3();
+    Vector3 between = (end + begin).normalized();
+    if (shape->segments.size() == 0) { throw std::runtime_error("Cannot add to no segments"); }
+    auto side = std::make_shared<Side>(begin, between, end);
+    shape->segments.back().sides.push_back(side);
+}
+void AddStraightSide(void* shapeP)
+{
+    Shape* shape         = (Shape*)shapeP;
+    const Vector3& begin = shape->segments.back().sides.back()->end;
+    LatLng l             = begin.ToLatLng();
+    Double lat           = l.latitude + delta;
+    Vector3 end          = LatLng(lat, l.longitude).ToVector3();
+
+    Vector3 between = (end + begin).normalized();
+    if (shape->segments.size() == 0 || shape->segments.back().sides.size() == 0)
+    {
+        throw std::runtime_error("Cannot add to no segments or empty segment");
+    }
+    auto side = std::make_shared<Side>(begin, between, end);
+    shape->segments.back().sides.push_back(side);
 }
 void ModifyLastVertex(void* shapeP, struct LatLngDart pointP)
 {
     Shape* shape  = (Shape*)shapeP;
     Vector3 point = LatLng(pointP.lat, pointP.lon).ToVector3();
-    if (shape->segments.size() > 0 && shape->segments.back().vertices.size() > 0)
-        shape->segments.back().vertices.back() = point;
+    if (shape->segments.size() > 0 && shape->segments.back().sides.size() > 0)
+    {
+        Vector3 begin = shape->segments.back().sides.back()->begin;
+        shape->segments.back().sides.pop_back();
+        Vector3 between = (begin + point).normalized();
+        shape->segments.back().sides.push_back(std::make_shared<Side>(begin, between, point));
+    }
+
+    else
+        throw std::runtime_error("Cannot modify last vertex if none exists");
+}
+void CloseShape(void* shapeP)
+{
+    Shape* shape = (Shape*)shapeP;
+    if (shape->segments.size() == 0) return;
+    Segment& seg           = shape->segments.back();
+    const Vector3& begin   = seg.sides.back()->end;
+    const Vector3& end     = seg.sides.front()->begin;
+    const Vector3& between = (begin + end).normalized();
+    auto side              = std::make_shared<Side>(begin, between, end);
+    seg.sides.push_back(side);
 }
 void RemoveLastVertexAndSide(void* shapeP)
 {
     Shape* shape = (Shape*)shapeP;
-    shape->segments.back().vertices.pop_back();
     shape->segments.back().sides.pop_back();
 }
 void NewSegment(void* shapeP)
@@ -133,7 +203,7 @@ void* IntersectShapes(const void* a, const void* b)
     return new Shape(result);
 }
 
-static Double precision("1e-8");
+static Double precision("1e-5");
 int ShapesEqual(const void* a, const void* b)
 {
     const Shape* shapeA = (const Shape*)a;
@@ -157,7 +227,7 @@ void whyUnequal(const void* a, const void* b)
 
     bool res = *shapeA == *shapeB;
     Constants::Precision::SetPrecision(prev);
-    if (!res)
+    if (res)
     {
         std::cerr << "Shapes are equal, no reason to print why\n";
         return;
@@ -171,19 +241,32 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
     try
     {
         const Shape* shape = (const Shape*)shapeP;
+
         // LatLngDart* results = new LatLngDart[numIntermediatePoints];
         // auto po             = shape->segments[0].vertices[0].ToLatLng();
         // for (int i = 0; i < numIntermediatePoints; i++)
         //     results[i] = LatLngDart{ po.latitude.ToDouble(), po.longitude.ToDouble() };
         // return results;
         if (numIntermediatePoints < 2) throw std::runtime_error("Too little intermediate points");
-        const Segment& segment = shape->segments[segIndex];
-        const Vector3& begin   = segment.vertices[sideIndex];
-        const Vector3& end     = segment.vertices[(sideIndex + 1) % segment.vertices.size()];
+        const Segment& segment            = shape->segments[segIndex];
+        const Vector3& begin              = segment.sides[sideIndex]->begin;
+        const Vector3& end                = segment.sides[sideIndex]->end;
         const std::shared_ptr<Side>& side = segment.sides[sideIndex];
-        Vector3 beginRelative             = begin - side->GetProperCentre();
-        Vector3 endRelative               = end - side->GetProperCentre();
-        const Vector3& normal             = side->GetPlane(begin, end).GetNormal();
+        assert(side->plane.LiesInside(begin));
+        assert(side->plane.LiesInside(end));
+        // assert(side->begin == shape->segments[segIndex]
+        //                           .sides[(sideIndex - 1 + shape->segments[segIndex].sides.size())
+        //                           %
+        //                                  shape->segments[segIndex].sides.size()]
+        //                           ->end);
+        // assert(side->begin == shape->segments[segIndex]
+        //                           .sides[(sideIndex + 1 + shape->segments[segIndex].sides.size())
+        //                           %
+        //                                  shape->segments[segIndex].sides.size()]
+        //                           ->end);
+        Vector3 beginRelative = begin - side->properCentre;
+        Vector3 endRelative   = end - side->properCentre;
+        const Vector3& normal = side->plane.GetNormal();
         const Vector3 cross =
             NormalizedCrossProduct(normal, beginRelative) * beginRelative.length();
         Matrix3 transformation = Matrix3(beginRelative, cross, normal);
@@ -192,7 +275,7 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         Vector3 endTransformed = inverse * endRelative;
         if (endTransformed.z != 0)
             std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
-                      << side->GetProperCentre() << "\n";
+                      << side->properCentre << "\n";
         Double angle = atan2(endTransformed.y, endTransformed.x);
         if (angle == -Constants::pi())
         {
@@ -209,7 +292,7 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
             Double t = i * delta;
             Vector3 point(cos(t), sin(t), 0);
 
-            LatLng transformed = (transformation * point + side->GetProperCentre()).ToLatLng();
+            LatLng transformed = (transformation * point + side->properCentre).ToLatLng();
             // std::cerr << "Got intermediate point " << i << ": " << transformed << '\n';
             // std::cerr << "Intermediate point " << i << "/" << numIntermediatePoints
             //           << " is: " << transformed << ", cross = " << cross << ", by t = " << t <<
@@ -233,13 +316,58 @@ int GetNumberOfSidesInSegment(const void* shape, int segmentIndex)
 {
     return ((const Shape*)shape)->segments[segmentIndex].sides.size();
 }
-void* AddCircle(LatLngDart* centreP, double radius)
+// void* AddCircle(LatLngDart* centreP, double radius)
+// {
+//     // Vector3 centre             = LatLng("48.864716", "2.349014").ToVector3();
+//     // Vector3 centre = LatLng(centreP->lat, centreP->lon).ToVector3();
+//     // std::cerr << "Have centre: " << centre.ToLatLng() << '\n';
+//     // // Double radius              = 5000000;
+//     // auto [p, p1, p2]           = Plane::FromCircle(centre, radius, true);
+//     // std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, p, true);
+//     // return new Shape({ Segment({ p1, p2 }, { side, side }) });
+// }
+//
+void* UpdateBoundaryWithClosestToObject(void* boundary, LatLngDart positionP, LatLngDart objectP,
+                                        int closerToObject)
 {
-    // Vector3 centre             = LatLng("48.864716", "2.349014").ToVector3();
-    Vector3 centre = LatLng(centreP->lat, centreP->lon).ToVector3();
-    std::cerr << "Have centre: " << centre.ToLatLng() << '\n';
-    // Double radius              = 5000000;
-    auto [p, p1, p2]           = Plane::FromCircle(centre, radius, true);
-    std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, p, true);
-    return new Shape({ Segment({ p1, p2 }, { side, side }) });
+    Vector3 position = LatLng{ positionP.lat, positionP.lon }.ToVector3();
+    Vector3 object   = LatLng{ objectP.lat, objectP.lon }.ToVector3();
+    Vector3 middle   = (position + object).normalized();
+    Plane p          = Plane((object - position).normalized() * (closerToObject ? 1 : -1), middle);
+    std::shared_ptr<Side> firstSide  = std::make_shared<Side>(middle, -middle, Vector3(0, 0, 0), p);
+    std::shared_ptr<Side> secondSide = std::make_shared<Side>(-middle, middle, Vector3(0, 0, 0), p);
+    Shape shape                      = Shape({ Segment({ firstSide, secondSide }) }, true);
+
+    return IntersectShapes(boundary, &shape);
 }
+void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
+                                 struct LatLngDart* objectsP, int numObjects, int answer)
+{
+    int closestIndex   = -1;
+    Double minDistance = "10000000000000000000000";
+    Vector3 position   = LatLng(positionP.lat, positionP.lon).ToVector3();
+    std::vector<Vector3> objects(numObjects);
+    for (int i = 0; i < numObjects; i++)
+    {
+        objects[i]  = LatLng(objectsP[i].lat, objectsP[i].lon).ToVector3();
+        Double dist = GetDistanceAlongEarth(objects[i], position);
+        if (dist < minDistance)
+        {
+            minDistance  = dist;
+            closestIndex = i;
+        }
+    }
+
+    Shape* boundary = (Shape*)boundaryP;
+    for (int i = 0; i < numObjects; i++)
+    {
+        if (i == closestIndex) continue;
+        void* newBoundary =
+            UpdateBoundaryWithClosestToObject(boundary, objectsP[closestIndex], objectsP[i], false);
+        delete boundary;
+        boundary = (Shape*)newBoundary;
+    }
+    if (!answer) { boundary->Reverse(); }
+    return boundary;
+}
+void Reverse(void* shape) { ((Shape*)shape)->Reverse(); }

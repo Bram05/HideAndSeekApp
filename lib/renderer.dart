@@ -26,7 +26,22 @@ class MyClipper extends CustomClipper<ui.Path> {
 
   @override
   ui.Path getClip(Size size) {
-    return getPath(shape, MapCamera.of(context), size);
+    ui.Path path = getPath(shape, MapCamera.of(context), size);
+    // ui.Path otherPath = ui.Path();
+    // otherPath.moveTo(0, 0);
+    // otherPath.lineTo(0, size.height);
+    // otherPath.lineTo(size.width, size.height);
+    // otherPath.lineTo(size.width, 0);
+    // otherPath.close();
+    // path.addPath(path, Offset(0, 0));
+    // path.fillType = PathFillType.nonZero;
+    // path.addRect(
+    //   Rect.fromPoints(Offset(0, size.height), Offset(size.width, 0)),
+    // );
+    // path.addRect(
+    //   Rect.fromPoints(Offset(0, 0), Offset(size.width, size.height)),
+    // );
+    return path;
   }
 
   @override
