@@ -59,7 +59,7 @@ class MapWidgetState extends State<MapWidget> {
 
   @override
   void initState() {
-    initialPos = LatLng(52.358430, 4.883357);
+    initialPos = LatLng(51.438721966613016, 4.9261581923893);
     tileLayer = TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       userAgentPackageName: 'www.example.com',
@@ -71,7 +71,7 @@ class MapWidgetState extends State<MapWidget> {
     if (extraShapes.isNotEmpty) {
       return 0;
     }
-    var file = File("newtests/box.json");
+    var file = File("countries/Europees_Nederland.json");
     String content = await file.readAsString();
     var json = jsonDecode(content);
     var (extraShapesNew, intersectsNew, sol) = fromJson(json);
@@ -86,17 +86,17 @@ class MapWidgetState extends State<MapWidget> {
   Widget build(BuildContext context) {
     // print("Rendering
     return FutureBuilder<void>(
-      // future: initialize(),
-      future: (extraShapes.isNotEmpty && museums == true
-          ? updateBoundary(extraShapes.last, true)
-          : Future(() => Pointer<Void>.fromAddress(0))),
+      future: initialize(),
+      // future: (extraShapes.isNotEmpty && museums == true
+      //     ? updateBoundary(extraShapes.last, true)
+      //     : Future(() => Pointer<Void>.fromAddress(0))),
       builder: (context, asyncSnapshot) {
         if (!asyncSnapshot.hasData) return Text("waiting");
-        if (asyncSnapshot.data as Pointer<Void> != Pointer.fromAddress(0)) {
-          print("TODO:");
-          // museums = false;
-          // extraShapes.add(asyncSnapshot.data as Pointer<Void>);
-        }
+        // if (asyncSnapshot.data as Pointer<Void> != Pointer.fromAddress(0)) {
+        //   print("TODO:");
+        //   // museums = false;
+        //   // extraShapes.add(asyncSnapshot.data as Pointer<Void>);
+        // }
 
         // pinks.add(asyncSnapshot.data!);
         return Column(
@@ -262,7 +262,7 @@ class MapWidgetState extends State<MapWidget> {
                   mapController: mapController,
                   options: MapOptions(
                     initialCenter: initialPos,
-                    initialZoom: 17, // 17
+                    initialZoom: 14, // 17
                     onMapEvent: (MapEvent e) {
                       setState(() {});
                     },

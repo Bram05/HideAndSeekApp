@@ -6,6 +6,7 @@ pkgs.mkShell.override { stdenv = pkgs.llvmPackages_16.stdenv; } {
     # gmp # Required for MPFR
     mpfr
     envsubst
+    tracy
   ];
 
   shellHook = ''

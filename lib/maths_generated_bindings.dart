@@ -19,6 +19,23 @@ class Maths {
           lookup)
       : _lookup = lookup;
 
+  void InitEverything() {
+    return _InitEverything();
+  }
+
+  late final _InitEverythingPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>('InitEverything');
+  late final _InitEverything = _InitEverythingPtr.asFunction<void Function()>();
+
+  void DestroyEverything() {
+    return _DestroyEverything();
+  }
+
+  late final _DestroyEverythingPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>('DestroyEverything');
+  late final _DestroyEverything =
+      _DestroyEverythingPtr.asFunction<void Function()>();
+
   ffi.Pointer<ffi.Void> GetSegments(
     ffi.Pointer<ffi.Void> shape,
     ffi.Pointer<ffi.Int> length,
@@ -71,20 +88,35 @@ class Maths {
   late final _FreeVertices =
       _FreeVerticesPtr.asFunction<void Function(ffi.Pointer<LatLngDart>)>();
 
+  void printValue(
+    LatLngDart p,
+  ) {
+    return _printValue(
+      p,
+    );
+  }
+
+  late final _printValuePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(LatLngDart)>>('printValue');
+  late final _printValue =
+      _printValuePtr.asFunction<void Function(LatLngDart)>();
+
   ffi.Pointer<ffi.Void> ConvertToShape(
     ffi.Pointer<ShapeDart> shapeDart,
+    int addStraigthSides,
   ) {
     return _ConvertToShape(
       shapeDart,
+      addStraigthSides,
     );
   }
 
   late final _ConvertToShapePtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Void> Function(
-              ffi.Pointer<ShapeDart>)>>('ConvertToShape');
+              ffi.Pointer<ShapeDart>, ffi.Int)>>('ConvertToShape');
   late final _ConvertToShape = _ConvertToShapePtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>)>();
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>, int)>();
 
   void AddFirstSide(
     ffi.Pointer<ffi.Void> shape,
@@ -206,6 +238,24 @@ class Maths {
               ffi.Pointer<ffi.Void>, ffi.Pointer<LatLngDart>)>>('hit');
   late final _hit = _hitPtr.asFunction<
       int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<LatLngDart>)>();
+
+  int FirstHitOrientedPositively(
+    ffi.Pointer<ffi.Void> shape,
+    ffi.Pointer<LatLngDart> point,
+  ) {
+    return _FirstHitOrientedPositively(
+      shape,
+      point,
+    );
+  }
+
+  late final _FirstHitOrientedPositivelyPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<LatLngDart>)>>('FirstHitOrientedPositively');
+  late final _FirstHitOrientedPositively =
+      _FirstHitOrientedPositivelyPtr.asFunction<
+          int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<LatLngDart>)>();
 
   ffi.Pointer<ffi.Void> IntersectShapes(
     ffi.Pointer<ffi.Void> a,

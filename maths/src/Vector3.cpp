@@ -3,6 +3,7 @@
 #include <cassert>
 #include <iostream>
 #include <sstream>
+#include <tracy/Tracy.hpp>
 
 Vector3::Vector3(double x, double y, double z)
     : x{ Double(x) }
@@ -25,12 +26,28 @@ Vector3::Vector3(const Vector3& other)
 {
 }
 
+Vector3 cross(const Vector3& a, const Vector3& b)
+{
+    ZoneScoped;
+    Double x = a.y * b.z;
+    x -= a.z * b.y;
+    Double y = a.z * b.x;
+    y -= a.x * b.z;
+    Double z = a.x * b.y;
+    z -= a.y * b.x;
+    return Vector3(x, y, z);
+    // return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
 Vector3 NormalizedCrossProduct(const Vector3& a, const Vector3& b)
 {
-    Vector3 crossProduct = cross(a.normalized(), b.normalized());
-    Double len           = crossProduct.length();
-    if (len.isZero()) return Vector3(0, 0, 0); // Because of precision
-    return crossProduct / len;
+    ZoneScoped;
+    // Vector3 crossProduct = cross(a.normalized(), b.normalized());
+    Vector3 crossProduct = cross(a, b);
+    // Double len = crossProduct.length();
+    // std::cerr << "length is " << len << '\n';
+    if (crossProduct.isZero()) return Vector3(0, 0, 0); // Because of precision
+    return crossProduct.normalized();
 }
 
 Vector3& Vector3::operator=(const Vector3& other)
@@ -59,13 +76,13 @@ Double clamp(Double val)
     if (val > 1)
     {
         // std::cerr << "WARNING: clamping value " << val << '\n';
-        assert(val - Constants::Precision::GetPrecision() <= 1);
+        assert(val - Constants::GetEpsilon() <= 1);
         return 1;
     }
     else if (val < -1)
     {
         // std::cerr << "WARNING: clamping value " << val << '\n';
-        assert(val + Constants::Precision::GetPrecision() >= -1);
+        assert(val + Constants::GetEpsilon() >= -1);
         return -1.0;
     }
     return val;
@@ -73,10 +90,12 @@ Double clamp(Double val)
 
 Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
 {
+    ZoneScoped;
     // we don't care if a and b are on the scale of the planet, or between -1 and 1
-    Double inner = clamp(dot(a.normalized(), b.normalized()));
+    // Double inner = clamp(dot(a.normalized(), b.normalized()));
+    Double inner = clamp(dot(a, b));
     // return math.acos(inner) / (2 * math.pi) * circumferenceEarth;
-    return acos(inner) / (2 * Constants::pi()) * Constants::CircumferenceEarth;
+    return acos(inner) / (2 * Constants::pi()) * Constants::CircumferenceEarth();
 }
 
 LatLng Vector3::ToLatLng() const

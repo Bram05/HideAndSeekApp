@@ -4,6 +4,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 // import 'package:jetlag/shape.dart';
 import 'package:jetlag/Map.dart';
+import 'package:jetlag/country.dart';
 // import 'dart:math' as math;
 // import 'dart:convert';
 // // import 'package:jetlag/Plane.dart' hide Plane;
@@ -16,7 +17,44 @@ import 'shape.dart';
 import 'dart:io';
 import 'dart:convert';
 
+// void main() {
+//   download("Europees Nederland");
+// }
+
 void main() => runApp(MyApp());
+// void main() async {
+// final directory = Directory('newtests');
+// List<FileSystemEntity> entities = await directory.list().toList();
+// final Iterable<File> files = entities.whereType<File>();
+// for (var file in files) {
+//   if (!file.path.endsWith('.json')) continue;
+//
+//   // if (file.path == "newtests/intersectSelfNL.json")
+//   if (file.path != "newtests/intersectSelfNL.json")
+//     // file.path == "newtests/box.json" ||
+//     // file.path == "newtests/circle.json")
+//     continue;
+//   var (shapes, intersections, solutions) = fromJson(
+//     jsonDecode(await file.readAsString()),
+//   );
+//   for (int i = 0; i < intersections.length; i++) {
+//     Pointer<Void> result = maths.IntersectShapes(
+//       shapes[intersections[i].$1],
+//       shapes[intersections[i].$2],
+//     );
+//     if (1 != maths.ShapesEqual(result, solutions[i])) {
+//       maths.whyUnequal(result, solutions[i]);
+//       assert(false);
+//     }
+//     maths.FreeShape(result);
+//   }
+//   for (var shape in shapes) maths.FreeShape(shape);
+//   maths.DestroyEverything();
+//   await Future.delayed(const Duration(seconds: 5), () {
+//     print("Quitting");
+//   });
+// }
+// }
 
 class MyApp extends StatelessWidget {
   @override

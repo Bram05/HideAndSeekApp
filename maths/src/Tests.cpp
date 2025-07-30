@@ -5,6 +5,7 @@
 #include "Vector3.h"
 #include <cstdio>
 #include <memory>
+#include <tracy/Tracy.hpp>
 
 int ConversionTestFromLatLng(LatLngDart point, int printInfo)
 {
@@ -128,7 +129,7 @@ int CircleCircleTest(int printInfo)
     // std::shared_ptr<Side> s2       = std::make_shared<CircleSide>(centre, radius, plane, true);
     Shape shape1    = Side::FullCircle(centre, radius, true);
     Vector3 centre2 = LatLng(0, -90).ToVector3();
-    Double radius2  = 0.25 * Constants::CircumferenceEarth;
+    Double radius2  = 0.25 * Constants::CircumferenceEarth();
     // auto [plane2, p21, p22]        = Plane::FromCircle(centre2, radius2, false);
     // std::shared_ptr<CircleSide> s3 = std::make_shared<CircleSide>(centre2, radius2, plane2,
     // false); std::shared_ptr<CircleSide> s4 = std::make_shared<CircleSide>(centre2, radius2,
@@ -200,12 +201,11 @@ int PlaneTest(LatLngDart firstP, LatLngDart secondP, Vector3Dart* normalP, int p
 int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* normalP,
                LatLngDart* points, int numPoints, int printInfo)
 {
-    Vector3 centre = LatLng(centreP.lat, centreP.lon).ToVector3();
-    Plane p        = std::get<0>(Plane::FromCircle(centre, radius, true));
-    const Double prev =
-        Constants::Precision::GetPrecision(); // todo: maybe make this test better someday: don't
-                                              // rely on some points that were given
-    Constants::Precision::SetPrecision("1e-7");
+    Vector3 centre    = LatLng(centreP.lat, centreP.lon).ToVector3();
+    Plane p           = std::get<0>(Plane::FromCircle(centre, radius, true));
+    const Double prev = Constants::GetEpsilon(); // todo: maybe make this test better someday: don't
+                                                 // rely on some points that were given
+    Constants::SetEpsilon("1e-7");
     for (int i = 0; i < numPoints; i++)
     {
         Vector3 point = LatLng(points[i].lat, points[i].lon).ToVector3();
@@ -213,7 +213,7 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
         {
             if (printInfo)
                 std::cerr << "Point " << point << " does not lie inside the plane " << p << '\n';
-            Constants::Precision::SetPrecision(prev);
+            Constants::SetEpsilon(prev);
             return 0;
         }
     }
@@ -225,11 +225,11 @@ int CircleTest(struct LatLngDart centreP, double radius, struct Vector3Dart* nor
             if (printInfo)
                 std::cerr << "Normal " << p.GetNormal() << " is not correct for plane " << p
                           << "(should be " << normal << ")\n";
-            Constants::Precision::SetPrecision(prev);
+            Constants::SetEpsilon(prev);
             return 0;
         }
     }
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     return 1;
 }
 
@@ -242,17 +242,17 @@ int TangentToLine(struct LatLngDart beginP, struct LatLngDart endP, struct Vecto
     Vector3 result = Vector3(tangentP.x, tangentP.y, tangentP.z);
     auto side      = Side::StraightSide(begin, end);
     Vector3 got    = side->getTangent(begin);
-    auto prev      = Constants::Precision::GetPrecision();
-    Constants::Precision::SetPrecision(Double("1e-7"));
+    auto prev      = Constants::GetEpsilon();
+    Constants::SetEpsilon(Double("1e-7"));
     if (got != result)
     {
         if (printInfo)
             std::cerr << "Got result " << got << ", but should be " << result
                       << " for begin=" << begin << " and end=" << end << '\n';
-        Constants::Precision::SetPrecision(prev);
+        Constants::SetEpsilon(prev);
         return 0;
     }
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     return 1;
 }
 
@@ -263,11 +263,11 @@ int TangentToCircle(struct LatLngDart centreP, double radius, struct LatLngDart 
     // std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, true);
     auto side     = Side::HalfCircle(centre, radius, true);
     Vector3 begin = LatLng(pointP.lat, pointP.lon).ToVector3();
-    auto prev     = Constants::Precision::GetPrecision();
-    Constants::Precision::SetPrecision("1e-6"); // The pointP may not lie exactly on the circle and
-                                                // assertion in side->getTangent therefore fails
+    auto prev     = Constants::GetEpsilon();
+    Constants::SetEpsilon("1e-6"); // The pointP may not lie exactly on the circle and
+                                   // assertion in side->getTangent therefore fails
     Vector3 got = side->getTangent(begin);
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     Vector3 tangent = Vector3(tangentP.x, tangentP.y, tangentP.z);
     if (got != tangent)
     {
@@ -280,6 +280,7 @@ int TangentToCircle(struct LatLngDart centreP, double radius, struct LatLngDart 
 
 int CheckShapesWithOneNonTransverseIntersections(const Shape& s1, const Shape& s2, int printInfo)
 {
+    ZoneScoped;
     auto [sol, _] = IntersectionPoints(s1, s2, false, false);
     if (sol.size() != 1)
     {
@@ -299,6 +300,7 @@ int OneNonTransverseIntersection(struct LatLngDart s1, struct LatLngDart s2, str
                                  struct LatLngDart p1, struct LatLngDart p2, struct LatLngDart p3,
                                  int printInfo)
 {
+    ZoneScoped;
     // std::shared_ptr<Side> side = std::make_shared<StraightSide>();
     Vector3 ps1 = LatLng(s1.lat, s1.lon).ToVector3();
     Vector3 ps2 = LatLng(s2.lat, s2.lon).ToVector3();
@@ -331,8 +333,8 @@ bool VerifyPoints(const Plane& p, const Vector3& begin, const Vector3& centre, c
                   LatLngDart* points, int number, int printInfo)
 {
     // Neede because of conversion to LatLngDart
-    auto prev = Constants::Precision::GetPrecision();
-    Constants::Precision::SetPrecision("1e-7");
+    auto prev = Constants::GetEpsilon();
+    Constants::SetEpsilon("1e-7");
     for (int i = 0; i < number; i++)
     {
         Vector3 point = LatLng(points[i].lat, points[i].lon).ToVector3();
@@ -340,9 +342,9 @@ bool VerifyPoints(const Plane& p, const Vector3& begin, const Vector3& centre, c
         { // Vec3liesbetween ignores the end
             if (printInfo)
                 std::cerr << "Point with index " << i << ": " << point.ToLatLng()
-                          << " does not lie between the begin and end (delta = " << (point - end)
+                          << " does not lie between the begin and end (delta = " << (point - begin)
                           << ")\n";
-            Constants::Precision::SetPrecision(prev);
+            Constants::SetEpsilon(prev);
             return false;
         }
         if (GetDistanceAlongEarth(point, centre) != GetDistanceAlongEarth(begin, centre))
@@ -352,11 +354,11 @@ bool VerifyPoints(const Plane& p, const Vector3& begin, const Vector3& centre, c
                           << ") is not correct: dist of point="
                           << GetDistanceAlongEarth(begin, centre)
                           << " and dist of begin=" << GetDistanceAlongEarth(begin, centre) << '\n';
-            Constants::Precision::SetPrecision(prev);
+            Constants::SetEpsilon(prev);
             return false;
         }
     }
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     return true;
 }
 bool CheckShape(const Shape& shape, int number, int printInfo)
@@ -372,7 +374,9 @@ bool CheckShape(const Shape& shape, int number, int printInfo)
             if (!VerifyPoints(s.sides[i]->plane, begin, s.sides[i]->properCentre, end, points,
                               number, printInfo))
             {
-                if (printInfo) std::cerr << "Side " << i << " in segment " << j << " failed\n";
+                if (printInfo)
+                    std::cerr << "Side " << i << " in segment " << j << " failed for " << number
+                              << " points\n";
                 return false;
             }
             FreeIntermediatePoints(points);

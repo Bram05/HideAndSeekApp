@@ -3,6 +3,7 @@
 #include "Equations.h"
 #include "Matrix3.h"
 #include <stdexcept>
+#include <tracy/Tracy.hpp>
 #include <vector>
 
 Plane::Plane(Double a, Double b, Double c, Double d)
@@ -31,8 +32,9 @@ Plane::Plane(const Vector3& normal, const Vector3& point)
 
 Vector3 Plane::GetPointClosestToCentre() const
 {
-    // return getNormal().normalized() * d;
-    return GetNormal() * d / GetNormal().length2();
+    // return GetNormal().normalized() * d;
+    return GetNormal() * d;
+    // return GetNormal() * d / GetNormal().length2();
 }
 
 Plane Plane::FromThreePoints(const Vector3& a, const Vector3& b, const Vector3& c)
@@ -53,8 +55,7 @@ Plane Plane::FromTwoPointsAndOrigin(const Vector3& a, const Vector3& b)
 std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, const Double& radius,
                                                       bool clockwise)
 {
-    if (!(radius >= 0 &&
-          radius <= 0.5 * Constants::CircumferenceEarth + Constants::Precision::GetPrecision()))
+    if (!(radius >= 0 && radius <= 0.5 * Constants::CircumferenceEarth() + Constants::GetEpsilon()))
     {
         throw std::runtime_error(std::string("Invalid radius supplied: ") +
                                  std::to_string(radius.ToDouble()));
@@ -67,8 +68,8 @@ std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, con
     // print(vec3ToLatLng(rotation * Vector3(0, 0, radiusEarth)));
     rotation = Matrix3::RotationZ(centreLatLng.longitudeInRad()) * rotation;
     // print("rotated: ${vec3ToLatLng(rotation * Vector3(0, 0, radiusEarth))}");
-    Double theta                     = 2 * Constants::pi() * radius / Constants::CircumferenceEarth;
-    Matrix3 rotationWithTheta        = rotation * Matrix3::RotationY(theta);
+    Double theta              = 2 * Constants::pi() * radius / Constants::CircumferenceEarth();
+    Matrix3 rotationWithTheta = rotation * Matrix3::RotationY(theta);
     Matrix3 rotationWithThetaInverse = rotation * Matrix3::RotationY(-theta);
     // Matrix3 rotationWithTheta1 = rotation * Matrix3.rotationY(-theta);
     // Matrix3 rotationWithTheta2 = rotation * Matrix3.rotationX(theta);
@@ -97,6 +98,7 @@ bool Plane::LiesInside(const Vector3& point) const { return dot(GetNormal(), poi
 
 std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a, const Plane& b)
 {
+    ZoneScoped;
     Vector3 directionOfFinalLine = cross(a.GetNormal(), b.GetNormal());
     if (directionOfFinalLine.isZero())
     {
@@ -109,21 +111,24 @@ std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a, cons
         return { IntersectionType::parallel, std::nullopt };
     }
 
-    Vector3 directionInPlane1 = NormalizedCrossProduct(a.GetNormal(), directionOfFinalLine);
-    Vector3 directionInPlane2 = NormalizedCrossProduct(b.GetNormal(), directionOfFinalLine);
+    // Vector3 directionInPlane1 = NormalizedCrossProduct(a.GetNormal(), directionOfFinalLine);
+    // Vector3 directionInPlane2 = NormalizedCrossProduct(b.GetNormal(), directionOfFinalLine);
+    Vector3 directionInPlane1 = cross(a.GetNormal(), directionOfFinalLine);
+    Vector3 directionInPlane2 = cross(b.GetNormal(), directionOfFinalLine);
     Line l1                   = Line(directionInPlane1, a.GetAPointOn());
     Line l2                   = Line(directionInPlane2, b.GetAPointOn());
-    Vector3 pointOnLine       = Intersect(l1, l2);
+    Vector3 pointOnLine       = Intersect(l1, l2, directionOfFinalLine);
     return { IntersectionType::normal, Line(directionOfFinalLine, pointOnLine) };
 }
 
 std::tuple<IntersectionType, std::vector<Vector3>> IntersectOnEarth(const Plane& a, const Plane& b)
 {
+    ZoneScoped;
     auto [type, l] = Intersect(a, b);
     if (type != IntersectionType::normal) { return { type, {} }; }
     Line line                = l.value();
     std::vector<Double> sols = SolveQuadratic(line.dir.length2(), 2 * dot(line.dir, line.point),
-                                              // l.point.length2 - radiusEarth * radiusEarth,
+                                              // l.point.lengtaaaaaaaaah2 - radiusEarth * radiusEarth,
                                               line.point.length2() - 1);
     // var ints                 = sols.map<Vector3>((double t) = > l.point + l.dir * t).toList();
     std::vector<Vector3> ints;

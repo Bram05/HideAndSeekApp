@@ -7,6 +7,9 @@ extern "C"
 {
 #endif // __cplusplus
 
+    void InitEverything() __attribute__((constructor));
+    void DestroyEverything() __attribute__((destructor));
+
     struct LatLngDart
     {
         double lat;
@@ -26,10 +29,12 @@ extern "C"
     };
 
     EXPOSE const void* GetSegments(const void* shape, int* length);
-    EXPOSE const struct LatLngDart* GetAllVertices(const void* segments, int segmentIndex, int* length);
+    EXPOSE const struct LatLngDart* GetAllVertices(const void* segments, int segmentIndex,
+                                                   int* length);
     EXPOSE void FreeVertices(struct LatLngDart* vertices);
+    EXPOSE void printValue(struct LatLngDart p);
 
-    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart);
+    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart, int addStraigthSides);
     EXPOSE void AddFirstSide(void* shape, struct LatLngDart begin);
     EXPOSE void AddStraightSide(void* shape);
     EXPOSE void ModifyLastVertex(void* shape, struct LatLngDart point);
@@ -38,6 +43,7 @@ extern "C"
     EXPOSE void RemoveLastVertexAndSide(void* shape);
     EXPOSE void FreeShape(void* shape);
     EXPOSE int hit(const void* shape, const struct LatLngDart* point);
+    EXPOSE int FirstHitOrientedPositively(const void* shape, const struct LatLngDart* point);
     EXPOSE void* IntersectShapes(const void* a, const void* b);
     EXPOSE int ShapesEqual(const void* a, const void* b);
     EXPOSE void whyUnequal(const void* a, const void* b);
@@ -50,7 +56,8 @@ extern "C"
 
     EXPOSE void* UpdateBoundaryWithClosestToObject(void* boundary, struct LatLngDart position,
                                                    struct LatLngDart object, int closerToObject);
-    EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position, struct LatLngDart* objects, int numObjects, int answer);
+    EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position,
+                                            struct LatLngDart* objects, int numObjects, int answer);
     EXPOSE void Reverse(void* shape);
 
 #ifdef __cplusplus

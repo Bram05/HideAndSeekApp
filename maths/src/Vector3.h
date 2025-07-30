@@ -1,6 +1,7 @@
 #pragma once
 #include "Constants.h"
 #include "Double.h"
+#include <tracy/Tracy.hpp>
 
 class LatLng;
 class Vector3
@@ -33,24 +34,44 @@ public:
     friend Vector3 operator-(const Vector3& a, const Vector3& b);
     friend Vector3 operator*(const Vector3& a, const Double& b);
     friend Vector3 operator/(const Vector3& a, const Double& b);
-    friend Vector3 cross(const Vector3& a, const Vector3& b)
-    {
-        return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
-    }
+    friend Vector3 cross(const Vector3& a, const Vector3& b);
     friend Vector3 NormalizedCrossProduct(const Vector3& a, const Vector3& b);
-    Double length() const { return sqrt(length2()); }
-    Double length2() const { return x * x + y * y + z * z; }
+    Double length() const
+    {
+        ZoneScoped;
+        return sqrt(length2());
+    }
+    Double length2() const
+    {
+        ZoneScoped;
+        // return x * x + y * y + z * z;
+        Double s = sqr(x);
+        s += sqr(y);
+        s += sqr(z);
+        // return sqr(x) + sqr(y) + sqr(z);
+        return s;
+    }
+    Double invLength() const
+    {
+        ZoneScoped;
+        return invSqrt(length2());
+    }
     Vector3 normalized() const
     {
-        // todo: compare with zero vector?
-        Double len = length();
+        ZoneScoped;
+        // Double len = length();
         // if (len.isZero()) return Vector3(0, 0, 0);
         if (x.isZero() && y.isZero() && z.isZero()) return Vector3(0, 0, 0);
-        return Vector3(x / len, y / len, z / len);
+        // Double invlen = invLength();
+        Double invlength = invLength();
+        return Vector3(x * invlength, y * invlength, z * invlength);
     }
     friend Double dot(const Vector3 a, const Vector3& b)
     {
-        return a.x * b.x + a.y * b.y + a.z * b.z;
+        Double d = a.x * b.x;
+        d += a.y * b.y;
+        d += a.z * b.z;
+        return d;
     }
     friend bool close(const Vector3& a, const Vector3& b)
     {

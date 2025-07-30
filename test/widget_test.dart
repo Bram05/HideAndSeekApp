@@ -15,10 +15,11 @@ void main() async {
   for (var file in files) {
     if (!file.path.endsWith('.json')) continue;
 
-    if (file.path == "newtests/intersectSelfNL.json")
-      // file.path == "newtests/box.json" ||
-      // file.path == "newtests/circle.json")
-      continue;
+    // if (file.path == "newtests/intersectSelfNL.json")
+    // if (file.path != "newtests/nl.json")
+    // file.path == "newtests/box.json" ||
+    // file.path == "newtests/circle.json")
+    // continue;
     test(file.path, () async {
       var (shapes, intersections, solutions) = fromJson(
         jsonDecode(await file.readAsString()),
@@ -36,5 +37,11 @@ void main() async {
       }
       for (var shape in shapes) maths.FreeShape(shape);
     });
+    // tearDownAll(() async {
+    //   maths.DestroyEverything();
+    //   await Future.delayed(const Duration(seconds: 5), () {
+    //     print("Quitting");
+    //   });
+    // });
   }
 }

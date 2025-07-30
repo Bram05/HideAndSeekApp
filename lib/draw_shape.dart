@@ -49,7 +49,7 @@ class ShapeCreatorState extends State<ShapeCreator> {
       ..ref.segmentsCount = 1
       ..ref.segments = s;
 
-    shape = maths.ConvertToShape(shapeDart);
+    shape = maths.ConvertToShape(shapeDart, 0);
     malloc.free(s);
     malloc.free(shapeDart);
     createShapeWidget();

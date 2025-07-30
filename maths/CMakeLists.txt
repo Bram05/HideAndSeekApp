@@ -24,13 +24,21 @@ add_library(
   src/Constants.cpp
   src/Expose.cpp)
 # find_library(mpfr REQUIRED)
+add_executable(Test src/main.cpp)
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
+  message("Building for debug")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
   # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer
   # -fsanitize=address") target_link_options(${PROJECT_NAME} PRIVATE
   # -fno-omit-frame-pointer -fsanitize=address)
+elseif(CMAKE_BUILD_TYPE MATCHES "Profile")
+  message("Building with profiling enabled")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE TRACY_ENABLE)
+  target_link_libraries(${PROJECT_NAME} PUBLIC TracyClient)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g ${CMAKE_CXX_FLAGS_RELEASE}")
+  target_compile_definitions(Test PRIVATE TRACY_ENABLE)
+  target_link_libraries(Test PUBLIC TracyClient)
 endif()
-add_executable(Test src/main.cpp)
 target_link_options(Test PUBLIC -lmpfr)
 target_link_libraries(Test PUBLIC ${PROJECT_NAME})
 

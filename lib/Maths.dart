@@ -20,3 +20,7 @@ final DynamicLibrary _dylib = () {
 
 /// The bindings to the native functions in [_dylib].
 final Maths maths = Maths(_dylib);
+
+void closeLib() {
+  _dylib.close();
+}

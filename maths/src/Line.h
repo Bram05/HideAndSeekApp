@@ -14,4 +14,5 @@ public:
         assert(!dir.isZero());
     }
 };
+Vector3 Intersect(const Line& l1, const Line& l2, const Vector3& perpendicular);
 Vector3 Intersect(const Line& l1, const Line& l2);

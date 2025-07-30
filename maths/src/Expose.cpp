@@ -6,7 +6,19 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <tracy/Tracy.hpp>
 
+void InitEverything()
+{
+    Double::Init();
+    Constants::Init();
+}
+void DestroyEverything()
+{
+    Constants::Destroy();
+    Double::Destroy();
+    std::cerr << "Destroying\n" << std::flush;
+}
 const void* GetSegments(const void* shape, int* length)
 {
     const Shape* shapePtr = (Shape*)shape;
@@ -16,26 +28,34 @@ const void* GetSegments(const void* shape, int* length)
 
 LatLngDart* GetIntermediatePoints(const void* segment, int index, int num)
 {
+    ZoneScoped;
     Segment* seg = (Segment*)segment;
     Shape s      = Shape({ *seg });
     return GetIntermediatePoints(&s, 0, index, num);
 }
 
-const LatLngDart* GetAllVertices(const void* segmentP, int segmentIndex, int* length)
+const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* length)
 {
-    const Segment* segment = (Segment*)segmentP;
+    const Shape* shape     = (Shape*)shapeP;
+    const Segment* segment = &shape->segments[segmentIndex];
     *length                = segment->sides.size() * 2;
     LatLngDart* vertices   = new LatLngDart[*length];
     for (size_t i = 0; i < segment->sides.size(); ++i)
     {
+        if (i % 1000 == 0) std::cerr << "Finished some more\n" << std::flush;
         LatLng vertex         = segment->sides[i]->begin.ToLatLng();
         vertices[2 * i].lat   = vertex.latitude.ToDouble();
         vertices[2 * i].lon   = vertex.longitude.ToDouble();
-        LatLngDart* intPoints = GetIntermediatePoints(segment, i, 3);
+        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3);
         vertices[2 * i + 1]   = intPoints[1];
         FreeIntermediatePoints(intPoints);
     }
     return vertices;
+}
+void printValue(struct LatLngDart p)
+{
+    LatLng l = LatLng{ p.lat, p.lon };
+    std::cerr << l << std::flush;
 }
 
 void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
@@ -89,12 +109,14 @@ void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
 //     return res;
 // }
 
-void* ConvertToShape(const ShapeDart* shape)
+void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
 {
     std::vector<Segment> segments;
+    int count = 0;
     for (int i = 0; i < shape->segmentsCount; ++i)
     {
         const SegmentDart& segmentDart = shape->segments[i];
+        count += segmentDart.verticesCount;
         // std::vector<Vector3> vertices;
         // for (int j = 0; j < segmentDart.verticesCount; ++j)
         // {
@@ -102,13 +124,19 @@ void* ConvertToShape(const ShapeDart* shape)
         //     vertices.push_back(vertex.ToVector3());
         // }
         std::vector<std::shared_ptr<Side>> sides;
-        assert(segmentDart.verticesCount % 2 == 0);
-        for (int j = 0; j < segmentDart.verticesCount; j += 2)
+        if (!addStraightSides) assert(segmentDart.verticesCount % 2 == 0);
+        int delta = (addStraightSides ? 1 : 2);
+        for (int j = 0; j < segmentDart.verticesCount; j += delta)
         {
-            auto convert    = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
-            Vector3 begin   = convert(segmentDart.vertices[j]);
-            Vector3 between = convert(segmentDart.vertices[j + 1]);
-            Vector3 end     = convert(segmentDart.vertices[(j + 2) % segmentDart.verticesCount]);
+            auto convert  = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
+            Vector3 begin = convert(segmentDart.vertices[j]);
+            // Vector3 between = convert(segmentDart.vertices[j + 1]);
+            Vector3 end = convert(segmentDart.vertices[(j + delta) % segmentDart.verticesCount]);
+            Vector3 between;
+            if (addStraightSides)
+                between = (begin + end).normalized();
+            else
+                between = convert(segmentDart.vertices[j + 1]);
             sides.push_back(std::make_shared<Side>(begin, between, end));
             // sides.emplace_back(segmentDart.vertices[i], segmentDart.vertices[i + 1],
             //                    segmentDart.vertices[(i + 2) % segmentDart.verticesCount]);
@@ -122,6 +150,7 @@ void* ConvertToShape(const ShapeDart* shape)
         // std::cerr << "Segment " << i << " consisted of " << segmentDart.verticesCount
         //           << " vertices\n";
     }
+    std::cerr << "Converted new shape with " << count << " vertices\n" << std::flush;
     return new Shape(segments);
 }
 Double delta = "0.000001";
@@ -195,24 +224,30 @@ int hit(const void* shape, const LatLngDart* point)
     LatLng latLng(point->lat, point->lon);
     return ((Shape*)shape)->Hit(latLng.ToVector3());
 }
+int FirstHitOrientedPositively(const void* shape, const struct LatLngDart* point)
+{
+    LatLng latLng(point->lat, point->lon);
+    return ((Shape*)shape)->FirstHitOrientedPositively(latLng.ToVector3());
+}
 void* IntersectShapes(const void* a, const void* b)
 {
+    ZoneScoped;
     Shape* shapeA = (Shape*)a;
     Shape* shapeB = (Shape*)b;
     auto result   = Intersect(*shapeA, *shapeB);
     return new Shape(result);
 }
 
-static Double precision("1e-5");
+static Double newEpsilon("1e-5");
 int ShapesEqual(const void* a, const void* b)
 {
     const Shape* shapeA = (const Shape*)a;
     const Shape* shapeB = (const Shape*)b;
-    Double prev         = Constants::Precision::GetPrecision();
-    Constants::Precision::SetPrecision(precision);
+    Double prev         = Constants::GetEpsilon();
+    Constants::SetEpsilon(newEpsilon);
 
     bool res = *shapeA == *shapeB;
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     return res;
 }
 
@@ -222,11 +257,11 @@ void whyUnequal(const void* a, const void* b)
     const Shape* shapeB    = (const Shape*)b;
     bool copy              = shapeA->printDebugInfo;
     shapeA->printDebugInfo = true;
-    Double prev            = Constants::Precision::GetPrecision();
-    Constants::Precision::SetPrecision(precision);
+    Double prev            = Constants::GetEpsilon();
+    Constants::SetEpsilon(newEpsilon);
 
     bool res = *shapeA == *shapeB;
-    Constants::Precision::SetPrecision(prev);
+    Constants::SetEpsilon(prev);
     if (res)
     {
         std::cerr << "Shapes are equal, no reason to print why\n";
@@ -238,6 +273,7 @@ void whyUnequal(const void* a, const void* b)
 LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideIndex,
                                   int numIntermediatePoints)
 {
+    ZoneScoped;
     try
     {
         const Shape* shape = (const Shape*)shapeP;

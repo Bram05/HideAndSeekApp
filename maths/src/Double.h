@@ -6,19 +6,19 @@
 class Double
 {
 public:
-    Double() { mpfr_init(val); }
+    Double();
     Double(double x);
     Double(int x);
     Double(const std::string& x);
     Double(const char* x);
-    Double(mpfr_t p)
-    {
-        mpfr_init2(val, mpfr_get_prec(p));
-        mpfr_set(val, p, MPFR_RNDN);
-    }
+    Double(mpfr_t p);
+    Double(Double&& other);
     ~Double();
     Double(const Double& other);
     Double& operator=(const Double& other);
+
+    static void Init();
+    static void Destroy();
 
     double ToDouble() const;
     bool close(const Double& other) const;
@@ -52,9 +52,12 @@ public:
     friend Double acos(const Double& x);
     friend Double atan(const Double& x);
     friend Double atan2(const Double& y, const Double& x);
+    friend Double invSqrt(const Double& x);
+    friend Double sqr(const Double& x);
     friend std::ostream& operator<<(std::ostream& os, const Double& d);
     std::string ToString() const;
 
 private:
-    mpfr_t val;
+    void InitVal();
+    int val;
 };

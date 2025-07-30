@@ -105,6 +105,22 @@ public:
     void Reverse();
 };
 
+struct IntersectionWithDistance
+{
+    Vector3 point;
+    Double distAlong1, distAlong2;
+};
+
+struct PositionOnShape
+{
+    int segmentIndex, sideIndex;
+};
+struct IntersectionWithIndex
+{
+    Vector3 point;
+    PositionOnShape indexInS1;
+    PositionOnShape indexInS2;
+};
 class Shape
 {
 public:
@@ -162,25 +178,15 @@ public:
     bool operator!=(const Shape& other) const { return !(*this == other); }
 
     bool Hit(const Vector3& point) const;
+    bool FirstHitOrientedPositively(const Vector3& point) const;
+
     void Reverse();
+
+private:
+    std::pair<std::vector<IntersectionWithIndex>, std::unique_ptr<Shape>>
+        GetIntersectionsForHit(const Vector3& point) const;
 };
 
-struct IntersectionWithDistance
-{
-    Vector3 point;
-    Double distAlong1, distAlong2;
-};
-
-struct PositionOnShape
-{
-    int segmentIndex, sideIndex;
-};
-struct IntersectionWithIndex
-{
-    Vector3 point;
-    PositionOnShape indexInS1;
-    PositionOnShape indexInS2;
-};
 struct PositionForTwoShapes
 {
     bool first;

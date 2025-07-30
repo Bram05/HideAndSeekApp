@@ -47,15 +47,12 @@ SegmentDart segmentfromJson(List<dynamic> json) {
   //   ..verticesCount = json.length;
 }
 
-List<Map<String, dynamic>> segmentToJson(Pointer<Void> segments, int index) {
+List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
   List<Map<String, dynamic>> vertices = [];
   Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
-  Pointer<LatLngDart> verticesP = maths.GetAllVertices(
-    segments,
-    index,
-    lengthPtr,
-  );
+  Pointer<LatLngDart> verticesP = maths.GetAllVertices(shape, index, lengthPtr);
   for (int i = 0; i < lengthPtr.value; i++) {
+    print("Adding");
     vertices.add(latLngToJson(verticesP[i]));
   }
   // int numVertices = lengthPtr.value;
@@ -81,7 +78,7 @@ Pointer<Void> shapeFromJson(List<dynamic> json) {
   var p = malloc<ShapeDart>()
     ..ref.segments = segments
     ..ref.segmentsCount = json.length;
-  var res = maths.ConvertToShape(p);
+  var res = maths.ConvertToShape(p, 0);
   for (int i = 0; i < p.ref.segmentsCount; i++) {
     SegmentDart s = p.ref.segments[i];
     malloc.free(s.vertices);
@@ -91,11 +88,11 @@ Pointer<Void> shapeFromJson(List<dynamic> json) {
 
 List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
-  Pointer<Void> segments = maths.GetSegments(shape, lengthPtr);
+  Pointer<Void> _ = maths.GetSegments(shape, lengthPtr);
   int length = lengthPtr.value;
   List<List<Map<String, dynamic>>> segmentsJson = [];
   for (int i = 0; i < length; i++) {
-    segmentsJson.add(segmentToJson(segments, i));
+    segmentsJson.add(segmentToJson(shape, i));
   }
   malloc.free(lengthPtr);
   return segmentsJson;
@@ -119,6 +116,14 @@ List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   return (extraShapes, intersections, solutions);
 }
 
+// For single shape
+Map<String, dynamic> toJson(Pointer<Void> shape) {
+  return {
+    "shapes": [shapeToJson(shape)],
+    "intersections": [],
+  };
+}
+
 LatLng latLngDartToLatLng(LatLngDart latLng) {
   return LatLng(latLng.lat, latLng.lon);
 }
@@ -134,12 +139,13 @@ ui.Offset getCoordinates(LatLngDart point, MapCamera camera) {
 }
 
 ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
+  print("NOw getting path");
   int numSegments = maths.GetNumberOfSegments(shape);
   if (numSegments == 0) {
     return ui.Path();
   }
 
-  const int numIntermediatePoints = 100;
+  const int numIntermediatePoints = 5;
 
   ui.Path path = ui.Path();
   path.fillType = ui.PathFillType.nonZero;
@@ -166,6 +172,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     }
     path.close();
   }
+  print("Finished getting path");
   // // ui.Path path = getPath(shape, MapCamera.of(context), size);
   // ui.Path otherPath = ui.Path();
   // otherPath.moveTo(0, 0);

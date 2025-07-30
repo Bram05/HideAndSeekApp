@@ -1,4 +1,5 @@
 #include "Shape.h"
+#include "Double.h"
 #include "Line.h"
 #include "Matrix3.h"
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <set>
 #include <stdexcept>
+#include <tracy/Tracy.hpp>
 
 Side::Side(const Vector3& begin, const Vector3 between, const Vector3& end)
     : plane{ Plane::FromThreePoints(begin, between, end) }
@@ -48,6 +50,7 @@ std::shared_ptr<Side> Side::StraightSide(const Vector3& begin, const Vector3& en
 bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end,
                      const Plane& plane, const Vector3& centre)
 {
+    ZoneScoped;
     assert(plane.LiesInside(point));
     assert(plane.LiesInside(begin));
     assert(plane.LiesInside(end));
@@ -57,40 +60,25 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     Vector3 delta1 = begin - centre;
     Vector3 delta2 = point - centre;
     Vector3 delta3 = end - centre;
+#ifndef NDEBUG
     Vector3 cross1 = NormalizedCrossProduct(delta1, delta2);
     Vector3 cross2 = NormalizedCrossProduct(delta2, delta3);
+    assert(cross1 == plane.GetNormal() || cross1 == -plane.GetNormal() || cross1.isZero());
+    assert(cross2 == plane.GetNormal() || cross2 == -plane.GetNormal() || cross2.isZero());
+#endif
+
     // std::cerr << "Cross1: " << cross1 << '\n';
     // std::cerr << "Cross2: " << cross2 << '\n';
     // std::cerr << "Normal: " << plane.GetNormal() << '\n';
-    if (cross1 == plane.GetNormal() && cross2 == plane.GetNormal())
+    if (dot(cross(delta1, delta2), plane.GetNormal()) > 0 &&
+        dot(cross(delta2, delta3), plane.GetNormal()) > 0)
     {
         return true; // point is on the first side
     }
     // std::cerr << cross1 << '\n';
     // std::cerr << plane.GetNormal() << '\n';
-    assert(cross1 == plane.GetNormal() || cross1 == -plane.GetNormal() || cross1.isZero());
-    assert(cross2 == plane.GetNormal() || cross2 == -plane.GetNormal() || cross2.isZero());
     return false;
 }
-
-class Timer
-{
-    std::chrono::time_point<std::chrono::steady_clock> begin;
-
-public:
-    Timer()
-        : begin(std::chrono::steady_clock::now())
-    {
-    }
-
-    void elapsed(const std::string& text)
-    {
-        auto end    = std::chrono::steady_clock::now();
-        double time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-        std::cerr << text << " took " << time << " micros\n";
-        begin = std::chrono::steady_clock::now(); // reset the timer
-    }
-};
 
 std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side& s2)
 {
@@ -146,6 +134,7 @@ std::pair<const Vector3&, const Vector3&> GetBeginAndEnd(const Shape& s, Positio
 void AddBeginAndEnds(std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>& intersections,
                      const Shape& s, bool first)
 {
+    ZoneScoped;
     for (int i = 0; i < s.segments.size(); i++)
     {
         const Segment& seg = s.segments[i];
@@ -284,6 +273,7 @@ std::tuple<std::vector<IntersectionWithIndex>,
            std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>>
     IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit, bool checkTransverse)
 {
+    ZoneScoped;
     std::vector<IntersectionWithIndex> intersections                                     = {};
     std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>> intersectionsPerSide = {};
     AddBeginAndEnds(intersectionsPerSide, s1, true);
@@ -300,6 +290,7 @@ std::tuple<std::vector<IntersectionWithIndex>,
                 for (int side2Index = 0; side2Index < s2.segments[seg2Index].sides.size();
                      side2Index++)
                 {
+                    ZoneScopedN("Intesecting sides");
                     auto [begin1, end1] = GetBeginAndEnd(s1, { seg1Index, side1Index });
                     auto [begin2, end2] = GetBeginAndEnd(s2, { seg2Index, side2Index });
 
@@ -585,21 +576,26 @@ OrientationResult areOrientedPositively(Vector3 a, Vector3 b, Vector3 point)
     return cross == point.normalized() ? OrientationResult::positive : OrientationResult::negative;
 }
 
-bool Shape::Hit(const Vector3& point) const
+std::pair<std::vector<IntersectionWithIndex>, std::unique_ptr<Shape>>
+    Shape::GetIntersectionsForHit(const Vector3& point) const
 {
-    Vector3 begin = point;
-    LatLng l      = begin.ToLatLng();
-    Vector3 end   = LatLng(l.latitude, l.longitude - 180).ToVector3();
+    LatLng l    = point.ToLatLng();
+    Vector3 end = LatLng(l.latitude, l.longitude - 180).ToVector3();
     // todo: this does not work if latitude == 0 or 90
     // // loop around half the circle. We assume that this is enough and no curve will loop around
     // more than half the earth todo: add a check and explicitly fail otherwise todo: make sure that
     // the intersections also work when looping around the earth
-    int count = 0;
-    Shape s   = Shape({
-        Segment({ Side::StraightSide(begin, end) }),
+    std::unique_ptr<Shape> s = std::make_unique<Shape>(std::vector<Segment>{
+        Segment({ Side::StraightSide(point, end) }),
     });
 
-    auto [points, _] = IntersectionPoints(s, *this, true);
+    auto [points, _] = IntersectionPoints(*s, *this, true);
+    return { points, std::move(s) };
+}
+
+bool Shape::Hit(const Vector3& point) const
+{
+    auto [points, s] = GetIntersectionsForHit(point);
     if (points.size() == 0 && surroundsPlanet)
     {
         // std::cerr << "Hit found no intersection with surrounding planet\n";
@@ -608,9 +604,10 @@ bool Shape::Hit(const Vector3& point) const
                segments[0].sides[0]->plane == segments[0].sides[1]->plane);
         return dot(segments[0].sides[0]->plane.GetNormal(), point) >= 0;
     }
+    int count = 0;
     for (IntersectionWithIndex p : points)
     {
-        Vector3 t1 = GetTangentAtIntersection(s, p.indexInS1, p.point);
+        Vector3 t1 = GetTangentAtIntersection(*s, p.indexInS1, p.point);
         Vector3 t2 = GetTangentAtIntersection(*this, p.indexInS2, p.point);
 
         switch (areOrientedPositively(t1, t2, p.point))
@@ -626,6 +623,27 @@ bool Shape::Hit(const Vector3& point) const
         }
     }
     return count != 0;
+}
+bool Shape::FirstHitOrientedPositively(const Vector3& point) const
+{
+    auto [points, s]   = GetIntersectionsForHit(point);
+    int minIndex       = 0;
+    Double minDistance = 10000;
+    for (int i = 0; i < points.size(); i++)
+    {
+        Double dist = GetDistanceAlongEarth(points[i].point, point);
+        if (dist < minDistance)
+        {
+            dist     = minDistance;
+            minIndex = i;
+        }
+    }
+    Vector3 t1 = GetTangentAtIntersection(*s, points[minIndex].indexInS1, points[minIndex].point);
+    Vector3 t2 =
+        GetTangentAtIntersection(*this, points[minIndex].indexInS2, points[minIndex].point);
+    auto result = areOrientedPositively(t1, t2, points[minIndex].point);
+    assert(result != OrientationResult::undeterminated);
+    return result == OrientationResult::positive;
 }
 template <>
 std::ostream& operator<< <Vector3>(std::ostream& os, const std::vector<Vector3>& p)
