@@ -4,6 +4,10 @@
 #include <tracy/Tracy.hpp>
 
 class LatLng;
+struct LatLngdouble
+{
+    double latitude, longitude;
+};
 class Vector3
 {
 public:

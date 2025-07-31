@@ -22,6 +22,10 @@ import 'dart:convert';
 // }
 
 void main() => runApp(MyApp());
+// void main() {
+//   // download("Europees Nederland");
+//   runApp(MyApp());
+// }
 // void main() async {
 // final directory = Directory('newtests');
 // List<FileSystemEntity> entities = await directory.list().toList();

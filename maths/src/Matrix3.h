@@ -32,3 +32,58 @@ public:
     }
     friend Vector3 operator*(const Matrix3& m, const Vector3& v);
 };
+
+struct Vector3double
+{
+    double x, y, z;
+    Vector3double(const Vector3& v)
+        : x{ v.x.ToDouble() }
+        , y{ v.y.ToDouble() }
+        , z{ v.z.ToDouble() }
+    {
+    }
+    Vector3double(double x, double y, double z)
+        : x{ x }
+        , y{ y }
+        , z{ z }
+    {
+    }
+
+    Vector3double operator+(Vector3double other);
+    LatLngdouble ToLatLngImprecise() const;
+};
+
+class Matrix3double
+{
+public:
+    double m[3][3];
+
+    // Matrix3double(double m00, double m01, double m02, double m10, double m11, double m12,
+    //               double m20, Double m21, Double m22)
+    //     : m{ { m00, m01, m02 }, { m10, m11, m12 }, { m20, m21, m22 } }
+    // {
+    // }
+    Matrix3double(const Matrix3& matrix)
+    {
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) { m[i][j] = matrix.m[i][j].ToDouble(); }
+    }
+    // Matrix3double(const Vector3& a, const Vector3& b, const Vector3& c)
+    //     : m{ { a.x, b.x, c.x }, { a.y, b.y, c.y }, { a.z, b.z, c.z } }
+    // {
+    // }
+
+    // Matrix3double Inverse() const;
+    std::string ToString() const;
+
+    static Matrix3 RotationX(Double angle);
+    static Matrix3 RotationY(Double angle);
+    static Matrix3 RotationZ(Double angle);
+
+    // friend Matrix3 operator*(const Matrix3& a, const Matrix3& b);
+    // friend Double operator*(const Matrix3& m, const Double& v)
+    // {
+    //     return m.m[0][0] * v + m.m[0][1] * v + m.m[0][2] * v;
+    // }
+};
+Vector3double operator*(Matrix3double m, Vector3double v);

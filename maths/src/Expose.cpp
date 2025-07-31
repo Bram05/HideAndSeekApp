@@ -3,6 +3,7 @@
 #include "Matrix3.h"
 #include "Plane.h"
 #include "Shape.h"
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -42,7 +43,6 @@ const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* leng
     LatLngDart* vertices   = new LatLngDart[*length];
     for (size_t i = 0; i < segment->sides.size(); ++i)
     {
-        if (i % 1000 == 0) std::cerr << "Finished some more\n" << std::flush;
         LatLng vertex         = segment->sides[i]->begin.ToLatLng();
         vertices[2 * i].lat   = vertex.latitude.ToDouble();
         vertices[2 * i].lon   = vertex.longitude.ToDouble();
@@ -306,36 +306,53 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         const Vector3 cross =
             NormalizedCrossProduct(normal, beginRelative) * beginRelative.length();
         Matrix3 transformation = Matrix3(beginRelative, cross, normal);
-        Matrix3 inverse        = transformation.Inverse();
-        LatLngDart* result     = new LatLngDart[numIntermediatePoints];
-        Vector3 endTransformed = inverse * endRelative;
+        // Matrix3 inverse        = transformation.Inverse();
+        LatLngDart* result = new LatLngDart[numIntermediatePoints];
+        // Vector3 endTransformed = inverse * endRelative;
+        Vector3 endTransformed =
+            Vector3(dot(beginRelative, end), dot(cross, end), 0); // dot(normal, end) = 0
+        // assert(dot(normal, end) == 0);
         if (endTransformed.z != 0)
             std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
                       << side->properCentre << "\n";
-        Double angle = atan2(endTransformed.y, endTransformed.x);
-        if (angle == -Constants::pi())
+        double angle = std::atan2(endTransformed.y.ToDouble(), endTransformed.x.ToDouble());
+        // Double angle = atan2(endTransformed.y, endTransformed.x);
+        double epsilon = 1e-6;
+        if (std::abs(epsilon - M_PI) < epsilon)
         {
             // If y is slightly negative then atan2 returns a negative value, but it should be just
             // zero
-            angle = Constants::pi();
+            // angle = Constants::pi();
+            angle = M_PI;
         }
         // std::cerr << "Final angle: " << angle;
         // std::cerr << "Begin: " << begin.ToLatLng() << ", end: " << end.ToLatLng() << '\n';
         // std::cerr << "centre: " << side->GetProperCentre() << '\n';
-        Double delta = angle / (numIntermediatePoints - 1);
+
+        Matrix3double transformImprecise = transformation;
+        double delta                     = angle / (numIntermediatePoints - 1);
         for (int i = 0; i < numIntermediatePoints; i++)
         {
+            ZoneScoped;
             Double t = i * delta;
-            Vector3 point(cos(t), sin(t), 0);
+            TracyMessageL("1");
+            // Vector3 point(cos(t), sin(t), 0);
+            double x = std::cos(t.ToDouble());
+            double y = std::sin(t.ToDouble());
+            Vector3double point{ std::cos(t.ToDouble()), std::sin(t.ToDouble()), 0 };
+            TracyMessageL("2");
 
-            LatLng transformed = (transformation * point + side->properCentre).ToLatLng();
+            LatLngdouble transformed =
+                (transformImprecise * point + Vector3double(side->properCentre))
+                    .ToLatLngImprecise();
+            TracyMessageL("3");
             // std::cerr << "Got intermediate point " << i << ": " << transformed << '\n';
             // std::cerr << "Intermediate point " << i << "/" << numIntermediatePoints
             //           << " is: " << transformed << ", cross = " << cross << ", by t = " << t <<
             //           '\n'
             //           << std::flush;
-            result[i] =
-                LatLngDart{ transformed.latitude.ToDouble(), transformed.longitude.ToDouble() };
+            result[i] = LatLngDart{ transformed.latitude, transformed.longitude };
+            TracyMessageL("4");
         }
         return result;
     }

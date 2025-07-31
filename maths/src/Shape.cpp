@@ -628,21 +628,24 @@ bool Shape::FirstHitOrientedPositively(const Vector3& point) const
 {
     auto [points, s]   = GetIntersectionsForHit(point);
     int minIndex       = 0;
-    Double minDistance = 10000;
+    Double minDistance = "10000000000";
     for (int i = 0; i < points.size(); i++)
     {
         Double dist = GetDistanceAlongEarth(points[i].point, point);
         if (dist < minDistance)
         {
-            dist     = minDistance;
-            minIndex = i;
+            minDistance = dist;
+            minIndex    = i;
         }
     }
     Vector3 t1 = GetTangentAtIntersection(*s, points[minIndex].indexInS1, points[minIndex].point);
     Vector3 t2 =
         GetTangentAtIntersection(*this, points[minIndex].indexInS2, points[minIndex].point);
     auto result = areOrientedPositively(t1, t2, points[minIndex].point);
-    assert(result != OrientationResult::undeterminated);
+    if (result == OrientationResult::undeterminated)
+    {
+        throw std::runtime_error("Error firsthitorientedpositively is undeterminend");
+    }
     return result == OrientationResult::positive;
 }
 template <>

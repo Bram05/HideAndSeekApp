@@ -202,12 +202,14 @@ Double operator/(const Double& x, const Double& y)
 }
 Double sin(const Double& x)
 {
+    ZoneScoped;
     Double d;
     mpfr_sin(variables[d.val], variables[x.val], rnd);
     return d;
 }
 Double cos(const Double& x)
 {
+    ZoneScoped;
     Double d;
     mpfr_cos(variables[d.val], variables[x.val], rnd);
     return d;
@@ -244,6 +246,7 @@ Double asin(const Double& x)
 }
 Double asinu(const Double& x)
 {
+    ZoneScoped;
     Double d;
     mpfr_asinu(variables[d.val], variables[x.val], 360, rnd);
     return d;

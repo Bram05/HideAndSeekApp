@@ -1,6 +1,9 @@
 #include "Matrix3.h"
+#include <cassert>
+#include <cmath>
 #include <sstream>
 #include <stdexcept>
+#include <tracy/Tracy.hpp>
 
 Matrix3 Matrix3::RotationX(Double angle)
 {
@@ -47,6 +50,7 @@ Matrix3 Matrix3::Inverse() const
 
 Matrix3 operator*(const Matrix3& a, const Matrix3& b)
 {
+    ZoneScoped;
     Matrix3 result(0, 0, 0, 0, 0, 0, 0, 0, 0);
     for (int i = 0; i < 3; ++i)
     {
@@ -60,6 +64,7 @@ Matrix3 operator*(const Matrix3& a, const Matrix3& b)
 
 Vector3 operator*(const Matrix3& m, const Vector3& v)
 {
+    ZoneScoped;
     return Vector3(m.m[0][0] * v.x + m.m[0][1] * v.y + m.m[0][2] * v.z,
                    m.m[1][0] * v.x + m.m[1][1] * v.y + m.m[1][2] * v.z,
                    m.m[2][0] * v.x + m.m[2][1] * v.y + m.m[2][2] * v.z);
@@ -73,4 +78,80 @@ std::string Matrix3::ToString() const
         os << '\n';
     }
     return os.str();
+}
+Vector3double Vector3double::operator+(Vector3double other)
+{
+    return { x + other.x, y + other.y, z + other.z };
+}
+Vector3double operator*(Matrix3double m, Vector3double v)
+{
+    return { m.m[0][0] * v.x + m.m[0][1] * v.y + m.m[0][2] * v.z,
+             m.m[1][0] * v.x + m.m[1][1] * v.y + m.m[1][2] * v.z,
+             m.m[2][0] * v.x + m.m[2][1] * v.y + m.m[2][2] * v.z };
+}
+double clamp(double val)
+{
+    ZoneScoped;
+    if (val > 1)
+    {
+        // std::cerr << "WARNING: clamping value " << val << '\n';
+        // assert(val - Constants::GetEpsilon() <= 1);
+        return 1;
+    }
+    else if (val < -1)
+    {
+        // std::cerr << "WARNING: clamping value " << val << '\n';
+        // assert(val + Constants::GetEpsilon() >= -1);
+        return -1.0;
+    }
+    return val;
+}
+LatLngdouble Vector3double::ToLatLngImprecise() const
+{
+    ZoneScoped;
+    // if (length2() != 1)
+    // {
+    //     std::cerr << *this << ", " << length() << '\n';
+    //     assert(false);
+    // }
+    // Convert the vector to latitude and longitude
+    // Double lat = asin(z / length()) * ("180" / Constants::pi());
+    // assert(length() == 1);
+    // Double lat = asinu(z / length());
+    // double xd  = x.ToDouble();
+    // double yd  = y.ToDouble();
+    // double zd  = z.ToDouble();
+    double lat     = std::asin(z) / (2 * M_PI) * 360;
+    double lon     = -1;
+    double epsilon = 1e-6;
+    if (std::abs(x) < epsilon && std::abs(y) < epsilon)
+    {
+        // lon = Double(0); // Arbitrary value when both x and y are zero
+        lon = 0;
+    }
+    else
+    {
+        double r2 = x * x + y * y + z * z;
+        double s  = std::sqrt(r2 - z * z); // r^2-z^2 = x^2+y^2 >= 0
+        if (std::abs(x) < epsilon)
+        {
+            // This check is needed because we are outside the 'correct' domain of arcsin
+            if (y > 0) { lon = 0; }
+            else { lon = 180; }
+        }
+        else
+        {
+            double inner = -x / s;
+            inner        = clamp(inner);
+            // lon          = asin(inner) / Constants::pi() * 180;
+            lon = std::asin(inner) / (2 * M_PI) * 360;
+            if (y < 0) { lon = 180 - lon; }
+            if (lon > 180)
+            {
+                lon -= 360;
+                assert(lon <= 180);
+            }
+        }
+    }
+    return LatLngdouble{ lat, lon };
 }

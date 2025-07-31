@@ -52,7 +52,6 @@ List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
   Pointer<Int> lengthPtr = malloc.allocate<Int>(sizeOf<Int>());
   Pointer<LatLngDart> verticesP = maths.GetAllVertices(shape, index, lengthPtr);
   for (int i = 0; i < lengthPtr.value; i++) {
-    print("Adding");
     vertices.add(latLngToJson(verticesP[i]));
   }
   // int numVertices = lengthPtr.value;
@@ -138,6 +137,8 @@ ui.Offset getCoordinates(LatLngDart point, MapCamera camera) {
   return camera.latLngToScreenOffset(latLngDartToLatLng(point));
 }
 
+// todo: delete when starting new shape
+Map<(int, int), Pointer<LatLngDart>> cachedIntPoints = {};
 ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   print("NOw getting path");
   int numSegments = maths.GetNumberOfSegments(shape);
@@ -153,12 +154,18 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     if (numSides <= 2) return ui.Path();
     for (int j = 0; j < numSides; j++) {
-      Pointer<LatLngDart> intermediatePoints = maths.GetIntermediatePoints(
-        shape,
-        i,
-        j,
-        numIntermediatePoints,
-      );
+      Pointer<LatLngDart> intermediatePoints;
+      if (cachedIntPoints[(i, j)] == null) {
+        intermediatePoints = maths.GetIntermediatePoints(
+          shape,
+          i,
+          j,
+          numIntermediatePoints,
+        );
+        cachedIntPoints[(i, j)] = intermediatePoints;
+      } else {
+        intermediatePoints = cachedIntPoints[(i, j)]!;
+      }
       if (intermediatePoints == Pointer.fromAddress(0)) return path;
 
       ui.Offset coords = getCoordinates(intermediatePoints[0], camera);
@@ -168,7 +175,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
         path.lineTo(coords.dx, coords.dy);
       }
 
-      maths.FreeIntermediatePoints(intermediatePoints);
+      // maths.FreeIntermediatePoints(intermediatePoints);
     }
     path.close();
   }
@@ -183,6 +190,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   // otherPath.lineTo(containerSize.width, 0);
   // otherPath.close();
   // path.addPath(otherPath, ui.Offset(0, 0));
+  path.fillType = PathFillType.nonZero;
 
   return path;
   // return otherPath;

@@ -13,9 +13,9 @@ import 'package:latlong2/latlong.dart';
 
 void download(String name) async {
   File f = File("countries/${name.replaceAll(' ', '_')}.json");
-  if (await f.exists()) {
-    return;
-  }
+  // if (await f.exists()) {
+  //   return;
+  // }
   // var result = await http.post(
   //   Uri.parse('https://overpass-api.de/api/interpreter'),
   //   body: {
@@ -36,7 +36,7 @@ void download(String name) async {
   String result = toShapeJson(await f2.readAsString());
   // f.writeAsString(toShapeJson(await f2.readAsString()));
   // print("Got result ${result}");
-  f.writeAsString(result);
+  await f.writeAsString(result);
 }
 
 String ToString(LatLngDart pos) {
@@ -173,7 +173,7 @@ String toShapeJson(var body) {
     }
 
     Pointer<LatLngDart> point = malloc()
-      ..ref.lat = minlat
+      ..ref.lat = minlat - 0.01
       ..ref.lon = (minLon + maxLon) / 2;
     // bool inside = 1 == maths.hit(segmentShape, point);
     if (minlat < 0) {
@@ -183,10 +183,34 @@ String toShapeJson(var body) {
       // The firstHit does not work for these because the ray goes down and therefore we don't intersect the boundary
       exit(-1);
     }
-    bool inside = 0 == maths.FirstHitOrientedPositively(segmentShape, point);
-    if (inside == isOuter) {
+    // bool wrong = false;
+    // if (segment
+    //         .firstWhere(
+    //           (el) =>
+    //               (el.lat - 51.4335299).abs() < epsilon,
+    //               // (el.lon - 4.9138316).abs() < epsilon,
+    //           orElse: () => Struct.create<LatLngDart>()
+    //             ..lat = -1
+    //             ..lon = -1,
+    //         )
+    //         .lat !=
+    //     -1) {
+    //   print("INFO: here is the wrong one!!!");
+    //   wrong = true;
+    //   // shapeIsCurrentlyInner = !shapeIsCurrentlyInner;
+    // }
+    bool shapeIsCurrentlyInner =
+        1 == maths.FirstHitOrientedPositively(segmentShape, point);
+    // if (wrong) {
+    //   print(
+    //     "inside = ${shapeIsCurrentlyInner} an isOuter = ${isOuter} point = ${point.ref.lat}, ${point.ref.lon}",
+    //   );
+    // }
+    if (shapeIsCurrentlyInner == isOuter) {
       print("INFO: reversing order");
       segment = segment.reversed.toList();
+    } else {
+      print("INFO: not reversing");
     }
     shapeCoordinates.add(segment);
   }

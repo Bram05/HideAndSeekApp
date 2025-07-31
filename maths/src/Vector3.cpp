@@ -1,6 +1,7 @@
 #include "Vector3.h"
 #include "Constants.h"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include <tracy/Tracy.hpp>
@@ -71,8 +72,9 @@ Vector3 operator-(const Vector3& a, const Vector3& b)
 Vector3 operator*(const Vector3& a, const Double& b) { return Vector3(a.x * b, a.y * b, a.z * b); }
 Vector3 operator/(const Vector3& a, const Double& b) { return Vector3(a.x / b, a.y / b, a.z / b); }
 
-Double clamp(Double val)
+Double clamp(const Double& val)
 {
+    ZoneScoped;
     if (val > 1)
     {
         // std::cerr << "WARNING: clamping value " << val << '\n';
@@ -100,6 +102,7 @@ Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
 
 LatLng Vector3::ToLatLng() const
 {
+    ZoneScoped;
     // if (length2() != 1)
     // {
     //     std::cerr << *this << ", " << length() << '\n';
@@ -107,16 +110,19 @@ LatLng Vector3::ToLatLng() const
     // }
     // Convert the vector to latitude and longitude
     // Double lat = asin(z / length()) * ("180" / Constants::pi());
-    Double lat = asinu(z / length());
-    Double lon = Double(-1);
+    assert(length() == 1);
+    // Double lat = asinu(z / length());
+    Double lat = asinu(z);
+    Double lon = -1;
     if (x.isZero() && y.isZero())
     {
-        lon = Double(0); // Arbitrary value when both x and y are zero
+        // lon = Double(0); // Arbitrary value when both x and y are zero
+        lon = 0;
     }
     else
     {
         Double r2 = length2();
-        Double s  = sqrt(r2 - z * z); // r^2-z^2 = x^2+y^2 >= 0
+        Double s  = sqrt(r2 - sqr(z)); // r^2-z^2 = x^2+y^2 >= 0
         if (x.isZero())
         {
             // This check is needed because we are outside the 'correct' domain of arcsin
