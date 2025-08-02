@@ -138,34 +138,49 @@ ui.Offset getCoordinates(LatLngDart point, MapCamera camera) {
 }
 
 // todo: delete when starting new shape
-Map<(int, int), Pointer<LatLngDart>> cachedIntPoints = {};
+Map<(int, int), (Pointer<LatLngDart>, int)> cachedIntPoints = {};
 ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
-  print("NOw getting path");
   int numSegments = maths.GetNumberOfSegments(shape);
   if (numSegments == 0) {
     return ui.Path();
   }
 
-  const int numIntermediatePoints = 5;
+  // const int numIntermediatePoints = 5;
+  const int meterPerIntermediatePoint = 10;
+
+  int numPoints = 0;
+  int total = 0;
 
   ui.Path path = ui.Path();
   path.fillType = ui.PathFillType.nonZero;
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
+    int delta = 1;
+    if (numSides > 600) {
+      delta = 10;
+      // delta = 1;
+    }
     if (numSides <= 2) return ui.Path();
-    for (int j = 0; j < numSides; j++) {
+    for (int j = 0; j < numSides; j += delta) {
       Pointer<LatLngDart> intermediatePoints;
+      int numIntermediatePoints;
       if (cachedIntPoints[(i, j)] == null) {
+        Pointer<Int> k = malloc();
         intermediatePoints = maths.GetIntermediatePoints(
           shape,
           i,
           j,
-          numIntermediatePoints,
+          meterPerIntermediatePoint,
+          k,
         );
-        cachedIntPoints[(i, j)] = intermediatePoints;
+        numIntermediatePoints = k.value;
+        malloc.free(k);
+        cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
       } else {
-        intermediatePoints = cachedIntPoints[(i, j)]!;
+        (intermediatePoints, numIntermediatePoints) = cachedIntPoints[(i, j)]!;
       }
+      numPoints += numIntermediatePoints;
+      ++total;
       if (intermediatePoints == Pointer.fromAddress(0)) return path;
 
       ui.Offset coords = getCoordinates(intermediatePoints[0], camera);
@@ -179,7 +194,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     }
     path.close();
   }
-  print("Finished getting path");
+  // print("Finished getting path");
   // // ui.Path path = getPath(shape, MapCamera.of(context), size);
   // ui.Path otherPath = ui.Path();
   // otherPath.moveTo(0, 0);

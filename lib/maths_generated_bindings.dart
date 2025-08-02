@@ -313,22 +313,29 @@ class Maths {
     ffi.Pointer<ffi.Void> shape,
     int segIndex,
     int sideIndex,
-    int numIntermediatePoints,
+    int meterPerIntermediatePoint,
+    ffi.Pointer<ffi.Int> numPoints,
   ) {
     return _GetIntermediatePoints(
       shape,
       segIndex,
       sideIndex,
-      numIntermediatePoints,
+      meterPerIntermediatePoint,
+      numPoints,
     );
   }
 
   late final _GetIntermediatePointsPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, ffi.Int,
-              ffi.Int, ffi.Int)>>('GetIntermediatePoints');
+          ffi.Pointer<LatLngDart> Function(
+              ffi.Pointer<ffi.Void>,
+              ffi.Int,
+              ffi.Int,
+              ffi.Int,
+              ffi.Pointer<ffi.Int>)>>('GetIntermediatePoints');
   late final _GetIntermediatePoints = _GetIntermediatePointsPtr.asFunction<
-      ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, int, int, int)>();
+      ffi.Pointer<LatLngDart> Function(
+          ffi.Pointer<ffi.Void>, int, int, int, ffi.Pointer<ffi.Int>)>();
 
   void FreeIntermediatePoints(
     ffi.Pointer<LatLngDart> points,
@@ -456,6 +463,38 @@ class Maths {
           'Reverse');
   late final _Reverse =
       _ReversePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void GetBounds(
+    ffi.Pointer<ffi.Void> shape,
+    ffi.Pointer<ffi.Double> minLat,
+    ffi.Pointer<ffi.Double> maxLat,
+    ffi.Pointer<ffi.Double> minLon,
+    ffi.Pointer<ffi.Double> maxLon,
+  ) {
+    return _GetBounds(
+      shape,
+      minLat,
+      maxLat,
+      minLon,
+      maxLon,
+    );
+  }
+
+  late final _GetBoundsPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Double>,
+              ffi.Pointer<ffi.Double>,
+              ffi.Pointer<ffi.Double>,
+              ffi.Pointer<ffi.Double>)>>('GetBounds');
+  late final _GetBounds = _GetBoundsPtr.asFunction<
+      void Function(
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<ffi.Double>,
+          ffi.Pointer<ffi.Double>,
+          ffi.Pointer<ffi.Double>,
+          ffi.Pointer<ffi.Double>)>();
 
   int ConversionTestFromLatLng(
     LatLngDart point,

@@ -1,42 +1,66 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:jetlag/Maths.dart';
 import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:jetlag/shape.dart';
-import 'package:latlong2/latlong.dart';
 
-void download(String name) async {
-  File f = File("countries/${name.replaceAll(' ', '_')}.json");
-  // if (await f.exists()) {
-  //   return;
-  // }
-  // var result = await http.post(
-  //   Uri.parse('https://overpass-api.de/api/interpreter'),
-  //   body: {
-  //     "data":
-  //         '''[out:json][timeout:90];
-  //           nwr["name" = "$name"];
-  //           out geom;''',
-  //   },
-  // );
-  File f2 = File("countries/Europees_Nederland");
+Future<Map<String, dynamic>> getRequest({String? name, int? ref}) async {
+  String spec = "";
+  if (name != null)
+    spec = "nwr['name' = '$name']";
+  else if (ref != null)
+    spec = "nwr($ref)";
+  else
+    throw "Internal error: at least one of name, ref must be non-null";
+  var result = await http.post(
+    Uri.parse('https://overpass-api.de/api/interpreter'),
+    body: {
+      "data":
+          '''[out:json][timeout:90];
+            $spec;
+            out geom;''',
+    },
+  );
 
-  // print("code: ${result.statusCode}");
-  // if (result.statusCode != 200) {
-  //   print("ERROR getting query: code=${result.statusCode}");
-  //   return;
-  // }
-  // print("Results are: ${result.body}");
-  String result = toShapeJson(await f2.readAsString());
-  // f.writeAsString(toShapeJson(await f2.readAsString()));
-  // print("Got result ${result}");
-  await f.writeAsString(result);
+  if (result.statusCode != 200) {
+    throw "Query for $spec returned code ${result.statusCode}";
+  }
+  var json = jsonDecode(result.body);
+  for (var element in json["elements"]) {
+    if (json["elements"].length == 1 ||
+        element["type"] == "relation" &&
+            (element["tags"]["admin_level"] == "3" ||
+                element["tags"]["admin_level"] == "4")) {
+      return element;
+    }
+  }
+  throw "No valid element found";
+}
+
+Future<void> parseAndStoreBoundary(
+  Map<String, dynamic> json,
+  String outFile,
+) async {
+  File f = File(outFile);
+  String shapeJson = toShapeJson(json);
+  await f.writeAsString(shapeJson);
+  return Future.value();
+}
+
+Future<Map<String, dynamic>> download(
+  String outFile, {
+  String? name,
+  int? ref,
+}) async {
+  var json = await getRequest(name: name, ref: ref);
+  parseAndStoreBoundary(json, outFile);
+  return json;
 }
 
 String ToString(LatLngDart pos) {
@@ -74,17 +98,10 @@ bool areEqual(LatLngDart a, LatLngDart b) {
   return (a.lat - b.lat).abs() < epsilon && (a.lon - b.lon).abs() < epsilon;
 }
 
-String toShapeJson(var body) {
-  var json = jsonDecode(body);
-  if (json["elements"].length != 1 ||
-      json["elements"][0]["type"] != "relation") {
-    print("Body $body is not a valid result");
-    return "";
-  }
+String toShapeJson(Map<String, dynamic> body) {
   Map<String, List<(List<LatLngDart>, String, bool)>> segmentsLeft = {};
-  for (var element in json["elements"][0]["members"]) {
+  for (var element in body["members"]) {
     if (element["type"] != "way") {
-      print("WARNING: element type ${element["type"]} is not way");
       continue;
     }
     List<LatLngDart> coordinates = [];
@@ -145,7 +162,6 @@ String toShapeJson(var body) {
     } while (position != begin);
     for (int i = 0; i < segment.length - 1; i++) {
       if (areEqual(segment[i], segment[i + 1])) {
-        print("Removing index $i");
         segment.removeAt(i);
         --i;
       }
@@ -207,10 +223,7 @@ String toShapeJson(var body) {
     //   );
     // }
     if (shapeIsCurrentlyInner == isOuter) {
-      print("INFO: reversing order");
       segment = segment.reversed.toList();
-    } else {
-      print("INFO: not reversing");
     }
     shapeCoordinates.add(segment);
   }
@@ -231,6 +244,5 @@ String toShapeJson(var body) {
   malloc.free(shape);
   String result = jsonEncode(toJson(shapePtr));
   maths.FreeShape(shapePtr);
-  print("Finished");
   return result;
 }

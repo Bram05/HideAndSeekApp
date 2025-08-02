@@ -3,6 +3,7 @@
 #include "Matrix3.h"
 #include "Plane.h"
 #include "Shape.h"
+#include "Vector3.h"
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -32,7 +33,7 @@ LatLngDart* GetIntermediatePoints(const void* segment, int index, int num)
     ZoneScoped;
     Segment* seg = (Segment*)segment;
     Shape s      = Shape({ *seg });
-    return GetIntermediatePoints(&s, 0, index, num);
+    return GetIntermediatePoints(&s, 0, index, num, nullptr);
 }
 
 const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* length)
@@ -46,7 +47,7 @@ const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* leng
         LatLng vertex         = segment->sides[i]->begin.ToLatLng();
         vertices[2 * i].lat   = vertex.latitude.ToDouble();
         vertices[2 * i].lon   = vertex.longitude.ToDouble();
-        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3);
+        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3, nullptr);
         vertices[2 * i + 1]   = intPoints[1];
         FreeIntermediatePoints(intPoints);
     }
@@ -150,7 +151,7 @@ void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
         // std::cerr << "Segment " << i << " consisted of " << segmentDart.verticesCount
         //           << " vertices\n";
     }
-    std::cerr << "Converted new shape with " << count << " vertices\n" << std::flush;
+    // std::cerr << "Converted new shape with " << count << " vertices\n" << std::flush;
     return new Shape(segments);
 }
 Double delta = "0.000001";
@@ -271,23 +272,33 @@ void whyUnequal(const void* a, const void* b)
 }
 
 LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideIndex,
-                                  int numIntermediatePoints)
+                                  int meterPerIntermediatePoint, int* numPoints)
 {
     ZoneScoped;
     try
     {
-        const Shape* shape = (const Shape*)shapeP;
+        const Shape* shape                = (const Shape*)shapeP;
+        const Segment& segment            = shape->segments[segIndex];
+        const Vector3& begin              = segment.sides[sideIndex]->begin;
+        const Vector3& end                = segment.sides[sideIndex]->end;
+        const std::shared_ptr<Side>& side = segment.sides[sideIndex];
 
         // LatLngDart* results = new LatLngDart[numIntermediatePoints];
         // auto po             = shape->segments[0].vertices[0].ToLatLng();
         // for (int i = 0; i < numIntermediatePoints; i++)
         //     results[i] = LatLngDart{ po.latitude.ToDouble(), po.longitude.ToDouble() };
         // return results;
-        if (numIntermediatePoints < 2) throw std::runtime_error("Too little intermediate points");
-        const Segment& segment            = shape->segments[segIndex];
-        const Vector3& begin              = segment.sides[sideIndex]->begin;
-        const Vector3& end                = segment.sides[sideIndex]->end;
-        const std::shared_ptr<Side>& side = segment.sides[sideIndex];
+        Double distance = GetDistanceAlongEarth(begin, end);
+
+        // This rounding is not perfect but it does not matter too much in most cases
+        int numIntermediatePoints;
+        if (numPoints != nullptr)
+        {
+            numIntermediatePoints =
+                std::max(2, (int)(distance / meterPerIntermediatePoint).ToDouble());
+            *numPoints = numIntermediatePoints;
+        }
+        else { numIntermediatePoints = meterPerIntermediatePoint; }
         assert(side->plane.LiesInside(begin));
         assert(side->plane.LiesInside(end));
         // assert(side->begin == shape->segments[segIndex]
@@ -424,3 +435,23 @@ void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
     return boundary;
 }
 void Reverse(void* shape) { ((Shape*)shape)->Reverse(); }
+void GetBounds(const void* shapeP, double* minLat, double* maxLat, double* minLon, double* maxLon)
+{
+    double minLati = 10000, maxLati = -10000, minLoni = 10000, maxLoni = -10000;
+    Shape* shape = (Shape*)shapeP;
+    for (const Segment& seg : shape->segments)
+    {
+        for (const std::shared_ptr<Side>& side : seg.sides)
+        {
+            LatLng lat = side->begin.ToLatLng();
+            if (lat.latitude < minLati) minLati = lat.latitude.ToDouble();
+            if (lat.latitude > maxLati) maxLati = lat.latitude.ToDouble();
+            if (lat.longitude < minLoni) minLoni = lat.longitude.ToDouble();
+            if (lat.longitude > maxLoni) maxLoni = lat.longitude.ToDouble();
+        }
+    }
+    *minLat = minLati;
+    *maxLat = maxLati;
+    *minLon = minLoni;
+    *maxLon = maxLoni;
+}

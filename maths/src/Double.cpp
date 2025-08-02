@@ -281,6 +281,12 @@ Double sqr(const Double& x)
     mpfr_sqr(variables[d.val], variables[x.val], rnd);
     return d;
 }
+Double max(const Double& x, const Double& y)
+{
+    Double d;
+    mpfr_max(variables[d.val], variables[x.val], variables[y.val], rnd);
+    return d;
+}
 std::ostream& operator<<(std::ostream& os, const Double& d)
 {
     os << d.ToString();

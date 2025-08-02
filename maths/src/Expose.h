@@ -48,7 +48,7 @@ extern "C"
     EXPOSE int ShapesEqual(const void* a, const void* b);
     EXPOSE void whyUnequal(const void* a, const void* b);
     EXPOSE struct LatLngDart* GetIntermediatePoints(const void* shape, int segIndex, int sideIndex,
-                                                    int numIntermediatePoints);
+                                                    int meterPerIntermediatePoint, int* numPoints);
     EXPOSE void FreeIntermediatePoints(struct LatLngDart* points);
     EXPOSE int GetNumberOfSegments(const void* shape);
     EXPOSE int GetNumberOfSidesInSegment(const void* shape, int segmentIndex);
@@ -59,6 +59,7 @@ extern "C"
     EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position,
                                             struct LatLngDart* objects, int numObjects, int answer);
     EXPOSE void Reverse(void* shape);
+    EXPOSE void GetBounds(const void* shape, double* minLat, double* maxLat, double* minLon, double* maxLon);
 
 #ifdef __cplusplus
 }

@@ -55,6 +55,7 @@ public:
     friend Double invSqrt(const Double& x);
     friend Double sqr(const Double& x);
     friend std::ostream& operator<<(std::ostream& os, const Double& d);
+    friend Double max(const Double& x, const Double& y);
     std::string ToString() const;
 
 private:

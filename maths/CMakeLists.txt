@@ -3,7 +3,7 @@
 # plugin to fail to compile for some customers of the plugin.
 cmake_minimum_required(VERSION 3.10)
 
-# set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 project(
   Maths
   VERSION 0.0.1

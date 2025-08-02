@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
+import 'package:jetlag/choose_boundary.dart';
 import 'package:jetlag/draw_shape.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +17,13 @@ import 'dart:ffi' hide Size;
 import 'Boundary.dart';
 
 class MapWidget extends StatefulWidget {
-  final List<Pointer<Void>> shapes;
-  const MapWidget({super.key, required this.shapes});
+  final String border;
+  final bool renderExtras;
+  const MapWidget({
+    super.key,
+    required this.border,
+    required this.renderExtras,
+  });
   @override
   State<StatefulWidget> createState() {
     return MapWidgetState();
@@ -42,7 +50,6 @@ class MapWidgetState extends State<MapWidget> {
   List<Pointer<Void>> intended = [];
   final mapController = MapController();
   TextEditingController filenameController = TextEditingController();
-  late LatLng initialPos;
   void addShape(Pointer<Void> shape) {
     setState(() {
       extraShapes.add(shape);
@@ -59,24 +66,45 @@ class MapWidgetState extends State<MapWidget> {
 
   @override
   void initState() {
-    initialPos = LatLng(51.438721966613016, 4.9261581923893);
     tileLayer = TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      userAgentPackageName: 'www.example.com',
+      userAgentPackageName: 'com.HideAndSeek.app',
     );
     super.initState();
   }
 
+  late LatLng initialPos;
+  late double initialZoom;
   Future<int> initialize() async {
     if (extraShapes.isNotEmpty) {
       return 0;
     }
-    var file = File("countries/Europees_Nederland.json");
+    var file = File("countries/${uglify(widget.border)}/border.json");
     String content = await file.readAsString();
     var json = jsonDecode(content);
-    var (extraShapesNew, intersectsNew, sol) = fromJson(json);
-    extraShapes = extraShapesNew;
-    intersections = intersectsNew;
+    try {
+      var (extraShapesNew, intersectsNew, sol) = fromJson(json);
+      extraShapes = extraShapesNew;
+      intersections = intersectsNew;
+      if (extraShapesNew.length != 1) {
+        return Future.error(
+          "Invalid file: it contained ${extraShapesNew.length} shapes instead of 1",
+        );
+      }
+      Pointer<Double> minLat = malloc();
+      Pointer<Double> maxLat = malloc();
+      Pointer<Double> minLon = malloc();
+      Pointer<Double> maxLon = malloc();
+      maths.GetBounds(extraShapesNew[0], minLat, maxLat, minLon, maxLon);
+      initialPos = LatLng(
+        (minLat.value + maxLat.value) / 2,
+        (minLon.value + maxLon.value) / 2,
+      );
+      // todo: set appropriate zoom level using formulas from https://wiki.openstreetmap.org/wiki/Zoom_levels
+      initialZoom = 8;
+    } catch (e) {
+      return Future.error("error: $e");
+    }
     // extraShapes.addAll(sol);
     // intended = sol;
     return 3;
@@ -91,6 +119,25 @@ class MapWidgetState extends State<MapWidget> {
       //     ? updateBoundary(extraShapes.last, true)
       //     : Future(() => Pointer<Void>.fromAddress(0))),
       builder: (context, asyncSnapshot) {
+        if (asyncSnapshot.hasError)
+          return Center(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Text(
+                  "Failed to load: ${asyncSnapshot.error}",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () {
+                    context.goNamed("ChooseBoundary");
+                  },
+                  child: Text("Go back"),
+                ),
+              ],
+            ),
+          );
         if (!asyncSnapshot.hasData) return Text("waiting");
         // if (asyncSnapshot.data as Pointer<Void> != Pointer.fromAddress(0)) {
         //   print("TODO:");
@@ -104,9 +151,10 @@ class MapWidgetState extends State<MapWidget> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: MenuBar(children: MenuEntry.build(_getMenus())),
-                ),
+                if (widget.renderExtras)
+                  Expanded(
+                    child: MenuBar(children: MenuEntry.build(_getMenus())),
+                  ),
               ],
               //   TextButton(
               //     onPressed: () {
@@ -262,11 +310,11 @@ class MapWidgetState extends State<MapWidget> {
                   mapController: mapController,
                   options: MapOptions(
                     initialCenter: initialPos,
-                    initialZoom: 14, // 17
+                    // initialZoom: 14, // 17
+                    initialZoom: initialZoom,
                     onMapEvent: (MapEvent e) {
                       setState(() {});
                     },
-
                     // Tapposition contains screen coordinates, which we do not want
                     onTap: (TapPosition _, LatLng pos) {
                       // print("Clicked at position $pos");
@@ -454,15 +502,6 @@ class MapWidgetState extends State<MapWidget> {
                   children: [
                     tileLayer,
                     if (creatorActive) creator,
-                    for (var s in widget.shapes) ...[
-                      Shape(shape: s, color: Colors.blueGrey, focussed: false),
-                      // Child(shape: s2, color: Colors.grey, focussed: false),
-                      // Child(
-                      //   shape: intersect(s1, s2, this),
-                      //   color: Colors.red,
-                      //   focussed: false,
-                      // ),
-                    ],
                     for (
                       int i = 0;
                       i < extraShapes.length;
@@ -565,6 +604,12 @@ class MapWidgetState extends State<MapWidget> {
 
   List<MenuEntry> _getMenus() {
     final List<MenuEntry> result = <MenuEntry>[
+      MenuEntry(
+        label: 'Go back',
+        onPressed: () {
+          context.goNamed("ChooseBoundary");
+        },
+      ),
       MenuEntry(
         label: 'Debug',
         menuChildren: <MenuEntry>[
@@ -782,11 +827,11 @@ class MapWidgetState extends State<MapWidget> {
     // (Re-)register the shortcuts with the ShortcutRegistry so that they are
     // available to the entire application, and update them if they've changed.
     _shortcutsEntry?.dispose();
-    // if (ShortcutRegistry.of(context).shortcuts.length > 1) {
-    _shortcutsEntry = ShortcutRegistry.of(
-      context,
-    ).addAll(MenuEntry.shortcuts(result));
-    // }
+    if (ShortcutRegistry.of(context).shortcuts.isEmpty) {
+      _shortcutsEntry = ShortcutRegistry.of(
+        context,
+      ).addAll(MenuEntry.shortcuts(result));
+    }
     return result;
   }
 }
