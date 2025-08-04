@@ -28,6 +28,7 @@ public:
     {
         return a == other.a && b == other.b && c == other.c && d == other.d;
     }
+    void Reverse();
     Vector3 GetNormal() const { return Vector3(a, b, c); }
     Vector3 GetPointClosestToCentre() const;
     Vector3 GetAPointOn() const { return GetPointClosestToCentre(); }

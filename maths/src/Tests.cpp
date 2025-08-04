@@ -88,7 +88,7 @@ int CircleStraightTest(int printInfo)
     Shape shape2       = Shape({
         Segment({ straight1, straight2, straight3 }),
     });
-    auto result        = std::get<0>(IntersectionPoints(shape1, shape2));
+    auto result        = std::get<0>(IntersectionPoints(&shape1, &shape2));
     if (result.size() != 2)
     {
         if (printInfo) std::cerr << result << " is not correct because size is not 2\n";
@@ -135,7 +135,7 @@ int CircleCircleTest(int printInfo)
     // false); std::shared_ptr<CircleSide> s4 = std::make_shared<CircleSide>(centre2, radius2,
     // plane2, false);
     Shape shape2 = Side::FullCircle(centre2, radius2, true);
-    auto result  = std::get<0>(IntersectionPoints(shape1, shape2));
+    auto result  = std::get<0>(IntersectionPoints(&shape1, &shape2));
     if (result.size() != 2)
     {
         if (printInfo) std::cerr << "Result " << result << " is not correct. Size is not 2\n";
@@ -281,13 +281,13 @@ int TangentToCircle(struct LatLngDart centreP, double radius, struct LatLngDart 
 int CheckShapesWithOneNonTransverseIntersections(const Shape& s1, const Shape& s2, int printInfo)
 {
     ZoneScoped;
-    auto [sol, _] = IntersectionPoints(s1, s2, false, false);
+    auto [sol, _] = IntersectionPoints(&s1, &s2, false, false);
     if (sol.size() != 1)
     {
         if (printInfo) std::cerr << "Intersection shapes " << sol << " that should have length 1\n";
         return 0;
     }
-    auto [sol2, _2] = IntersectionPoints(s2, s1);
+    auto [sol2, _2] = IntersectionPoints(&s2, &s1);
     if (sol2.size() != 0)
     {
         if (printInfo)

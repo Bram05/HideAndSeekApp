@@ -224,7 +224,7 @@ void* IntersectShapes(const void* a, const void* b)
     ZoneScoped;
     Shape* shapeA = (Shape*)a;
     Shape* shapeB = (Shape*)b;
-    auto result   = Intersect(*shapeA, *shapeB);
+    auto result   = Intersect(shapeA, shapeB);
     return new Shape(result);
 }
 
@@ -317,8 +317,9 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         double angle = std::atan2(endTransformed.y.ToDouble(), endTransformed.x.ToDouble());
         // Double angle = atan2(endTransformed.y, endTransformed.x);
         double epsilon = 1e-6;
-        if (std::abs(epsilon - M_PI) < epsilon)
+        if (std::abs(angle + M_PI) < epsilon)
         {
+            std::cerr << "Changin angle\n";
             // If y is slightly negative then atan2 returns a negative value, but it should be just
             // zero
             // angle = Constants::pi();
@@ -450,7 +451,7 @@ void* LatitudeQuestion(void* shapeP, double latitude, int theirsHigher)
     Vector3 centre = Vector3(0, 0, theirsHigher ? 1 : -1);
     Double radius  = GetDistanceAlongEarth(centre, LatLng(latitude, 0).ToVector3());
     Shape s        = Side::FullCircle(centre, radius, true);
-    Shape result   = Intersect(*shape, s);
+    Shape result   = Intersect(shape, &s);
     return new Shape(std::move(result));
 }
 void* LongitudeQuestion(void* shapeP, double longitude, int theirsHigher)
@@ -459,7 +460,7 @@ void* LongitudeQuestion(void* shapeP, double longitude, int theirsHigher)
     Vector3 centre = LatLng(0, longitude + 90 * (theirsHigher ? 1 : -1)).ToVector3();
     Double radius  = 0.25 * Constants::CircumferenceEarth();
     Shape s        = Side::FullCircle(centre, radius, true);
-    Shape result   = Intersect(*shape, s);
+    Shape result   = Intersect(shape, &s);
     return new Shape(std::move(result));
 }
 int IsValid(void* shapeP, int* segment, int* side)
@@ -504,11 +505,11 @@ void* AdminAreaQuesiton(void* shapeP, void* regionsP, int length, LatLngDart pos
     }
     if (same)
     {
-        Shape s = Intersect(*shape, *regions[index]);
+        Shape s = Intersect(shape, regions[index]);
         return new Shape(s);
     }
     Shape* copy = regions[index];
     copy->Reverse();
-    Shape s = Intersect(*shape, *copy);
+    Shape s = Intersect(shape, copy);
     return new Shape(s);
 }

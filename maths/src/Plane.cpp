@@ -99,6 +99,13 @@ bool Plane::LiesInside(const Vector3& point) const
     ZoneScoped;
     return dot(GetNormal(), point).close(d);
 }
+void Plane::Reverse()
+{
+    a = -a;
+    b = -b;
+    c = -c;
+    d = -d;
+}
 
 std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a, const Plane& b)
 {

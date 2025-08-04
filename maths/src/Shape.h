@@ -39,7 +39,11 @@ public:
                first.properCentre == other.properCentre && first.plane == other.plane;
     }
     bool operator!=(const Side& other) const { return !(*this == other); }
-    void Reverse() { std::swap(begin, end); }
+    void Reverse()
+    {
+        std::swap(begin, end);
+        plane.Reverse();
+    }
 
     virtual ~Side() = default;
     Vector3 getTangent(const Vector3& point) const
@@ -213,10 +217,10 @@ std::ostream& operator<<(std::ostream& os, const IntersectionWithDistance& i);
 std::ostream& operator<<(std::ostream& os, const IntersectionWithIndex& i);
 // Needed for some tests
 std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side& s2);
-Shape Intersect(const Shape& a, const Shape& b, bool firstIsForHit = false);
+Shape Intersect(const Shape* a, const Shape* b, bool firstIsForHit = false);
 std::tuple<std::vector<IntersectionWithIndex>,
            std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>>
-    IntersectionPoints(const Shape& s1, const Shape& s2, bool isForHit = false,
+    IntersectionPoints(const Shape* s1, const Shape* s2, bool isForHit = false,
                        bool checkTransverse = true);
 bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& end,
                      const Plane& plane, const Vector3& centre);
