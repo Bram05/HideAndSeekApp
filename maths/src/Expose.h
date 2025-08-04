@@ -59,7 +59,13 @@ extern "C"
     EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position,
                                             struct LatLngDart* objects, int numObjects, int answer);
     EXPOSE void Reverse(void* shape);
-    EXPOSE void GetBounds(const void* shape, double* minLat, double* maxLat, double* minLon, double* maxLon);
+    // EXPOSE void GetBounds(const void* shape, double* minLat, double* maxLat, double* minLon,
+    //                       double* maxLon);
+
+    EXPOSE void* LatitudeQuestion(void* shape, double latitude, int theirsHigher);
+    EXPOSE void* LongitudeQuestion(void* shape, double longitude, int theirsHigher);
+    EXPOSE int IsValid(void* shape, int* segment, int* side);
+    EXPOSE void* AdminAreaQuesiton(void* shape, void* regions, int length, struct LatLngDart position , int same);
 
 #ifdef __cplusplus
 }

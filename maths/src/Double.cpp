@@ -253,6 +253,7 @@ Double asinu(const Double& x)
 }
 Double acos(const Double& x)
 {
+    ZoneScoped;
     Double d;
     mpfr_acos(variables[d.val], variables[x.val], rnd);
     return d;

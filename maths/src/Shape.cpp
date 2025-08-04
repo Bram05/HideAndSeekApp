@@ -4,7 +4,6 @@
 #include "Matrix3.h"
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <ctime>
 #include <iostream>
 #include <map>
@@ -13,7 +12,7 @@
 #include <stdexcept>
 #include <tracy/Tracy.hpp>
 
-Side::Side(const Vector3& begin, const Vector3 between, const Vector3& end)
+Side::Side(const Vector3& begin, const Vector3& between, const Vector3& end)
     : plane{ Plane::FromThreePoints(begin, between, end) }
     , begin{ begin }
     , end{ end }
@@ -56,7 +55,7 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     assert(plane.LiesInside(end));
     assert(plane.LiesInside(centre));
     if (point == begin) return true;
-    if (point == end) { return false; } // this is handled by the next side
+    if (point == end) return false; // this is handled by the next side
     Vector3 delta1 = begin - centre;
     Vector3 delta2 = point - centre;
     Vector3 delta3 = end - centre;
@@ -70,8 +69,8 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
     // std::cerr << "Cross1: " << cross1 << '\n';
     // std::cerr << "Cross2: " << cross2 << '\n';
     // std::cerr << "Normal: " << plane.GetNormal() << '\n';
-    if (dot(cross(delta1, delta2), plane.GetNormal()) > 0 &&
-        dot(cross(delta2, delta3), plane.GetNormal()) > 0)
+    if (dot(cross(delta1, delta2), plane.GetNormal()) >= 0 &&
+        dot(cross(delta2, delta3), plane.GetNormal()) >= 0)
     {
         return true; // point is on the first side
     }
@@ -82,19 +81,18 @@ bool vec3LiesBetween(const Vector3& point, const Vector3& begin, const Vector3& 
 
 std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side& s2)
 {
-    const Plane plane1         = s1.plane;
-    const Plane plane2         = s2.plane;
+    const Plane& plane1        = s1.plane;
+    const Plane& plane2        = s2.plane;
     const Vector3& begin1      = s1.begin;
     const Vector3& end1        = s1.end;
     const Vector3& begin2      = s2.begin;
     const Vector3& end2        = s2.end;
     auto [type, intersections] = IntersectOnEarth(plane1, plane2);
-    // timer.elapsed("IntersectOnEarth");
     if (type == IntersectionType::parallel) { return {}; }
     else if (type == IntersectionType::coincide)
     {
         intersections = { begin1, end1 };
-        // Don't intersect duplicates into the list
+        // Don't insert duplicates into the list
         if (begin2 != begin1 && begin2 != end1) intersections.push_back(begin2);
         if (end2 != begin1 && end2 != end1) intersections.push_back(end2);
     }
@@ -110,7 +108,6 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
             result.push_back({ intersection, dist1, dist2 });
         }
     }
-    // timer.elapsed("The rest");
     return result;
 }
 
@@ -283,6 +280,8 @@ std::tuple<std::vector<IntersectionWithIndex>,
         Segment segment1 = s1.segments[seg1Index];
         for (int side1Index = 0; side1Index < s1.segments[seg1Index].sides.size(); side1Index++)
         {
+            std::cerr << "Dealing with side " << side1Index << "/" << segment1.sides.size()
+                      << " in segment " << seg1Index << '/' << s1.segments.size() << '\n';
             for (int seg2Index = 0; seg2Index < s2.segments.size(); seg2Index++)
             {
                 Segment segment2 = s2.segments[seg2Index];
@@ -305,11 +304,6 @@ std::tuple<std::vector<IntersectionWithIndex>,
                                 !IntersectTransversely(s1, s2, point, seg1Index, side1Index,
                                                        seg2Index, side2Index, isForHit))
                             {
-                                // std::cerr
-                                //     << "The curves do not intersect transversely at $point  from
-                                //     "
-                                //        "segments 1index: $side1Index and 2index: $side2Index -> "
-                                //        "ignoring\n";
                                 continue;
                             }
                         }
@@ -349,6 +343,7 @@ struct CurrentPoint
 
 int LastIndexWhere(const std::vector<IntersectionOnLine>& intersections, const Vector3& point)
 {
+    ZoneScoped;
     for (int i = intersections.size() - 1; i >= 0; --i)
     {
         if (point == intersections[i].point) { return i; }
@@ -360,13 +355,14 @@ void SetNextPoint(
     std::map<PositionForTwoShapes, std::vector<IntersectionOnLine>>& intersectionsPerLine,
     CurrentPoint& currentPoint, const Shape& s1, const Shape& s2)
 {
-    std::vector<IntersectionOnLine> currentLine = intersectionsPerLine[currentPoint.pos];
+    ZoneScoped;
+    const std::vector<IntersectionOnLine>& currentLine = intersectionsPerLine[currentPoint.pos];
     // When the two shapes share a side the currentLine can contain that point twice (once from the
     // current shape and a second time as 'intersection' with the other shape). We therefore choose
     // the last index where it occurs so we can actually move on instead of getting into an infinite
     // loop
     int index = LastIndexWhere(currentLine, currentPoint.point);
-    Segment segment =
+    const Segment& segment =
         (currentPoint.pos.first ? s1 : s2).segments[currentPoint.pos.pos.segmentIndex];
 
     if (index == currentLine.size() - 1)
@@ -388,7 +384,9 @@ void SetNextPoint(
 
 Shape Intersect(const Shape& s1, const Shape& s2, bool firstIsForHit)
 {
+    ZoneScoped;
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
+    std::cerr << "Found " << intersections.size() << " intersections\n";
     for (auto in : intersections)
     {
         auto& side1 = s1.segments[in.indexInS1.segmentIndex].sides[in.indexInS1.sideIndex];
@@ -450,51 +448,42 @@ Shape Intersect(const Shape& s1, const Shape& s2, bool firstIsForHit)
 
         Segment newSegment = Segment();
         do {
-            LatLng l = currentPoint.point.ToLatLng();
+            ZoneScopedN("Inner loop intersection");
             ++count;
-            if (count > 1000)
+            if (count > 100000)
             {
                 std::cerr << "WARNING: Stopping due to too many loops\n";
                 result.segments.push_back(newSegment);
                 return result;
             }
-            // std::cerr << "New run\n";
-            // state.points.add(vec3ToLatLng(currentPoint.point));
             if (intersectionsTotal.find(currentPoint.point) != intersectionsTotal.end())
             {
                 intersectionsLeft.erase(currentPoint.point);
-                auto indices = intersectionsTotal[currentPoint.point];
-                // auto vertices1     = s1.segments[indices.first.segmentIndex].vertices;
-                auto sides1 = s1.segments[indices.first.segmentIndex].sides;
-                // auto vertices2     = s2.segments[indices.second.segmentIndex].vertices;
-                auto sides2 = s2.segments[indices.second.segmentIndex].sides;
-                // Vector3 endAlongS1 = vertices1[(indices.first.sideIndex + 1) % vertices1.size()];
-                // Vector3 endAlongS2 = vertices2[(indices.second.sideIndex + 1) %
-                // vertices2.size()];
-                Vector3 endAlongS1 = sides1[indices.first.sideIndex]->end;
-                Vector3 endAlongS2 = sides2[indices.second.sideIndex]->end;
+                const auto& indices = intersectionsTotal[currentPoint.point];
+                const std::vector<std::shared_ptr<Side>>& sides1 =
+                    s1.segments[indices.first.segmentIndex].sides;
+                const std::vector<std::shared_ptr<Side>>& sides2 =
+                    s2.segments[indices.second.segmentIndex].sides;
+                const Vector3& endAlongS1 = sides1[indices.first.sideIndex]->end;
+                const Vector3& endAlongS2 = sides2[indices.second.sideIndex]->end;
 
                 // vertices does not contain the intersections so use currentpoint and not vertices
-                Vector3 tangentAlongS1 =
+                const Vector3& tangentAlongS1 =
                     sides1[indices.first.sideIndex]->getTangent(currentPoint.point);
-                Vector3 tangentAlongS2 =
+                const Vector3& tangentAlongS2 =
                     sides2[indices.second.sideIndex]->getTangent(currentPoint.point);
-                Vector3 cross = NormalizedCrossProduct(tangentAlongS1, tangentAlongS2);
+                const Vector3& cross = NormalizedCrossProduct(tangentAlongS1, tangentAlongS2);
                 if (cross != currentPoint.point.normalized())
                 {
                     // std::cerr << "Going along shape 1\n";
-                    // std::shared_ptr<Side> newside =
-                    //     std::make_shared<Side>(*s1.segments[indices.first.segmentIndex]
-                    //                                 .sides[currentPoint.pos.pos.sideIndex]);
-                    Vector3 begin          = currentPoint.point;
                     currentPoint.pos.first = true;
                     currentPoint.pos.pos = { indices.first.segmentIndex, indices.first.sideIndex };
                     std::shared_ptr<Side> newside =
                         std::make_shared<Side>(*s1.segments[currentPoint.pos.pos.segmentIndex]
                                                     .sides[currentPoint.pos.pos.sideIndex]);
+                    newside->begin = currentPoint.point;
                     SetNextPoint(intersectionsPerLine, currentPoint, s1, s2);
-                    newside->begin = begin;
-                    newside->end   = currentPoint.point;
+                    newside->end = currentPoint.point;
                     newSegment.sides.push_back(newside);
                     assert(newside->plane.LiesInside(newside->begin));
                     assert(newside->plane.LiesInside(newside->end));
@@ -502,16 +491,15 @@ Shape Intersect(const Shape& s1, const Shape& s2, bool firstIsForHit)
                 else
                 {
                     // std::cerr << "Going along shape 2\n";
-                    Vector3 begin          = currentPoint.point;
                     currentPoint.pos.first = false;
                     currentPoint.pos.pos   = { indices.second.segmentIndex,
                                                indices.second.sideIndex };
                     std::shared_ptr<Side> newside =
                         std::make_shared<Side>(*s2.segments[currentPoint.pos.pos.segmentIndex]
                                                     .sides[currentPoint.pos.pos.sideIndex]);
+                    newside->begin = currentPoint.point;
                     SetNextPoint(intersectionsPerLine, currentPoint, s1, s2);
-                    newside->begin = begin;
-                    newside->end   = currentPoint.point;
+                    newside->end = currentPoint.point;
                     assert(newside->plane.LiesInside(newside->begin));
                     assert(newside->plane.LiesInside(newside->end));
                     newSegment.sides.push_back(newside);
@@ -519,22 +507,24 @@ Shape Intersect(const Shape& s1, const Shape& s2, bool firstIsForHit)
             }
             else
             {
+                ZoneNameF("Without seeing intersection");
                 // we must update the begin and end here because these may differe from the original
                 // because of new intersections
                 // std::shared_ptr<Side> newside =
                 //     std::make_shared<Side>(*s2.segments[currentPoint.pos.pos.segmentIndex]
                 //                                 .sides[currentPoint.pos.pos.sideIndex]);
                 // newside->begin = currentPoint.point;
-                Vector3 begin = currentPoint.point;
 
-                Segment segment =
+                const Segment& segment =
                     (currentPoint.pos.first ? s1 : s2).segments[currentPoint.pos.pos.segmentIndex];
                 std::shared_ptr<Side> newside =
                     std::make_shared<Side>(*segment.sides[currentPoint.pos.pos.sideIndex]);
+                newside->begin = currentPoint.point;
                 SetNextPoint(intersectionsPerLine, currentPoint, s1, s2);
-                newside->begin = begin;
-                newside->end   = currentPoint.point;
+                newside->end = currentPoint.point;
+
                 newSegment.sides.push_back(newside);
+
                 assert(newside->plane.LiesInside(newside->begin));
                 assert(segment.sides[currentPoint.pos.pos.sideIndex]->plane.LiesInside(
                     currentPoint.point));
@@ -569,7 +559,7 @@ enum class OrientationResult
     undeterminated
 };
 
-OrientationResult areOrientedPositively(Vector3 a, Vector3 b, Vector3 point)
+OrientationResult areOrientedPositively(const Vector3& a, const Vector3& b, const Vector3& point)
 {
     Vector3 cross = NormalizedCrossProduct(a, b);
     if (cross.isZero()) return OrientationResult::undeterminated;
@@ -579,8 +569,10 @@ OrientationResult areOrientedPositively(Vector3 a, Vector3 b, Vector3 point)
 std::pair<std::vector<IntersectionWithIndex>, std::unique_ptr<Shape>>
     Shape::GetIntersectionsForHit(const Vector3& point) const
 {
-    LatLng l    = point.ToLatLng();
-    Vector3 end = LatLng(l.latitude, l.longitude - 180).ToVector3();
+    LatLng l = point.ToLatLng();
+    // Vector3 end = LatLng(l.latitude, l.longitude - 180).ToVector3();
+    Vector3 end = LatLng(90, l.longitude).ToVector3();
+    if (l.latitude == 0 || l.latitude == 90) { throw "See todo :)"; }
     // todo: this does not work if latitude == 0 or 90
     // // loop around half the circle. We assume that this is enough and no curve will loop around
     // more than half the earth todo: add a check and explicitly fail otherwise todo: make sure that
@@ -598,13 +590,14 @@ bool Shape::Hit(const Vector3& point) const
     auto [points, s] = GetIntersectionsForHit(point);
     if (points.size() == 0 && surroundsPlanet)
     {
-        // std::cerr << "Hit found no intersection with surrounding planet\n";
+        std::cerr << "Hit found no intersection with surrounding planet\n";
         assert(segments.size() == 1);
         assert(segments[0].sides.size() == 2 &&
                segments[0].sides[0]->plane == segments[0].sides[1]->plane);
         return dot(segments[0].sides[0]->plane.GetNormal(), point) >= 0;
     }
     int count = 0;
+    std::cerr << points.size() << " ints\n";
     for (IntersectionWithIndex p : points)
     {
         Vector3 t1 = GetTangentAtIntersection(*s, p.indexInS1, p.point);
@@ -615,6 +608,7 @@ bool Shape::Hit(const Vector3& point) const
         case OrientationResult::positive: ++count; break;
         case OrientationResult::negative: --count; break;
         case OrientationResult::undeterminated:
+            std::cerr << "undetermined\n";
             break;
             // do nothing
             // We ignore it: think about turning the ray an infinitesimal amount making sure it does
@@ -622,7 +616,8 @@ bool Shape::Hit(const Vector3& point) const
             // though
         }
     }
-    return count != 0;
+    std::cerr << "Finished with count " << count << '\n';
+    return count > 0;
 }
 bool Shape::FirstHitOrientedPositively(const Vector3& point) const
 {

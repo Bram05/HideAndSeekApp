@@ -112,46 +112,35 @@ void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
 
 void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
 {
+    ZoneScoped;
     std::vector<Segment> segments;
     int count = 0;
     for (int i = 0; i < shape->segmentsCount; ++i)
     {
         const SegmentDart& segmentDart = shape->segments[i];
         count += segmentDart.verticesCount;
-        // std::vector<Vector3> vertices;
-        // for (int j = 0; j < segmentDart.verticesCount; ++j)
-        // {
-        //     LatLng vertex = LatLng(segmentDart.vertices[j].lat, segmentDart.vertices[j].lon);
-        //     vertices.push_back(vertex.ToVector3());
-        // }
         std::vector<std::shared_ptr<Side>> sides;
         if (!addStraightSides) assert(segmentDart.verticesCount % 2 == 0);
         int delta = (addStraightSides ? 1 : 2);
         for (int j = 0; j < segmentDart.verticesCount; j += delta)
         {
-            auto convert  = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
+            ZoneScoped;
+            auto convert = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
+            TracyMessageL("After convert");
             Vector3 begin = convert(segmentDart.vertices[j]);
             // Vector3 between = convert(segmentDart.vertices[j + 1]);
             Vector3 end = convert(segmentDart.vertices[(j + delta) % segmentDart.verticesCount]);
             Vector3 between;
+            TracyMessageL("After convert2");
             if (addStraightSides)
                 between = (begin + end).normalized();
             else
                 between = convert(segmentDart.vertices[j + 1]);
+            TracyMessageL("Before end");
             sides.push_back(std::make_shared<Side>(begin, between, end));
-            // sides.emplace_back(segmentDart.vertices[i], segmentDart.vertices[i + 1],
-            //                    segmentDart.vertices[(i + 2) % segmentDart.verticesCount]);
         }
-        // std::vector<std::shared_ptr<Side>> sides;
-        // for (int j = 0; j < segmentDart.sidesCount; ++j)
-        // {
-        //     sides.push_back(CreateSide(segmentDart.sides[j]));
-        // }
         segments.push_back(sides);
-        // std::cerr << "Segment " << i << " consisted of " << segmentDart.verticesCount
-        //           << " vertices\n";
     }
-    // std::cerr << "Converted new shape with " << count << " vertices\n" << std::flush;
     return new Shape(segments);
 }
 Double delta = "0.000001";
@@ -288,15 +277,14 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         // for (int i = 0; i < numIntermediatePoints; i++)
         //     results[i] = LatLngDart{ po.latitude.ToDouble(), po.longitude.ToDouble() };
         // return results;
-        Double distance = GetDistanceAlongEarth(begin, end);
+        double distance = GetDistanceAlongEarthImprecise(begin, end);
 
         // This rounding is not perfect but it does not matter too much in most cases
         int numIntermediatePoints;
         if (numPoints != nullptr)
         {
-            numIntermediatePoints =
-                std::max(2, (int)(distance / meterPerIntermediatePoint).ToDouble());
-            *numPoints = numIntermediatePoints;
+            numIntermediatePoints = std::max(2, (int)(distance / meterPerIntermediatePoint));
+            *numPoints            = numIntermediatePoints;
         }
         else { numIntermediatePoints = meterPerIntermediatePoint; }
         assert(side->plane.LiesInside(begin));
@@ -435,23 +423,92 @@ void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
     return boundary;
 }
 void Reverse(void* shape) { ((Shape*)shape)->Reverse(); }
-void GetBounds(const void* shapeP, double* minLat, double* maxLat, double* minLon, double* maxLon)
+// void GetBounds(const void* shapeP, double* minLat, double* maxLat, double* minLon, double*
+// maxLon)
+// {
+//     double minLati = 10000, maxLati = -10000, minLoni = 10000, maxLoni = -10000;
+//     Shape* shape = (Shape*)shapeP;
+//     for (const Segment& seg : shape->segments)
+//     {
+//         for (const std::shared_ptr<Side>& side : seg.sides)
+//         {
+//             LatLng lat = side->begin.ToLatLng();
+//             if (lat.latitude < minLati) minLati = lat.latitude.ToDouble();
+//             if (lat.latitude > maxLati) maxLati = lat.latitude.ToDouble();
+//             if (lat.longitude < minLoni) minLoni = lat.longitude.ToDouble();
+//             if (lat.longitude > maxLoni) maxLoni = lat.longitude.ToDouble();
+//         }
+//     }
+//     *minLat = minLati;
+//     *maxLat = maxLati;
+//     *minLon = minLoni;
+//     *maxLon = maxLoni;
+// }
+void* LatitudeQuestion(void* shapeP, double latitude, int theirsHigher)
 {
-    double minLati = 10000, maxLati = -10000, minLoni = 10000, maxLoni = -10000;
+    Shape* shape   = (Shape*)shapeP;
+    Vector3 centre = Vector3(0, 0, theirsHigher ? 1 : -1);
+    Double radius  = GetDistanceAlongEarth(centre, LatLng(latitude, 0).ToVector3());
+    Shape s        = Side::FullCircle(centre, radius, true);
+    Shape result   = Intersect(*shape, s);
+    return new Shape(std::move(result));
+}
+void* LongitudeQuestion(void* shapeP, double longitude, int theirsHigher)
+{
+    Shape* shape   = (Shape*)shapeP;
+    Vector3 centre = LatLng(0, longitude + 90 * (theirsHigher ? 1 : -1)).ToVector3();
+    Double radius  = 0.25 * Constants::CircumferenceEarth();
+    Shape s        = Side::FullCircle(centre, radius, true);
+    Shape result   = Intersect(*shape, s);
+    return new Shape(std::move(result));
+}
+int IsValid(void* shapeP, int* segment, int* side)
+{
     Shape* shape = (Shape*)shapeP;
-    for (const Segment& seg : shape->segments)
+    for (int i = 0; i < shape->segments.size(); i++)
     {
-        for (const std::shared_ptr<Side>& side : seg.sides)
+        int l = shape->segments[i].sides.size();
+        for (int j = 0; j < l; j++)
         {
-            LatLng lat = side->begin.ToLatLng();
-            if (lat.latitude < minLati) minLati = lat.latitude.ToDouble();
-            if (lat.latitude > maxLati) maxLati = lat.latitude.ToDouble();
-            if (lat.longitude < minLoni) minLoni = lat.longitude.ToDouble();
-            if (lat.longitude > maxLoni) maxLoni = lat.longitude.ToDouble();
+            if (shape->segments[i].sides[j]->end != shape->segments[i].sides[(j + 1) % l]->begin)
+            {
+                *segment = i;
+                *side    = j;
+                return 0;
+            }
         }
     }
-    *minLat = minLati;
-    *maxLat = maxLati;
-    *minLon = minLoni;
-    *maxLon = maxLoni;
+    return 1;
+}
+void* AdminAreaQuesiton(void* shapeP, void* regionsP, int length, LatLngDart positionP, int same)
+{
+    Shape* shape      = (Shape*)shapeP;
+    Shape** regionsPP = (Shape**)regionsP;
+    Vector3 position  = LatLng(positionP.lat, positionP.lon).ToVector3();
+    std::vector<Shape*> regions(length);
+    for (int i = 0; i < length; i++) { regions[i] = (Shape*)regionsPP[i]; }
+    int index = -1;
+    for (int i = 0; i < length; i++)
+    {
+        if (regions[i]->Hit(position))
+        {
+            std::cerr << "In area " << i << '\n';
+            index = i;
+            break;
+        }
+    }
+    if (index == -1)
+    {
+        std::cerr << "ERROR: position is not in any subarean\n";
+        return nullptr;
+    }
+    if (same)
+    {
+        Shape s = Intersect(*shape, *regions[index]);
+        return new Shape(s);
+    }
+    Shape* copy = regions[index];
+    copy->Reverse();
+    Shape s = Intersect(*shape, *copy);
+    return new Shape(s);
 }

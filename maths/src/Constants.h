@@ -10,6 +10,7 @@ public:
     static void Init();
     static void Destroy();
     static const Double& CircumferenceEarth();
+    static double CircumferenceEarthImprecise();
     static const Double& RadiusEarth();
     static Double pi(mpfr_prec_t prec = -1);
 

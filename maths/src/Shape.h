@@ -27,7 +27,7 @@ public:
         , plane{ plane }
     {
     }
-    Side(const Vector3& begin, const Vector3 between, const Vector3& end);
+    Side(const Vector3& begin, const Vector3& between, const Vector3& end);
     static std::shared_ptr<Side> HalfCircle(const Vector3& centre, const Double& radius,
                                             bool clockwise);
     static Shape FullCircle(const Vector3& centre, const Double& radius, bool clockwise);
@@ -44,6 +44,7 @@ public:
     virtual ~Side() = default;
     Vector3 getTangent(const Vector3& point) const
     {
+        ZoneScoped;
         assert(plane.LiesInside(point));
         return NormalizedCrossProduct((properCentre - point), plane.GetNormal());
     }

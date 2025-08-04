@@ -464,37 +464,91 @@ class Maths {
   late final _Reverse =
       _ReversePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
-  void GetBounds(
+  ffi.Pointer<ffi.Void> LatitudeQuestion(
     ffi.Pointer<ffi.Void> shape,
-    ffi.Pointer<ffi.Double> minLat,
-    ffi.Pointer<ffi.Double> maxLat,
-    ffi.Pointer<ffi.Double> minLon,
-    ffi.Pointer<ffi.Double> maxLon,
+    double latitude,
+    int theirsHigher,
   ) {
-    return _GetBounds(
+    return _LatitudeQuestion(
       shape,
-      minLat,
-      maxLat,
-      minLon,
-      maxLon,
+      latitude,
+      theirsHigher,
     );
   }
 
-  late final _GetBoundsPtr = _lookup<
+  late final _LatitudeQuestionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>, ffi.Double, ffi.Int)>>('LatitudeQuestion');
+  late final _LatitudeQuestion = _LatitudeQuestionPtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, double, int)>();
+
+  ffi.Pointer<ffi.Void> LongitudeQuestion(
+    ffi.Pointer<ffi.Void> shape,
+    double longitude,
+    int theirsHigher,
+  ) {
+    return _LongitudeQuestion(
+      shape,
+      longitude,
+      theirsHigher,
+    );
+  }
+
+  late final _LongitudeQuestionPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, ffi.Double,
+              ffi.Int)>>('LongitudeQuestion');
+  late final _LongitudeQuestion = _LongitudeQuestionPtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, double, int)>();
+
+  int IsValid(
+    ffi.Pointer<ffi.Void> shape,
+    ffi.Pointer<ffi.Int> segment,
+    ffi.Pointer<ffi.Int> side,
+  ) {
+    return _IsValid(
+      shape,
+      segment,
+      side,
+    );
+  }
+
+  late final _IsValidPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int>)>>('IsValid');
+  late final _IsValid = _IsValidPtr.asFunction<
+      int Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Int>)>();
+
+  ffi.Pointer<ffi.Void> AdminAreaQuesiton(
+    ffi.Pointer<ffi.Void> shape,
+    ffi.Pointer<ffi.Void> regions,
+    int length,
+    LatLngDart position,
+    int same,
+  ) {
+    return _AdminAreaQuesiton(
+      shape,
+      regions,
+      length,
+      position,
+      same,
+    );
+  }
+
+  late final _AdminAreaQuesitonPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
               ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Double>,
-              ffi.Pointer<ffi.Double>,
-              ffi.Pointer<ffi.Double>,
-              ffi.Pointer<ffi.Double>)>>('GetBounds');
-  late final _GetBounds = _GetBoundsPtr.asFunction<
-      void Function(
-          ffi.Pointer<ffi.Void>,
-          ffi.Pointer<ffi.Double>,
-          ffi.Pointer<ffi.Double>,
-          ffi.Pointer<ffi.Double>,
-          ffi.Pointer<ffi.Double>)>();
+              ffi.Pointer<ffi.Void>,
+              ffi.Int,
+              LatLngDart,
+              ffi.Int)>>('AdminAreaQuesiton');
+  late final _AdminAreaQuesiton = _AdminAreaQuesitonPtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>,
+          ffi.Pointer<ffi.Void>, int, LatLngDart, int)>();
 
   int ConversionTestFromLatLng(
     LatLngDart point,

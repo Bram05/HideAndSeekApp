@@ -1,5 +1,6 @@
 #include "Vector3.h"
 #include "Constants.h"
+#include "Matrix3.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -89,6 +90,21 @@ Double clamp(const Double& val)
     }
     return val;
 }
+double clampImprecise(double val)
+{
+    ZoneScoped;
+    if (val > 1)
+    {
+        // assert(val - Constants::GetEpsilon() <= 1);
+        return 1;
+    }
+    else if (val < -1)
+    {
+        // assert(val + Constants::GetEpsilon() >= -1);
+        return -1.0;
+    }
+    return val;
+}
 
 Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
 {
@@ -99,10 +115,19 @@ Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
     // return math.acos(inner) / (2 * math.pi) * circumferenceEarth;
     return acos(inner) / (2 * Constants::pi()) * Constants::CircumferenceEarth();
 }
+double GetDistanceAlongEarthImprecise(const Vector3double& a, const Vector3double& b)
+{
+    ZoneScoped;
+    // we don't care if a and b are on the scale of the planet, or between -1 and 1
+    // Double inner = clamp(dot(a.normalized(), b.normalized()));
+    double inner = clampImprecise(a.x * b.x + a.y * b.y + a.z * b.z);
+    // return math.acos(inner) / (2 * math.pi) * circumferenceEarth;
+    return std::acos(inner) / (2 * M_PI) * Constants::CircumferenceEarthImprecise();
+}
 
 LatLng Vector3::ToLatLng() const
 {
-    ZoneScoped;
+    ZoneScopedS(20);
     // if (length2() != 1)
     // {
     //     std::cerr << *this << ", " << length() << '\n';
@@ -148,9 +173,7 @@ LatLng Vector3::ToLatLng() const
 
 Vector3 LatLng::ToVector3() const
 {
-    // Double theta = longitudeInRad();
-    // Double phi   = latitudeInRad();
-    // return Vector3(-sin(theta) * cos(phi), cos(theta) * cos(phi), sin(phi));
+    ZoneScoped;
     return Vector3(-sinu(longitude) * cosu(latitude), cosu(longitude) * cosu(latitude),
                    sinu(latitude));
 }

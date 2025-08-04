@@ -16,6 +16,7 @@ void Constants::Init()
 
 void Constants::Destroy() { delete instance; }
 const Double& Constants::CircumferenceEarth() { return instance->circumferenceEarth; }
+double Constants::CircumferenceEarthImprecise() { return 40075017; }
 const Double& Constants::RadiusEarth() { return instance->radiusEarth; }
 
 Double Constants::pi(mpfr_prec_t prec)

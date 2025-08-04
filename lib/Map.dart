@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:jetlag/Boundary.dart';
 import 'package:jetlag/choose_boundary.dart';
 import 'package:jetlag/draw_shape.dart';
+import 'package:jetlag/new_border.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' hide Size;
@@ -14,7 +17,6 @@ import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'Maths.dart';
 import 'dart:ffi' hide Size;
-import 'Boundary.dart';
 
 class MapWidget extends StatefulWidget {
   final String border;
@@ -30,94 +32,105 @@ class MapWidget extends StatefulWidget {
   }
 }
 
-const Size size = Size(10, 10);
-
 class MapWidgetState extends State<MapWidget> {
-  bool museums = false;
-  bool hittest = false;
-  bool drawingCircle = false;
-  late ShapeCreator creator;
-  bool creatorActive = false;
-  LatLng? lastCirclePoint = null;
-  bool drewCirclePart = false;
-  LatLng circleThirdPoint = LatLng(-1, -1);
-  double radius = 200;
+  int tileDimension = 256;
   late TileLayer tileLayer;
-  List<Pointer<Void>> extraShapes = [];
-  int focussedIndex = -1;
-  List<(int, int)> intersections = [];
-  int firstIntersection = -1;
-  List<Pointer<Void>> intended = [];
+  Pointer<Void> boundary = nullptr, originalBoundary = nullptr;
   final mapController = MapController();
-  TextEditingController filenameController = TextEditingController();
-  void addShape(Pointer<Void> shape) {
-    setState(() {
-      extraShapes.add(shape);
-      creatorActive = false;
-    });
-  }
-
-  void newShapeCreator() {
-    setState(() {
-      creatorActive = true;
-      creator = ShapeCreator(key: UniqueKey(), callback: addShape);
-    });
-  }
-
+  int focussed = -1;
   @override
   void initState() {
     tileLayer = TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       userAgentPackageName: 'com.HideAndSeek.app',
+      tileDimension: tileDimension,
     );
     super.initState();
   }
 
+  void setBoundary(Pointer<Void> newShape) {
+    if (originalBoundary == nullptr)
+      originalBoundary = boundary;
+    else
+      maths.FreeShape(boundary);
+    boundary = newShape;
+  }
+
+  @override
+  void dispose() {
+    maths.FreeShape(boundary);
+    super.dispose();
+  }
+
   late LatLng initialPos;
   late double initialZoom;
-  Future<int> initialize() async {
-    if (extraShapes.isNotEmpty) {
+  Future<int> initialize(Size size) async {
+    if (boundary != nullptr) {
       return 0;
     }
-    var file = File("countries/${uglify(widget.border)}/border.json");
+
+    var file = File("${getLocationOfRegion(widget.border)}/border.json");
     String content = await file.readAsString();
     var json = jsonDecode(content);
     try {
-      var (extraShapesNew, intersectsNew, sol) = fromJson(json);
-      extraShapes = extraShapesNew;
-      intersections = intersectsNew;
+      var (extraShapesNew, intersectsNew, sol, minLat, minLon, maxLat, maxLon) =
+          fromJson(json);
       if (extraShapesNew.length != 1) {
         return Future.error(
           "Invalid file: it contained ${extraShapesNew.length} shapes instead of 1",
         );
       }
-      Pointer<Double> minLat = malloc();
-      Pointer<Double> maxLat = malloc();
-      Pointer<Double> minLon = malloc();
-      Pointer<Double> maxLon = malloc();
-      maths.GetBounds(extraShapesNew[0], minLat, maxLat, minLon, maxLon);
-      initialPos = LatLng(
-        (minLat.value + maxLat.value) / 2,
-        (minLon.value + maxLon.value) / 2,
+      boundary = extraShapesNew[0];
+      // Pointer<Double> minLat = malloc();
+      // Pointer<Double> maxLat = malloc();
+      // Pointer<Double> minLon = malloc();
+      // Pointer<Double> maxLon = malloc();
+      // maths.GetBounds(extraShapesNew[0], minLat, maxLat, minLon, maxLon);
+      initialPos = LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
+      double log_2(double x) => log(x) / log(2);
+      initialZoom = min(
+        log_2(
+          360 /
+              (1.2 *
+                  (maxLon - minLon) *
+                  (tileDimension.toDouble()) /
+                  size.width),
+        ),
+        log_2(
+          170 / // todo: this is wrong
+              (1.0 * (maxLat - minLat) * tileDimension / size.height),
+        ),
       );
-      // todo: set appropriate zoom level using formulas from https://wiki.openstreetmap.org/wiki/Zoom_levels
-      initialZoom = 8;
     } catch (e) {
       return Future.error("error: $e");
     }
-    // extraShapes.addAll(sol);
-    // intended = sol;
     return 3;
+  }
+
+  Future<(Pointer<Void>, int)> getRegions() async {
+    Directory dir = Directory("${getLocationOfRegion(widget.border)}/subareas");
+    List<FileSystemEntity> entities = await dir.list().toList();
+    Pointer<Pointer<Void>> regions = malloc(entities.length);
+    for (int i = 0; i < entities.length; i++) {
+      var res = fromJson(
+        jsonDecode(await File(entities[i].path).readAsString()),
+      ).$1;
+      if (res.length != 1) {
+        return Future.error(
+          "Invalid number of shapes in province: ${res.length}",
+        );
+      }
+      regions[i] = res[0];
+    }
+    return (regions as Pointer<Void>, entities.length);
   }
 
   @override
   Widget build(BuildContext context) {
-    // print("Rendering
+    Size size = MediaQuery.of(context).size;
+    print("Size: $size");
     return FutureBuilder<void>(
-      future: initialize(),
-      // future: (extraShapes.isNotEmpty && museums == true
-      //     ? updateBoundary(extraShapes.last, true)
-      //     : Future(() => Pointer<Void>.fromAddress(0))),
+      future: initialize(size),
       builder: (context, asyncSnapshot) {
         if (asyncSnapshot.hasError)
           return Center(
@@ -139,13 +152,6 @@ class MapWidgetState extends State<MapWidget> {
             ),
           );
         if (!asyncSnapshot.hasData) return Text("waiting");
-        // if (asyncSnapshot.data as Pointer<Void> != Pointer.fromAddress(0)) {
-        //   print("TODO:");
-        //   // museums = false;
-        //   // extraShapes.add(asyncSnapshot.data as Pointer<Void>);
-        // }
-
-        // pinks.add(asyncSnapshot.data!);
         return Column(
           children: [
             Row(
@@ -156,441 +162,25 @@ class MapWidgetState extends State<MapWidget> {
                     child: MenuBar(children: MenuEntry.build(_getMenus())),
                   ),
               ],
-              //   TextButton(
-              //     onPressed: () {
-              //       setState(() {
-              //         );
-              //       });
-              //     },
-              //     child: Text("Start new boundary"),
-              //   ),
-              //   !hittest
-              //       ? TextButton(
-              //           onPressed: () {
-              //             if (drawingShape) {
-              //               print("Stop drawing first!");
-              //               return;
-              //             }
-              //             setState(() {
-              //               hittest = true;
-              //             });
-              //           },
-              //           child: Text("Start hittest"),
-              //         )
-              //       : TextButton(
-              //           onPressed: () {
-              //             setState(() {
-              //               hittest = false;
-              //             });
-              //           },
-              //           child: Text("Stop hittest"),
-              //         ),
-              //   TextButton(
-              //     onPressed: () {
-              //       if (!drawingShape || hittest) {
-              //         print("Cannot add segment when not drawing a shape!");
-              //         return;
-              //       }
-              //       // extraShapes.last.segments.last.sides.add(
-              //       //   StraightEdge(),
-              //       // ); // Close the previous shape
-              //       setState(() {
-              //         extraShapes.last.segments.add(
-              //           Segment(vertices: [], sides: []),
-              //         );
-              //       });
-              //     },
-              //     child: Text("Add new segment"),
-              //   ),
-              //   TextButton(
-              //     onPressed: () {
-              //       setState(() {
-              //         extraShapes.clear();
-              //         intersections.clear();
-              //         firstIntersection = -1;
-              //         drawingShape = false;
-              //       });
-              //     },
-              //     child: Text("Clear everything"),
-              //   ),
-              //   Divider(),
-              //   ConstrainedBox(
-              //     constraints: BoxConstraints(maxWidth: 100),
-              //     child: TextField(
-              //       controller: filenameController,
-              //       textAlign: TextAlign.center,
-              //     ),
-              //   ),
-              //   TextButton(
-              //     onPressed: () {
-              //       var tempJson = {};
-              //       tempJson["shapes"] = [];
-              //
-              //       for (Shape s in extraShapes) {
-              //         tempJson["shapes"].add(s.toJson());
-              //       }
-              //
-              //       tempJson["intersections"] = [];
-              //       for (var (first, second) in intersections) {
-              //         tempJson["intersections"].add({
-              //           "first": first,
-              //           "second": second,
-              //           "solution": intersect(
-              //             extraShapes[first],
-              //             extraShapes[second],
-              //           ),
-              //         });
-              //       }
-              //       String json = jsonEncode(tempJson);
-              //       print(json);
-              //       var file = File("tests/${filenameController.text}.json");
-              //       file.writeAsString(json);
-              //     },
-              //     child: Text("Save extra shapes to disk"),
-              //   ),
-              //   TextButton(
-              //     onPressed: () async {
-              //       var file = File("tests/${filenameController.text}.json");
-              //       String content = await file.readAsString();
-              //       print("File content is $content");
-              //       var json = jsonDecode(content);
-              //       setState(() {
-              //         var (extraShapesNew, intersectsNew, sol) = fromJson(json);
-              //         extraShapes = extraShapesNew;
-              //         intersections = intersectsNew;
-              //         intended = sol;
-              //       });
-              //
-              //       print("Have new shape ${extraShapes.last}");
-              //     },
-              //     child: Text("Load from json"),
-              //   ),
-              //
-              //   TextButton(
-              //     onPressed: () async {
-              //       updateBoundary(extraShapes.last);
-              //     },
-              //     child: Text("Update last created boundary with museums"),
-              //   ),
-              // ],
             ),
             Expanded(
               child: MouseRegion(
-                onHover: (PointerHoverEvent e) {
-                  // setState(() {
-                  // maths.FreeShape(extraShapes.last);
-                  // LatLng p = mapController.camera.screenOffsetToLatLng(
-                  //   e.localPosition,
-                  // );
-                  // Pointer<LatLngDart> ek = malloc<LatLngDart>()
-                  //   ..ref.lat = p.latitude
-                  //   ..ref.lon = p.longitude;
-                  // extraShapes.last = maths.AddCircle(ek, radius);
-                  // malloc.free(ek);
-                  // if (hittest) {
-                  //   for (int i = 0; i < extraShapes.length; i++) {
-                  //     if (1 ==
-                  //         maths.hit(
-                  //           extraShapes[i],
-                  //           latLngToLatLngDart(
-                  //             mapController.camera.screenOffsetToLatLng(
-                  //               e.localPosition,
-                  //             ),
-                  //           ),
-                  //         )) {
-                  //       focussedIndex = i;
-                  //       return;
-                  //     }
-                  //     focussedIndex = -1;
-                  //   }
-                  // }
-                  // });
-                },
                 child: FlutterMap(
                   mapController: mapController,
                   options: MapOptions(
                     initialCenter: initialPos,
-                    // initialZoom: 14, // 17
                     initialZoom: initialZoom,
-                    onMapEvent: (MapEvent e) {
-                      setState(() {});
-                    },
-                    // Tapposition contains screen coordinates, which we do not want
-                    onTap: (TapPosition _, LatLng pos) {
-                      // print("Clicked at position $pos");
-                      // return;
-                      // if (drawingCircle) {
-                      //   if (lastCirclePoint != null) {
-                      //     Vector3 centre = latLngToVec3(lastCirclePoint!);
-                      //     Vector3 now = latLngToVec3(pos);
-                      //     lastCirclePoint = null;
-                      //     drawingCircle = false;
-                      //     print("adding cirlc");
-                      //     print("Centre is ${vec3ToLatLng(centre)}");
-                      //     var (p, _, _) = Plane.fromCircle(
-                      //       vec3ToLatLng(centre),
-                      //       getDistanceAlongSphere(centre, now),
-                      //       true,
-                      //     );
-                      //     print("LIES INSIDE: ${p.liesInside(now)}");
-                      //     points.add(vec3ToLatLng(now));
-                      //     points.add(
-                      //       vec3ToLatLng(
-                      //         (centre - (now - centre)).normalized(),
-                      //       ),
-                      //     );
-                      //     extraShapes.add(
-                      //       Shape(
-                      //         segments: [
-                      //           Segment(
-                      //             vertices: [
-                      //               now,
-                      //               (centre - (now - centre)).normalized(),
-                      //             ],
-                      //             sides: [
-                      //               CircleEdge(
-                      //                 center: vec3ToLatLng(centre),
-                      //                 radius: getDistanceAlongSphere(
-                      //                   centre,
-                      //                   now,
-                      //                 ),
-                      //                 startAngle: 0,
-                      //                 sweepAngle: math.pi,
-                      //                 plane: p,
-                      //               ),
-                      //               StraightEdge(),
-                      //             ],
-                      //           ),
-                      //         ],
-                      //       ),
-                      //     );
-                      //     print(
-                      //       extraShapes.last.segments.last.sides[0].getPlane(
-                      //         now,
-                      //         centre - (now - centre),
-                      //       ),
-                      //     );
-                      //     setState(() {});
-                      //     return;
-                      //   } else {
-                      //     lastCirclePoint = pos;
-                      //     return;
-                      //   }
-                      // }
-                      // if (drawingShape) {
-                      //   if (drewCirclePart) {
-                      //     drewCirclePart = false;
-                      //     Offset p1 = mapController.camera.latLngToScreenOffset(
-                      //       vec3ToLatLng(
-                      //         extraShapes.last.segments.last.vertices.last,
-                      //       ),
-                      //     );
-                      //     Offset p2 = mapController.camera.latLngToScreenOffset(
-                      //       circleThirdPoint,
-                      //     );
-                      //     Offset p3 = mapController.camera.latLngToScreenOffset(
-                      //       pos,
-                      //     );
-                      //     Offset delta1 = Offset(p1.dx - p2.dx, p1.dy - p2.dy);
-                      //     Offset delta1Rotated = Offset(delta1.dy, -delta1.dx);
-                      //     Offset delta1Middle = Offset(
-                      //       (p1.dx + p2.dx) / 2,
-                      //       (p1.dy + p2.dy) / 2,
-                      //     );
-                      //     Offset delta2 = Offset(p3.dx - p2.dx, p3.dy - p2.dy);
-                      //     Offset delta2Rotated = Offset(delta2.dy, -delta2.dx);
-                      //     Offset delta2Middle = Offset(
-                      //       (p3.dx + p2.dx) / 2,
-                      //       (p3.dy + p2.dy) / 2,
-                      //     );
-                      //     Line l1 = Line(
-                      //       Vector3(delta1Rotated.dx, delta1Rotated.dy, 0),
-                      //       Vector3(delta1Middle.dx, delta1Middle.dy, 0),
-                      //     );
-                      //     Line l2 = Line(
-                      //       Vector3(delta2Rotated.dx, delta2Rotated.dy, 0),
-                      //       Vector3(delta2Middle.dx, delta2Middle.dy, 0),
-                      //     );
-                      //     Vector3 centre = l1.intersect(l2);
-                      //     assert(close(centre.z, 0));
-                      //     extraShapes.last.segments.last.vertices.add(
-                      //       latLngToVec3(pos),
-                      //     );
-                      //     print('centre: $centre');
-                      //     Offset centreOffset = Offset(centre.x, centre.y);
-                      //     // points.add(
-                      //     //   mapController.camera.screenOffsetToLatLng(
-                      //     //     centreOffset,
-                      //     //   ),
-                      //     // );
-                      //     extraShapes.last.segments.last.sides.add(
-                      //       CircleEdge(
-                      //         center: mapController.camera.screenOffsetToLatLng(
-                      //           centreOffset,
-                      //         ),
-                      //         plane: Plane(0, 1, 0, 0), //todo:
-                      //         radius: getDistanceAlongSphere(
-                      //           latLngToVec3(
-                      //             mapController.camera.screenOffsetToLatLng(
-                      //               centreOffset,
-                      //             ),
-                      //           ),
-                      //           latLngToVec3(pos),
-                      //         ),
-                      //         startAngle: 0,
-                      //         sweepAngle: math.pi,
-                      //       ),
-                      //     );
-                      //     print(extraShapes.last.segments.last.sides.last);
-                      //     return;
-                      //   }
-                      //   if (HardwareKeyboard.instance.isShiftPressed) {
-                      //     drewCirclePart = true;
-                      //     circleThirdPoint = pos;
-                      //     return;
-                      //   }
-                      //
-                      //   setState(() {
-                      //     extraShapes.last.segments.last.vertices.add(
-                      //       latLngToVec3(pos),
-                      //     );
-                      //     // if (extraShapes.last.segments.last.vertices.length > 1) {
-                      //     extraShapes.last.segments.last.sides.add(
-                      //       StraightEdge(),
-                      //     );
-                      //     // }
-                      //   });
-                      // } else {
-                      //   print("hit?");
-                      //   // todo: =----------------------------change to extrashapes
-                      //   for (int i = widget.shapes.length - 1; i >= 0; i--) {
-                      //     if (widget.shapes[i].hit(latLngToVec3(pos), this)) {
-                      //       print("hit index $i");
-                      //       // if (firstIntersection == -1) {
-                      //       //   firstIntersection = i;
-                      //       //   return;
-                      //       // } else {
-                      //       // setState(() {
-                      //       //   intersections.add((firstIntersection, i));
-                      //       //   firstIntersection = -1;
-                      //       //   print(
-                      //       //     "Now seeing ${intersections.length} intersections",
-                      //       //   );
-                      //       // });
-                      //       // return;
-                      //       // }
-                      //     }
-                      //   }
-                      //   print("Did not intersect anything");
-                      // }
-                    },
-                    onLongPress: (TapPosition _, LatLng pos) {
-                      // print("Right click at position $pos");
-                      // setState(() {
-                      //   if (drawingShape) {
-                      //     if (extraShapes.last.segments.last.vertices.length <=
-                      //         2) {
-                      //       extraShapes.removeLast();
-                      //     } else {
-                      //       // extraShapes.last.segments.last.sides.add(StraightEdge());
-                      //     }
-                      //   }
-                      //   drawingShape = false;
-                      // });
-                    },
                   ),
                   children: [
                     tileLayer,
-                    if (creatorActive) creator,
-                    for (
-                      int i = 0;
-                      i < extraShapes.length;
-                      i++
-                    ) // todo: this should not fail
-                      // if (extraShapes[i].segments.length > 0 &&
-                      //     extraShapes[i].segments.last.vertices.length > 2)
+                    Shape(shape: boundary, color: Colors.white, focussed: true),
+                    if (originalBoundary != nullptr)
                       Shape(
-                        shape: extraShapes[i],
+                        shape: originalBoundary,
                         color: Colors.white,
-                        focussed: (focussedIndex == i),
-                      ),
-                    for (var (first, second) in intersections) ...[
-                      Shape(
-                        shape: maths.IntersectShapes(
-                          extraShapes[first],
-                          extraShapes[second],
-                        ),
-                        color: Colors.red,
                         focussed: false,
                       ),
-                    ],
-                    // CustomPaint(
-                    //   painter: PointPainter(
-                    //     points:
-                    //         intersectionPoints(
-                    //               extraShapes[first],
-                    //               extraShapes[second],
-                    //             ).$1
-                    //             .map<LatLng>((el) => vec3ToLatLng(el.point))
-                    //             .toList(),
-                    //     camera: mapController.camera,
-                    //   ),
-                    // ),
-                    // ],
-                    // if (points.isNotEmpty)
-                    //   CustomPaint(
-                    //     painter: PointPainter(
-                    //       points: points,
-                    //       camera: mapController.camera,
-                    //     ),
-                    //   ),
-                    // if (lines.isNotEmpty)
-                    //   CustomPaint(
-                    //     painter: LinePainter(
-                    //       lines: lines,
-                    //       camera: mapController.camera,
-                    //     ),
-                    //   ),
-                    // // for (Shape shape in intended)
-                    // //   Child(shape: shape, color: Colors.blue, focussed: false),
-                    // Text(
-                    //   drawingShape
-                    //       ? "Click to add vertex to the shape"
-                    //       : "Click to intersect shapes",
-                    //   style: TextStyle(fontSize: 25, color: Colors.black),
-                    // ),
-                    // PolygonLayer(
-                    //   polygons: [
-                    //     Polygon(
-                    //       // borderStrokeWidth: 100,
-                    //       // borderColor: Colors.red,
-                    //       points: [
-                    //         LatLng(60, 20),
-                    //         LatLng(70, 20),
-                    //         LatLng(70, 30),
-                    //         LatLng(60, 30),
-                    //       ],
-                    //     ),
-                    //   ],
-                    // ),
-                    // CircleLayer(
-                    //   circles: [
-                    //     CircleMarker(
-                    //       point: LatLng(65, 25),
-                    //       radius: 10000,
-                    //       useRadiusInMeter: true,
-                    //       color: Colors.transparent,
-                    //       borderColor: Colors.blue,
-                    //       borderStrokeWidth: 10,
-                    //     ),
-                    //   ],
-                    // ),
                   ],
-                  // PolygonLayer(
-                  //   polygons: Polygon(
-                  //     points: [LatLng(40, 30), LatLng(20, 50), LatLng(25, 45)],
-                  //     color: Colors.blue,
-                  //   ),
                 ),
               ),
             ),
@@ -602,6 +192,54 @@ class MapWidgetState extends State<MapWidget> {
 
   ShortcutRegistryEntry? _shortcutsEntry;
 
+  void askQuestion(String question, Function(bool) handle) async {
+    bool? result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: Text(question),
+          children: [
+            SimpleDialogOption(
+              child: Text("Yes"),
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+            ),
+            SimpleDialogOption(
+              child: Text("No"),
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+            ),
+          ],
+        );
+      },
+    );
+    if (result == null) return;
+    Pointer<Void> out = await handle(result);
+    setState(() {
+      setBoundary(out);
+    });
+    Pointer<Int> segment = malloc();
+    Pointer<Int> side = malloc();
+    int x = maths.IsValid(boundary, segment, side);
+    int seg = segment.value;
+    int sid = side.value;
+    malloc.free(segment);
+    malloc.free(side);
+    if (1 != x) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Boundary is invalid"),
+            content: Text("Segment = $seg and side = $sid"),
+          );
+        },
+      );
+    }
+  }
+
   List<MenuEntry> _getMenus() {
     final List<MenuEntry> result = <MenuEntry>[
       MenuEntry(
@@ -611,66 +249,10 @@ class MapWidgetState extends State<MapWidget> {
         },
       ),
       MenuEntry(
-        label: 'Debug',
+        label: 'Save/Load',
         menuChildren: <MenuEntry>[
           MenuEntry(
-            label: 'Start new boundary',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyB,
-              control: true,
-            ),
-            onPressed: () {
-              newShapeCreator();
-              // print("hi there");
-              // setState(() {
-              //   drawingShape = true;
-              //   extraShapes.add(
-              //     Shape(
-              //       segments: [Segment(vertices: [], sides: [])],
-              //     ),
-              //   );
-              // });
-            },
-          ),
-          // MenuEntry(
-          //   label: 'Add new segment',
-          //   shortcut: const SingleActivator(
-          //     LogicalKeyboardKey.keyN,
-          //     control: true,
-          //   ),
-          //   onPressed: () {
-          //     // if (!drawingShape || hittest) {
-          //     //   print(
-          //     //     "Cannot add segment when not drawing a shape or being in a hittest!",
-          //     //   );
-          //     //   return;
-          //     // }
-          //     // extraShapes.last.segments.last.sides.add(
-          //     //   StraightEdge(),
-          //     // ); // Close the previous shape
-          //     // setState(() {
-          //     //   extraShapes.last.segments.add(Segment(vertices: [], sides: []));
-          //     // });
-          //   },
-          // ),
-          MenuEntry(
-            label: 'Clear all extra shapes',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyC,
-              control: true,
-            ),
-            onPressed: () {
-              setState(() {
-                extraShapes.clear();
-                intersections.clear();
-                museums = false;
-                firstIntersection = -1;
-                // drawingShape = false;
-              });
-            },
-          ),
-          MenuEntry(
-            label: 'Save extra shapes to json',
+            label: 'Save current state',
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyS,
               control: true,
@@ -679,29 +261,13 @@ class MapWidgetState extends State<MapWidget> {
               var tempJson = {};
               tempJson["shapes"] = [];
 
-              for (Pointer<Void> s in extraShapes) {
-                print("Converting shape to json");
-                tempJson["shapes"].add(shapeToJson(s));
-              }
-
+              tempJson["shapes"].add(shapeToJson(boundary));
               tempJson["intersections"] = [];
-              for (var (first, second) in intersections) {
-                tempJson["intersections"].add({
-                  "first": first,
-                  "second": second,
-                  "solution": shapeToJson(
-                    maths.IntersectShapes(
-                      extraShapes[first],
-                      extraShapes[second],
-                    ),
-                  ),
-                });
-              }
               String json = jsonEncode(tempJson);
               print(json);
               FilePicker.platform.saveFile(
                 dialogTitle: 'Please select an output file:',
-                initialDirectory: "${Directory.current.path}/newtests/",
+                initialDirectory: "${Directory.current.path}/saves/",
                 bytes: utf8.encode(json),
                 allowedExtensions: ["json"],
                 fileName: ".json",
@@ -724,101 +290,80 @@ class MapWidgetState extends State<MapWidget> {
               print("File content is $content");
               var json = jsonDecode(content);
               setState(() {
-                var (extraShapesNew, intersectsNew, sol) = fromJson(json);
-                extraShapes = extraShapesNew;
-                intersections = intersectsNew;
-                intended = sol;
+                var (extraShapesNew, intersectsNew, sol, _, _, _, _) = fromJson(
+                  json,
+                );
+                if (extraShapesNew.length != 1) {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: Text("Invalid file"),
+                        content: Text("File contains not exactly one boundary"),
+                      );
+                    },
+                  );
+                  return;
+                }
+                setBoundary(extraShapesNew[0]);
               });
-
-              print("Added ${extraShapes.length} new things");
             },
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyO,
               control: true,
             ),
           ),
-          !hittest
-              ? MenuEntry(
-                  shortcut: const SingleActivator(
-                    LogicalKeyboardKey.keyH,
-                    control: true,
-                  ),
-                  label: "Start hittest",
-                  onPressed: () {
-                    // if (drawingShape) {
-                    //   print("Stop drawing first!");
-                    //   return;
-                    // }
-                    setState(() {
-                      hittest = true;
-                    });
-                  },
-                )
-              : MenuEntry(
-                  label: "Stop hittest",
-                  shortcut: const SingleActivator(
-                    LogicalKeyboardKey.keyH,
-                    control: true,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      hittest = false;
-                    });
-                  },
-                ),
+        ],
+      ),
+      MenuEntry(
+        label: "Relative",
+        menuChildren: [
           MenuEntry(
-            label: "Add circle",
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyK,
-              control: true,
-            ),
-            onPressed: () async {
-              drawingCircle = true;
+            label: "Latitude",
+            onPressed: () {
+              askQuestion(
+                "Is hiders latitude higher than yours (above you on the map)?",
+                (bool answer) async {
+                  return maths.LatitudeQuestion(
+                    boundary,
+                    (await getPosition()).lat,
+                    answer ? 1 : 0,
+                  );
+                },
+              );
             },
           ),
           MenuEntry(
-            label: "Update last boundary with museum",
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyM,
-              control: true,
-            ),
-            onPressed: () async {
-              // museums = true;
-              if (extraShapes.isEmpty) return;
-              Pointer<Void> boundary = extraShapes.removeLast();
-              extraShapes.add(await updateBoundary(boundary, true));
-              setState(() {});
-              // pinks.add(
-              //   await updateBoundary(
-              //     extraShapes.last,
-              //     this,
-              //     mapController.camera,
-              //   ),
-              // );
+            label: "Longitude",
+            onPressed: () {
+              askQuestion(
+                "Is hiders longitude higher than yours (to the right of you)?",
+                (bool answer) async {
+                  return maths.LongitudeQuestion(
+                    boundary,
+                    (await getPosition()).lon,
+                    answer ? 1 : 0,
+                  );
+                },
+              );
             },
           ),
           MenuEntry(
-            label: "Increase radius",
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyD,
-              control: false,
-            ),
-            onPressed: () async {
-              setState(() {
-                radius *= 1.1;
-              });
-            },
-          ),
-          MenuEntry(
-            label: "Decrease radius",
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyF,
-              control: false,
-            ),
-            onPressed: () async {
-              setState(() {
-                radius *= 0.9;
-              });
+            label: "Same admin area",
+            onPressed: () {
+              askQuestion(
+                "Is the hider in the same administrative area (province,...)?",
+                (bool answer) async {
+                  var (regions, length) = await getRegions();
+                  return maths.AdminAreaQuesiton(
+                    boundary,
+                    regions,
+                    length,
+                    await getPosition(),
+                    answer ? 1 : 0,
+                  );
+                },
+              );
             },
           ),
         ],

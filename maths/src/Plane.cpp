@@ -94,7 +94,11 @@ std::tuple<Plane, Vector3, Vector3> Plane::FromCircle(const Vector3& centre, con
              pointOnPlaneOpposite };
 }
 
-bool Plane::LiesInside(const Vector3& point) const { return dot(GetNormal(), point).close(d); }
+bool Plane::LiesInside(const Vector3& point) const
+{
+    ZoneScoped;
+    return dot(GetNormal(), point).close(d);
+}
 
 std::tuple<IntersectionType, std::optional<Line>> Intersect(const Plane& a, const Plane& b)
 {
@@ -126,10 +130,11 @@ std::tuple<IntersectionType, std::vector<Vector3>> IntersectOnEarth(const Plane&
     ZoneScoped;
     auto [type, l] = Intersect(a, b);
     if (type != IntersectionType::normal) { return { type, {} }; }
-    Line line                = l.value();
-    std::vector<Double> sols = SolveQuadratic(line.dir.length2(), 2 * dot(line.dir, line.point),
-                                              // l.point.lengtaaaaaaaaah2 - radiusEarth * radiusEarth,
-                                              line.point.length2() - 1);
+    Line line = l.value();
+    std::vector<Double> sols =
+        SolveQuadratic(line.dir.length2(), 2 * dot(line.dir, line.point),
+                       // l.point.lengtaaaaaaaaah2 - radiusEarth * radiusEarth,
+                       line.point.length2() - 1);
     // var ints                 = sols.map<Vector3>((double t) = > l.point + l.dir * t).toList();
     std::vector<Vector3> ints;
     for (const Double& t : sols) ints.push_back(line.point + line.dir * t);

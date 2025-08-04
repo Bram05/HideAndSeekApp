@@ -3,6 +3,7 @@
 #include "Double.h"
 #include <tracy/Tracy.hpp>
 
+class Vector3double;
 class LatLng;
 struct LatLngdouble
 {
@@ -84,6 +85,7 @@ public:
     friend Double distance(const Vector3& a, const Vector3& b) { return (a - b).length(); }
     friend Double distance2(const Vector3& a, const Vector3& b) { return (a - b).length2(); }
     friend Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b);
+    friend double GetDistanceAlongEarthImprecise(const Vector3double& a, const Vector3double& b);
     friend std::ostream& operator<<(std::ostream& os, const Vector3& v);
     std::string ToString() const;
 

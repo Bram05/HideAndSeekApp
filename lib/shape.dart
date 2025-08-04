@@ -32,19 +32,30 @@ Map<String, dynamic> latLngToJson(LatLngDart latLng) {
   return {"latitude": latLng.lat, "longitude": latLng.lon};
 }
 
-SegmentDart segmentfromJson(List<dynamic> json) {
-  // print("Adding segment of length ${json.length}");
-
+(SegmentDart, double, double, double, double) segmentfromJson(
+  List<dynamic> json,
+  double minLat,
+  double minLon,
+  double maxLat,
+  double maxLon,
+) {
   Pointer<LatLngDart> vertices = malloc(json.length);
   for (int i = 0; i < json.length; i++) {
     vertices[i] = latLngFromJson(json[i]);
+    minLat = math.min(minLat, vertices[i].lat);
+    maxLat = math.max(maxLat, vertices[i].lat);
+    minLon = math.min(minLon, vertices[i].lon);
+    maxLon = math.max(maxLon, vertices[i].lon);
   }
-  return malloc<SegmentDart>().ref
-    ..vertices = vertices
-    ..verticesCount = json.length;
-  // return Struct.create()
-  //   ..vertices = vertices
-  //   ..verticesCount = json.length;
+  return (
+    malloc<SegmentDart>().ref
+      ..vertices = vertices
+      ..verticesCount = json.length,
+    minLat,
+    minLon,
+    maxLat,
+    maxLon,
+  );
 }
 
 List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
@@ -67,13 +78,19 @@ List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
   return vertices;
 }
 
-Pointer<Void> shapeFromJson(List<dynamic> json) {
+(Pointer<Void>, double, double, double, double) shapeFromJson(
+  List<dynamic> json,
+) {
   Pointer<SegmentDart> segments = malloc(json.length);
-  // print("Lengte: ${json.length}");
+  double minLat = 10000, minLon = 10000, maxLat = -10000, maxLon = -10000;
   for (int i = 0; i < json.length; i++) {
-    segments[i] = segmentfromJson(json[i]);
+    var ret = segmentfromJson(json[i], minLat, minLon, maxLat, maxLon);
+    segments[i] = ret.$1;
+    minLat = ret.$2;
+    minLon = ret.$3;
+    maxLat = ret.$4;
+    maxLon = ret.$5;
   }
-  // print("a: ${segments[1].verticesCount}");
   var p = malloc<ShapeDart>()
     ..ref.segments = segments
     ..ref.segmentsCount = json.length;
@@ -82,7 +99,7 @@ Pointer<Void> shapeFromJson(List<dynamic> json) {
     SegmentDart s = p.ref.segments[i];
     malloc.free(s.vertices);
   }
-  return res;
+  return (res, minLat, minLon, maxLat, maxLon);
 }
 
 List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
@@ -97,22 +114,44 @@ List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   return segmentsJson;
 }
 
-(List<Pointer<Void>>, List<(int, int)>, List<Pointer<Void>>) fromJson(
-  Map<String, dynamic> json,
-) {
+(
+  List<Pointer<Void>>,
+  List<(int, int)>,
+  List<Pointer<Void>>,
+  double,
+  double,
+  double,
+  double,
+)
+fromJson(Map<String, dynamic> json) {
   List<Pointer<Void>> extraShapes = [];
   List<(int, int)> intersections = [];
   List<Pointer<Void>> solutions = [];
+  double minLat = -100000, minLon = -100000, maxLat = -100000, maxLon = -100000;
   for (var shape in json["shapes"]) {
-    extraShapes.add(shapeFromJson(shape));
+    var ret = shapeFromJson(shape);
+    extraShapes.add(ret.$1);
+    minLat = ret.$2;
+    minLon = ret.$3;
+    maxLat = ret.$4;
+    maxLon = ret.$5;
   }
   for (var intersection in json["intersections"]) {
     intersections.add((intersection["first"], intersection["second"]));
-    solutions.add(shapeFromJson(intersection["solution"]));
+    var ret = shapeFromJson(intersection["solution"]);
+    solutions.add(ret.$1);
   }
 
   // print("Loaded ${extraShapes.length} extra shapes from json");
-  return (extraShapes, intersections, solutions);
+  return (
+    extraShapes,
+    intersections,
+    solutions,
+    minLat,
+    minLon,
+    maxLat,
+    maxLon,
+  );
 }
 
 // For single shape
@@ -152,7 +191,8 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   int total = 0;
 
   ui.Path path = ui.Path();
-  path.fillType = ui.PathFillType.nonZero;
+  // path.fillType = ui.PathFillType.nonZero;
+  path.fillType = ui.PathFillType.evenOdd;
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     int delta = 1;
@@ -175,7 +215,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
         );
         numIntermediatePoints = k.value;
         malloc.free(k);
-        cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
+        // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
       } else {
         (intermediatePoints, numIntermediatePoints) = cachedIntPoints[(i, j)]!;
       }

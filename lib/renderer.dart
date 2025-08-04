@@ -21,7 +21,12 @@ class Shape extends StatefulWidget {
   State<Shape> createState() => ShapeState();
 }
 
-ui.Path transform(MapCamera camera, ui.Path path, ui.Size size) {
+ui.Path transform(
+  MapCamera camera,
+  ui.Path path,
+  ui.Size size,
+  bool addBorder,
+) {
   var center = camera.center;
   ui.Offset offset = camera.latLngToScreenOffset(center);
   ui.Offset original = camera.latLngToScreenOffset(LatLng(0, 0));
@@ -34,8 +39,9 @@ ui.Path transform(MapCamera camera, ui.Path path, ui.Size size) {
       );
   // Matrix4.diagonal3(Vector3(1, 1, 1) * camera.getZoomScale(camera.zoom, 1));
 
-  return path.transform(matrix.storage);
-  // return path;
+  ui.Path result = path.transform(matrix.storage);
+  if (addBorder) result.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+  return result;
 }
 
 class MyClipper extends CustomClipper<ui.Path> {
@@ -46,22 +52,7 @@ class MyClipper extends CustomClipper<ui.Path> {
 
   @override
   ui.Path getClip(Size size) {
-    // ui.Path path = getPath(shape, MapCamera.of(context), size);
-    // ui.Path otherPath = ui.Path();
-    // otherPath.moveTo(0, 0);
-    // otherPath.lineTo(0, size.height);
-    // otherPath.lineTo(size.width, size.height);
-    // otherPath.lineTo(size.width, 0);
-    // otherPath.close();
-    // path.addPath(path, Offset(0, 0));
-    // path.fillType = PathFillType.nonZero;
-    // path.addRect(
-    //   Rect.fromPoints(Offset(0, size.height), Offset(size.width, 0)),
-    // );
-    // path.addRect(
-    //   Rect.fromPoints(Offset(0, 0), Offset(size.width, size.height)),
-    // );
-    ui.Path p = transform(MapCamera.of(context), path, size);
+    ui.Path p = transform(MapCamera.of(context), path, size, true);
     return p;
   }
 
@@ -88,10 +79,10 @@ class BorderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     ui.Paint p = ui.Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = focussed ? 30.0 : 10
+      ..strokeWidth = focussed ? 20.0 : 10
       ..color = color;
     // canvas.drawPath(getPath(shape, MapCamera.of(context), size), p);
-    canvas.drawPath(transform(MapCamera.of(context), path, size), p);
+    canvas.drawPath(transform(MapCamera.of(context), path, size, false), p);
   }
 
   @override
@@ -103,17 +94,20 @@ class BorderPainter extends CustomPainter {
 class ShapeState extends State<Shape> {
   ui.Path? path;
   double prevzoom = -1;
+  Pointer<Void> prevShape = nullptr;
 
   @override
   Widget build(BuildContext context) {
     // size is not used currently inside the getpath
     if (path == null ||
-        (MapCamera.of(context).zoom - prevzoom).abs() > epsilon) {
+        (MapCamera.of(context).zoom - prevzoom).abs() > epsilon ||
+        prevShape != widget.shape) {
       var baseCamera = MapCamera.of(
         context,
       ).withRotation(0).withPosition(center: LatLng(0, 0));
       path = getPath(widget.shape, baseCamera, ui.Size(0, 0));
       prevzoom = MapCamera.of(context).zoom;
+      prevShape = widget.shape;
     }
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {

@@ -34,7 +34,7 @@ class NewBorderState extends State<NewBorder> {
     try {
       Uint8List res = await c.captureFromWidget(
         MediaQuery(
-          data: MediaQueryData(),
+          data: MediaQueryData(size: Size(1080, 920)),
           child: MapWidget(border: name, renderExtras: false),
         ),
         delay: Duration(seconds: 20),
