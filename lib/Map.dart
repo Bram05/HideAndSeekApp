@@ -4,8 +4,7 @@ import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jetlag/Boundary.dart';
-import 'package:jetlag/choose_boundary.dart';
-import 'package:jetlag/draw_shape.dart';
+import 'package:jetlag/helper.dart';
 import 'package:jetlag/new_border.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
@@ -216,9 +215,44 @@ class MapWidgetState extends State<MapWidget> {
       },
     );
     if (result == null) return;
-    Pointer<Void> out = await handle(result);
+
+    print("Here");
+    Pointer<Void>? out = await showDialog<Pointer<Void>>(
+      context: context,
+      builder: (context) {
+        print("Building dialog");
+        return FutureBuilder(
+          future: handle(result),
+          builder: (context, state) {
+            print("Building within");
+            if (state.hasError)
+              return AlertDialog(
+                title: Text("Something went wrong"),
+                content: Text(state.error.toString()),
+                actions: [
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text("Close"),
+                  ),
+                ],
+              );
+            if (!state.hasData)
+              return AlertDialog(
+                title: Text("Loading..."),
+                content: Text("Please wait"),
+              );
+            Navigator.pop(context, state.data);
+            return Text('...');
+          },
+        );
+      },
+      barrierDismissible: false,
+    );
+    // Pointer<Void> out = await handle(result);
     setState(() {
-      setBoundary(out);
+      setBoundary(out!);
     });
     Pointer<Int> segment = malloc();
     Pointer<Int> side = malloc();
@@ -324,11 +358,17 @@ class MapWidgetState extends State<MapWidget> {
               askQuestion(
                 "Is hiders latitude higher than yours (above you on the map)?",
                 (bool answer) async {
-                  return maths.LatitudeQuestion(
+                  return await askLatitudeQuestion(
+                    maths.LatitudeQuestion,
                     boundary,
                     (await getPosition()).lat,
-                    answer ? 1 : 0,
+                    answer,
                   );
+                  // return maths.LatitudeQuestion(
+                  //   boundary,
+                  //   (await getPosition()).lat,
+                  //   answer ? 1 : 0,
+                  // );
                 },
               );
             },
@@ -339,10 +379,11 @@ class MapWidgetState extends State<MapWidget> {
               askQuestion(
                 "Is hiders longitude higher than yours (to the right of you)?",
                 (bool answer) async {
-                  return maths.LongitudeQuestion(
+                  return await askLongitudeQuestion(
+                    maths.LongitudeQuestion,
                     boundary,
                     (await getPosition()).lon,
-                    answer ? 1 : 0,
+                    answer,
                   );
                 },
               );
@@ -355,12 +396,12 @@ class MapWidgetState extends State<MapWidget> {
                 "Is the hider in the same administrative area (province,...)?",
                 (bool answer) async {
                   var (regions, length) = await getRegions();
-                  return maths.AdminAreaQuesiton(
+                  return askAdminAreaQuestion(
                     boundary,
                     regions,
                     length,
                     await getPosition(),
-                    answer ? 1 : 0,
+                    answer,
                   );
                 },
               );

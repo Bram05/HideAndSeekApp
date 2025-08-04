@@ -198,7 +198,9 @@ class NewBorderState extends State<NewBorder> {
                 );
               }
               if (state == -1) {
-                Directory(getLocationOfRegion(generalName)).deleteSync();
+                Directory(
+                  getLocationOfRegion(generalName),
+                ).deleteSync(recursive: true);
                 return AlertDialog(
                   title: Text("Something went wrong"),
                   content: Text(error),

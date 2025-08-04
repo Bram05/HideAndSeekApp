@@ -10,14 +10,7 @@ import 'package:jetlag/Maths.dart';
 import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:jetlag/shape.dart';
 
-Future<Map<String, dynamic>> getRequest({String? name, int? ref}) async {
-  String spec = "";
-  if (name != null)
-    spec = "nwr['name' = '$name']";
-  else if (ref != null)
-    spec = "nwr($ref)";
-  else
-    throw "Internal error: at least one of name, ref must be non-null";
+Future<Map<String, dynamic>?> attemptGet(String spec, String name) async {
   var result = await http.post(
     Uri.parse('https://overpass-api.de/api/interpreter'),
     body: {
@@ -28,19 +21,43 @@ Future<Map<String, dynamic>> getRequest({String? name, int? ref}) async {
     },
   );
 
+  bool testAdminLevel(String level) {
+    print("testing for level $level");
+    if (name == "Nederland") {
+      return level == "3";
+    } else
+      return level == "2" || level == "3" || level == "4";
+  }
+
   if (result.statusCode != 200) {
     throw "Query for $spec returned code ${result.statusCode}";
   }
   var json = jsonDecode(result.body);
   for (var element in json["elements"]) {
     if (json["elements"].length == 1 ||
-        element["type"] == "relation" &&
-            (element["tags"]["admin_level"] == "3" ||
-                element["tags"]["admin_level"] == "4")) {
+        (element["type"] == "relation" || element["type"] == "boundary") &&
+            testAdminLevel(element["tags"]["admin_level"])) {
       return element;
     }
   }
-  throw "No valid element found";
+  return null;
+}
+
+Future<Map<String, dynamic>> getRequest({String? name, int? ref}) async {
+  if (name != null && ref != null) throw "Internal error: Not both can be null";
+  if (name != null) {
+    String spec = "nwr['name' = '$name']";
+    var ret = await attemptGet(spec, name);
+    ret ??= await attemptGet("nwr['int_name' = '$name']", name);
+    if (ret == null) throw "Cannot find such a region";
+    return ret;
+  } else if (ref != null) {
+    String spec = "nwr($ref)";
+    var el = await attemptGet(spec, "");
+    if (el == null) throw "Internal error: cannot find this reference";
+    return el;
+  }
+  throw "Internal error: at least one of name, ref must be non-null";
 }
 
 Future<void> parseAndStoreBoundary(
@@ -136,6 +153,10 @@ String toShapeJson(Map<String, dynamic> body) {
     bool isOuter = false;
     // removePairFromMap(segmentsLeft, ToString(position), segmentsLeft[first]![0]);
     do {
+      if (segmentsLeft[position] == null) {
+        print("position '$position' does not exist");
+        break;
+      }
       var list = segmentsLeft[position]!;
       // Baarle Nassau :(
       // if ((!isFirst && list.length != 1) || (isFirst && list.length != 2)) {
