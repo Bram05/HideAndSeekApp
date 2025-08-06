@@ -1,5 +1,7 @@
 #pragma once
 #include "Double.h"
+
+// Some interesting constants
 class Constants
 {
 public:

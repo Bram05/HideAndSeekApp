@@ -3,6 +3,10 @@
 #include <stdio.h>
 
 #include <mpfr.h>
+
+// A high precision double class,
+// which uses mpfr to do all the calculations.
+// It is usually more efficient to use += operators then + because of how mpfr works
 class Double
 {
 public:
@@ -44,6 +48,8 @@ public:
     friend Double sin(const Double& x);
     friend Double cos(const Double& x);
     friend Double tan(const Double& x);
+
+    // Angle in degrees
     friend Double sinu(const Double& x);
     friend Double cosu(const Double& x);
     friend Double tanu(const Double& x);

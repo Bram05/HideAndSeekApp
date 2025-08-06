@@ -200,7 +200,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
       delta = 10;
       // delta = 1;
     }
-    if (numSides <= 2) return ui.Path();
+    if (numSides < 2) return ui.Path();
     for (int j = 0; j < numSides; j += delta) {
       Pointer<LatLngDart> intermediatePoints;
       int numIntermediatePoints;

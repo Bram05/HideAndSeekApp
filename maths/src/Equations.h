@@ -1,6 +1,5 @@
 #pragma once
 #include "Double.h"
-#include <cassert>
 #include <vector>
 
 // Solve ax^2+bx+c=0

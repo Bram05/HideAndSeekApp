@@ -86,6 +86,7 @@ Future<Pointer<Void>> updateBoundary(
     list,
     n,
     closestToTheSame ? 1 : 0,
+    1,
   );
   malloc.free(list);
   return res;

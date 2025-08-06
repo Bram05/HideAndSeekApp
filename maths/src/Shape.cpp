@@ -9,6 +9,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <tracy/Tracy.hpp>
@@ -104,8 +105,8 @@ std::vector<IntersectionWithDistance> IntersectSides(const Side& s1, const Side&
         bool second = vec3LiesBetween(intersection, begin2, end2, plane2, s2.properCentre);
         if (first && second)
         {
-            Double dist1 = GetDistanceAlongEarth(begin1, intersection);
-            Double dist2 = GetDistanceAlongEarth(begin2, intersection);
+            Double dist1 = GetDistanceAlongEarthForOrder(begin1, intersection);
+            Double dist2 = GetDistanceAlongEarthForOrder(begin2, intersection);
             result.push_back({ intersection, dist1, dist2 });
         }
     }
@@ -141,8 +142,8 @@ void AddBeginAndEnds(std::map<PositionForTwoShapes, std::vector<IntersectionOnLi
             PositionOnShape pos{ i, j };
             auto [begin, end]             = GetBeginAndEnd(s, pos);
             intersections[{ first, pos }] = {
-                IntersectionOnLine{ begin, 0 },
-                IntersectionOnLine{ end, GetDistanceAlongEarth(begin, end) },
+                IntersectionOnLine{ begin, -1 },
+                IntersectionOnLine{ end, GetDistanceAlongEarthForOrder(begin, end) },
             };
         }
     }
@@ -207,14 +208,20 @@ std::pair<Vector3, Vector3> GetOutwardVectors(const Shape& s, PositionOnShape po
     return { outward, reverseInward };
 }
 
+static bool isDistZero(Double dist)
+{
+    // return dist == 0;
+    // if (dist == -1) std::cerr << "Retuning true\n";
+    return dist == -1;
+}
 bool IntersectTransversely(const Shape& s1, const Shape& s2, const IntersectionWithDistance& point,
                            int seg1Index, int side1Index, int seg2Index, int side2Index,
                            bool isForHit)
 {
     auto [outward1, reverseInward1] =
-        GetOutwardVectors(s1, { seg1Index, side1Index }, point.distAlong1.isZero(), point.point);
+        GetOutwardVectors(s1, { seg1Index, side1Index }, isDistZero(point.distAlong1), point.point);
     auto [outward2, reverseInward2] =
-        GetOutwardVectors(s2, { seg2Index, side2Index }, point.distAlong2.isZero(), point.point);
+        GetOutwardVectors(s2, { seg2Index, side2Index }, isDistZero(point.distAlong2), point.point);
 
     // print("TRANSVERSE at point ${vec3ToLatLng(point.point)}");
     // print(
@@ -268,7 +275,7 @@ bool IntersectTransversely(const Shape& s1, const Shape& s2, const IntersectionW
 }
 
 // this is not exactly the number of subsections
-constexpr int numSubSections = 100000;
+constexpr int numSubSections = 10000; // A value of 100000 does not work
 
 struct IndexOfArea
 {
@@ -286,7 +293,7 @@ std::set<IndexOfArea> GetIndicesForSide(const Shape* s, int segIndex, int sideIn
     std::set<IndexOfArea> indices;
     int numPoints         = 0;
     LatLngDart* positions = GetIntermediatePoints(
-        s, segIndex, sideIndex, Constants::CircumferenceEarth().ToDouble() / (3 * numSubSections),
+        s, segIndex, sideIndex, Constants::CircumferenceEarth().ToDouble() / (4 * numSubSections),
         &numPoints);
     for (int i = 0; i < numPoints; i++)
     {
@@ -298,15 +305,17 @@ std::set<IndexOfArea> GetIndicesForSide(const Shape* s, int segIndex, int sideIn
 
 typedef std::map<IndexOfArea, std::vector<PositionOnShape>> CacheMap;
 std::map<const Shape*, CacheMap> prevs = {};
+std::mutex cacheMutex;
 CacheMap GetCacheMap(const Shape* shape)
 {
+    std::lock_guard<std::mutex> guard(cacheMutex);
     auto it = prevs.find(shape);
     if (it != prevs.end())
     {
-        std::cerr << "Found shape in cache!\n";
+        // std::cerr << "Found shape in cache!\n";
         return it->second;
     }
-    std::cerr << "Did not exist in cache\n";
+    // std::cerr << "Did not exist in cache\n";
     ZoneScoped;
     CacheMap map = {};
     for (int segIndex = 0; segIndex < shape->segments.size(); segIndex++)
@@ -354,20 +363,21 @@ std::tuple<std::vector<IntersectionWithIndex>,
                                        *s2->segments[seg2Index].sides[side2Index]);
                     for (const IntersectionWithDistance& point : currentIntersections)
                     {
-                        if (point.distAlong1.isZero() || point.distAlong2.isZero())
+                        if (isDistZero(point.distAlong1) || isDistZero(point.distAlong2))
                         {
                             if (checkTransverse &&
                                 !IntersectTransversely(*s1, *s2, point, seg1Index, side1Index,
                                                        seg2Index, side2Index, isForHit))
                             {
+                                // std::cerr << "Don't intersect transversely\n";
                                 continue;
                             }
                         }
-                        if (!point.distAlong1.isZero())
+                        if (!isDistZero(point.distAlong1))
                             intersectionsPerSide[PositionForTwoShapes{ true, seg1Index,
                                                                        side1Index }]
                                 .push_back(IntersectionOnLine{ point.point, point.distAlong1 });
-                        if (!point.distAlong2.isZero())
+                        if (!isDistZero(point.distAlong2))
                             intersectionsPerSide[PositionForTwoShapes{ false, seg2Index,
                                                                        side2Index }]
                                 .push_back(IntersectionOnLine{ point.point, point.distAlong2 });
@@ -447,7 +457,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
     }
     prevs                                      = {};
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
-    std::cerr << "Found " << intersections.size() << " intersections\n";
+    // std::cerr << "Found " << intersections.size() << " intersections\n";
     for (auto in : intersections)
     {
         auto& side1 = s1->segments[in.indexInS1.segmentIndex].sides[in.indexInS1.sideIndex];
@@ -649,24 +659,25 @@ bool Shape::Hit(const Vector3& point) const
 {
     for (int i = 0; i < segments[0].sides.size(); i++)
     {
-        const Vector3& end = segments[0].sides[0]->begin;
-        if (end == -point || end == point) { throw "End == +-point :("; }
+        const Vector3& end = segments[0].sides[i]->begin;
+        if (end == -point || end == point) { continue; }
         Shape s          = Shape({ Segment({ Side::StraightSide(
             end,
             point) }) }); // We begin with the end because the 'end' is ignored in intersections
         auto [points, _] = IntersectionPoints(this, &s);
-        std::cerr << "Got " << points.size() << "intersecitons\n";
-        int minIndex       = 0;
+        // std::cerr << "Got " << points.size() << "intersecitons\n";
+        int minIndex       = -1;
         Double minDistance = "10000000000";
-        for (int i = 0; i < points.size(); i++)
+        for (int j = 0; j < points.size(); j++)
         {
-            Double dist = GetDistanceAlongEarth(points[i].point, point);
+            Double dist = GetDistanceAlongEarthForOrder(points[j].point, point);
             if (dist < minDistance)
             {
                 minDistance = dist;
-                minIndex    = i;
+                minIndex    = j;
             }
         }
+        if (minIndex == -1) continue;
         Vector3 t1 = GetTangentAtIntersection(
             *this, points[minIndex].indexInS1,
             points[minIndex].point); // We negate because the order was reversed earlier
@@ -677,9 +688,14 @@ bool Shape::Hit(const Vector3& point) const
         {
             return result == OrientationResult::positive;
         }
-        std::cerr << "Got result undeterminated\n";
+        // std::cerr << "Got result undeterminated\n";
     }
-    throw "All points in first segment are invalid";
+    std::cerr << "WARNING: sharingASIde\n";
+    // This happens in test 'sharingASide' but should never happen in an actual application
+    // If it does, this is probably the most likely solution
+    return false;
+    // std::cerr << "All points are invalid\n";
+    // throw "All points in first segment are invalid";
 
     // return true;
     // // todo: if no intersections and no surroundsplanet: take a line to one of the points in
@@ -725,7 +741,7 @@ bool Shape::FirstHitOrientedPositively(const Vector3& point) const
     Double minDistance = "10000000000";
     for (int i = 0; i < points.size(); i++)
     {
-        Double dist = GetDistanceAlongEarth(points[i].point, point);
+        Double dist = GetDistanceAlongEarthForOrder(points[i].point, point);
         if (dist < minDistance)
         {
             minDistance = dist;

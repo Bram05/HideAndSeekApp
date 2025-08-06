@@ -19,7 +19,6 @@ void DestroyEverything()
 {
     Constants::Destroy();
     Double::Destroy();
-    std::cerr << "Destroying\n" << std::flush;
 }
 const void* GetSegments(const void* shape, int* length)
 {
@@ -143,7 +142,7 @@ void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
     }
     return new Shape(segments);
 }
-Double delta = "0.000001";
+const Double delta = "0.000001";
 void AddFirstSide(void* shapeP, struct LatLngDart beginP)
 {
     Shape* shape    = (Shape*)shapeP;
@@ -228,7 +227,7 @@ void* IntersectShapes(const void* a, const void* b)
     return new Shape(result);
 }
 
-static Double newEpsilon("1e-5");
+static const Double newEpsilon("1e-4");
 int ShapesEqual(const void* a, const void* b)
 {
     const Shape* shapeA = (const Shape*)a;
@@ -311,15 +310,15 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         Vector3 endTransformed =
             Vector3(dot(beginRelative, end), dot(cross, end), 0); // dot(normal, end) = 0
         // assert(dot(normal, end) == 0);
-        if (endTransformed.z != 0)
-            std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
-                      << side->properCentre << "\n";
+        // if (endTransformed.z != 0)
+        //     std::cerr << "Z is not zero!!, endtr = " << endTransformed << " from propercentre"
+        //               << side->properCentre << "\n";
         double angle = std::atan2(endTransformed.y.ToDouble(), endTransformed.x.ToDouble());
         // Double angle = atan2(endTransformed.y, endTransformed.x);
         double epsilon = 1e-6;
         if (std::abs(angle + M_PI) < epsilon)
         {
-            std::cerr << "Changin angle\n";
+            // std::cerr << "Changin angle\n";
             // If y is slightly negative then atan2 returns a negative value, but it should be just
             // zero
             // angle = Constants::pi();
@@ -391,10 +390,14 @@ void* UpdateBoundaryWithClosestToObject(void* boundary, LatLngDart positionP, La
     std::shared_ptr<Side> secondSide = std::make_shared<Side>(-middle, middle, Vector3(0, 0, 0), p);
     Shape shape                      = Shape({ Segment({ firstSide, secondSide }) }, true);
 
-    return IntersectShapes(boundary, &shape);
+    if (boundary)
+        return IntersectShapes(boundary, &shape);
+    else
+        return new Shape(shape);
 }
 void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
-                                 struct LatLngDart* objectsP, int numObjects, int answer)
+                                 struct LatLngDart* objectsP, int numObjects, int answer,
+                                 int deleteFirst)
 {
     int closestIndex   = -1;
     Double minDistance = "10000000000000000000000";
@@ -411,17 +414,19 @@ void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
         }
     }
 
-    Shape* boundary = (Shape*)boundaryP;
+    std::cerr << "Closest index " << closestIndex << '\n';
+    Shape* boundary = nullptr;
+    int first       = closestIndex == 0 ? 1 : 0;
     for (int i = 0; i < numObjects; i++)
     {
         if (i == closestIndex) continue;
         void* newBoundary =
             UpdateBoundaryWithClosestToObject(boundary, objectsP[closestIndex], objectsP[i], false);
-        delete boundary;
+        if (i != first || deleteFirst) delete boundary;
         boundary = (Shape*)newBoundary;
     }
     if (!answer) { boundary->Reverse(); }
-    return boundary;
+    return IntersectShapes(boundary, boundaryP);
 }
 void Reverse(void* shape) { ((Shape*)shape)->Reverse(); }
 // void GetBounds(const void* shapeP, double* minLat, double* maxLat, double* minLon, double*
@@ -512,4 +517,12 @@ void* AdminAreaQuesiton(void* shapeP, void* regionsP, int length, LatLngDart pos
     copy->Reverse();
     Shape s = Intersect(shape, copy);
     return new Shape(s);
+}
+void* WithinRadiusQuestion(void* shapeP, LatLngDart centreP, double radius, int answer)
+{
+    Shape* shape  = (Shape*)shapeP;
+    LatLng centre = LatLng(centreP.lat, centreP.lon);
+    Shape circle  = Side::FullCircle(centre.ToVector3(), radius, true);
+    if (!answer) circle.Reverse();
+    return IntersectShapes(shape, &circle);
 }

@@ -31,33 +31,44 @@ void main() {
       ..lon = 4.8852546013650695;
     File f = File("newtests/boxAroundRijksmuseum.json");
     File solutionFile = File("newtests/boxAroundRijksmuseumSolution.json");
+    File solutionReverseFile = File(
+      "newtests/boxAroundRijksmuseumSolutionReverse.json",
+    );
 
     // Updating the boundary clears it so we have to load it twice
-    var (boundaries1, _, _) = fromJson(jsonDecode(await f.readAsString()));
-    var (boundaries2, _, _) = fromJson(jsonDecode(await f.readAsString()));
+    var (boundaries1, _, _, _, _, _, _) = fromJson(
+      jsonDecode(await f.readAsString()),
+    );
+    var (boundaries2, _, _, _, _, _, _) = fromJson(
+      jsonDecode(await f.readAsString()),
+    );
     assert(boundaries1.length == 1);
     assert(boundaries2.length == 1);
-    var (solution, _, _) = fromJson(
+    var (solution, _, _, _, _, _, _) = fromJson(
       jsonDecode(await solutionFile.readAsString()),
     );
+    var (solutionRev, _, _, _, _, _, _) = fromJson(
+      jsonDecode(await solutionReverseFile.readAsString()),
+    );
     assert(solution.length == 1);
+    assert(solutionRev.length == 1);
     void test(Pointer<Void> result, Pointer<Void> sol) {
       if (1 != maths.ShapesEqual(result, sol)) {
-	File f = File("out.json");
-	f.writeAsString(jsonEncode(shapeToJson(result)));
+        // File f = File("out.json");
+        // f.writeAsString(jsonEncode(shapeToJson(result)));
         maths.whyUnequal(result, sol);
         assert(false);
       }
     }
 
     test(
-      maths.UpdateBoundaryWithClosests(boundaries1[0], position, list, n, 1),
+      maths.UpdateBoundaryWithClosests(boundaries1[0], position, list, n, 1, 1),
       solution[0],
     );
     maths.Reverse(solution[0]);
     test(
-      maths.UpdateBoundaryWithClosests(boundaries2[0], position, list, n, 0),
-      solution[0],
+      maths.UpdateBoundaryWithClosests(boundaries2[0], position, list, n, 0, 1),
+      solutionRev[0],
     );
     maths.FreeShape(solution[0]);
     malloc.free(list);

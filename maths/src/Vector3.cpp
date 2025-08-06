@@ -106,6 +106,14 @@ double clampImprecise(double val)
     return val;
 }
 
+Double GetDistanceAlongEarthForOrder(const Vector3& a, const Vector3& b)
+{
+    ZoneScoped;
+    return -dot(a, b);
+    // return -clamp(dot(a, b));
+    // return GetDistanceAlongEarth(a, b);
+}
+
 Double GetDistanceAlongEarth(const Vector3& a, const Vector3& b)
 {
     ZoneScoped;

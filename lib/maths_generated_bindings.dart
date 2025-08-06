@@ -427,6 +427,7 @@ class Maths {
     ffi.Pointer<LatLngDart> objects,
     int numObjects,
     int answer,
+    int deleteFirst,
   ) {
     return _UpdateBoundaryWithClosests(
       boundary,
@@ -434,6 +435,7 @@ class Maths {
       objects,
       numObjects,
       answer,
+      deleteFirst,
     );
   }
 
@@ -444,11 +446,12 @@ class Maths {
               LatLngDart,
               ffi.Pointer<LatLngDart>,
               ffi.Int,
+              ffi.Int,
               ffi.Int)>>('UpdateBoundaryWithClosests');
   late final _UpdateBoundaryWithClosests =
       _UpdateBoundaryWithClosestsPtr.asFunction<
           ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
-              ffi.Pointer<LatLngDart>, int, int)>();
+              ffi.Pointer<LatLngDart>, int, int, int)>();
 
   void Reverse(
     ffi.Pointer<ffi.Void> shape,
@@ -549,6 +552,28 @@ class Maths {
   late final _AdminAreaQuesiton = _AdminAreaQuesitonPtr.asFunction<
       ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>,
           ffi.Pointer<ffi.Void>, int, LatLngDart, int)>();
+
+  ffi.Pointer<ffi.Void> WithinRadiusQuestion(
+    ffi.Pointer<ffi.Void> shape,
+    LatLngDart centre,
+    double radius,
+    int answer,
+  ) {
+    return _WithinRadiusQuestion(
+      shape,
+      centre,
+      radius,
+      answer,
+    );
+  }
+
+  late final _WithinRadiusQuestionPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
+              ffi.Double, ffi.Int)>>('WithinRadiusQuestion');
+  late final _WithinRadiusQuestion = _WithinRadiusQuestionPtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(
+          ffi.Pointer<ffi.Void>, LatLngDart, double, int)>();
 
   int ConversionTestFromLatLng(
     LatLngDart point,

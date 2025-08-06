@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:jetlag/Boundary.dart';
+import 'package:jetlag/Location.dart';
 import 'package:jetlag/helper.dart';
 import 'package:jetlag/new_border.dart';
 import 'menu_bar.dart';
@@ -19,16 +22,36 @@ import 'dart:ffi' hide Size;
 
 class MapWidget extends StatefulWidget {
   final String border;
+  final String? debug;
   final bool renderExtras;
   const MapWidget({
     super.key,
     required this.border,
     required this.renderExtras,
+    this.debug,
   });
   @override
   State<StatefulWidget> createState() {
     return MapWidgetState();
   }
+}
+
+Future<(Pointer<Void>, int)> getRegions(String message) async {
+  Directory dir = Directory("${getLocationOfRegion(message)}/subareas");
+  List<FileSystemEntity> entities = await dir.list().toList();
+  Pointer<Pointer<Void>> regions = malloc(entities.length);
+  for (int i = 0; i < entities.length; i++) {
+    var res = fromJson(
+      jsonDecode(await File(entities[i].path).readAsString()),
+    ).$1;
+    if (res.length != 1) {
+      return Future.error(
+        "Invalid number of shapes in province: ${res.length}",
+      );
+    }
+    regions[i] = res[0];
+  }
+  return (regions as Pointer<Void>, entities.length);
 }
 
 class MapWidgetState extends State<MapWidget> {
@@ -37,6 +60,9 @@ class MapWidgetState extends State<MapWidget> {
   Pointer<Void> boundary = nullptr, originalBoundary = nullptr;
   final mapController = MapController();
   int focussed = -1;
+  bool firstQuestion = true;
+  late Future<(Pointer<Void>, int)> regions;
+
   @override
   void initState() {
     tileLayer = TileLayer(
@@ -67,6 +93,16 @@ class MapWidgetState extends State<MapWidget> {
     if (boundary != nullptr) {
       return 0;
     }
+    // regions = getRegions(widget.border);
+    // var (shapes, _, _, _, _, _, _) = fromJson(
+    //   jsonDecode(
+    //     await File("newtests/boxAroundRijksmuseum.json").readAsString(),
+    //   ),
+    // );
+    // initialPos = LatLng(52.360181, 4.8852546);
+    // initialZoom = 15;
+    // boundary = shapes[0];
+    // return 3;
 
     var file = File("${getLocationOfRegion(widget.border)}/border.json");
     String content = await file.readAsString();
@@ -103,29 +139,14 @@ class MapWidgetState extends State<MapWidget> {
     } catch (e) {
       return Future.error("error: $e");
     }
-    return 3;
-  }
+    regions = compute(getRegions, widget.border);
 
-  Future<(Pointer<Void>, int)> getRegions() async {
-    Directory dir = Directory("${getLocationOfRegion(widget.border)}/subareas");
-    List<FileSystemEntity> entities = await dir.list().toList();
-    Pointer<Pointer<Void>> regions = malloc(entities.length);
-    for (int i = 0; i < entities.length; i++) {
-      var res = fromJson(
-        jsonDecode(await File(entities[i].path).readAsString()),
-      ).$1;
-      if (res.length != 1) {
-        return Future.error(
-          "Invalid number of shapes in province: ${res.length}",
-        );
-      }
-      regions[i] = res[0];
-    }
-    return (regions as Pointer<Void>, entities.length);
+    return 3;
   }
 
   @override
   Widget build(BuildContext context) {
+    print("Boundary = $boundary");
     Size size = MediaQuery.of(context).size;
     print("Size: $size");
     return FutureBuilder<void>(
@@ -173,12 +194,13 @@ class MapWidgetState extends State<MapWidget> {
                   children: [
                     tileLayer,
                     Shape(shape: boundary, color: Colors.white, focussed: true),
-                    if (originalBoundary != nullptr)
-                      Shape(
-                        shape: originalBoundary,
-                        color: Colors.white,
-                        focussed: false,
-                      ),
+                    // if (originalBoundary != nullptr)
+                    //   Shape(
+                    //     shape: originalBoundary,
+                    //     color: Colors.white,
+                    //     focussed: false,
+                    //   ),
+                    LocationMarker(),
                   ],
                 ),
               ),
@@ -227,6 +249,7 @@ class MapWidgetState extends State<MapWidget> {
             print("Building within");
             if (state.hasError)
               return AlertDialog(
+                scrollable: true,
                 title: Text("Something went wrong"),
                 content: Text(state.error.toString()),
                 actions: [
@@ -272,6 +295,13 @@ class MapWidgetState extends State<MapWidget> {
         },
       );
     }
+    firstQuestion = false;
+  }
+
+  String prettyDistance(double meters) {
+    if (meters < 500) return "${meters.toStringAsFixed(0)}  m";
+    double d = meters / 1000;
+    return "${d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 1)} km";
   }
 
   List<MenuEntry> _getMenus() {
@@ -298,7 +328,6 @@ class MapWidgetState extends State<MapWidget> {
               tempJson["shapes"].add(shapeToJson(boundary));
               tempJson["intersections"] = [];
               String json = jsonEncode(tempJson);
-              print(json);
               FilePicker.platform.saveFile(
                 dialogTitle: 'Please select an output file:',
                 initialDirectory: "${Directory.current.path}/saves/",
@@ -313,7 +342,7 @@ class MapWidgetState extends State<MapWidget> {
             onPressed: () async {
               var result = await FilePicker.platform.pickFiles(
                 dialogTitle: "Select file to load",
-                initialDirectory: "${Directory.current.path}/newtests/",
+                initialDirectory: "${Directory.current.path}/saves/",
               );
               if (result == null) {
                 print("No file selected");
@@ -361,14 +390,9 @@ class MapWidgetState extends State<MapWidget> {
                   return await askLatitudeQuestion(
                     maths.LatitudeQuestion,
                     boundary,
-                    (await getPosition()).lat,
+                    lastPosition.latitude,
                     answer,
                   );
-                  // return maths.LatitudeQuestion(
-                  //   boundary,
-                  //   (await getPosition()).lat,
-                  //   answer ? 1 : 0,
-                  // );
                 },
               );
             },
@@ -382,7 +406,7 @@ class MapWidgetState extends State<MapWidget> {
                   return await askLongitudeQuestion(
                     maths.LongitudeQuestion,
                     boundary,
-                    (await getPosition()).lon,
+                    lastPosition.longitude,
                     answer,
                   );
                 },
@@ -395,16 +419,88 @@ class MapWidgetState extends State<MapWidget> {
               askQuestion(
                 "Is the hider in the same administrative area (province,...)?",
                 (bool answer) async {
-                  var (regions, length) = await getRegions();
-                  return askAdminAreaQuestion(
-                    boundary,
-                    regions,
-                    length,
-                    await getPosition(),
-                    answer,
+                  return await regions.then(
+                    (value) {
+                      return askAdminAreaQuestion(
+                        boundary,
+                        value.$1,
+                        value.$2,
+                        lastPositionForCpp(),
+                        answer,
+                      );
+                    },
+                    onError: (error) {
+                      return Future.error(error);
+                    },
                   );
                 },
               );
+            },
+          ),
+        ],
+      ),
+      MenuEntry(
+        label: "Radius",
+        menuChildren: [
+          for (double r in [100, 500, 1000, 10000, 20000, 50000, 100000])
+            MenuEntry(
+              label: prettyDistance(r),
+              onPressed: () async {
+                askQuestion(
+                  "Is hider's location within ${prettyDistance(r)} of your current position?",
+                  (bool answer) async {
+                    return askWithinRadiusQuestion(
+                      boundary,
+                      lastPositionForCpp(),
+                      r,
+                      answer,
+                    );
+                  },
+                );
+              },
+            ),
+        ],
+      ),
+      MenuEntry(
+        label: "Precision",
+        menuChildren: [
+          MenuEntry(
+            label: "museums",
+            onPressed: () async {
+              askQuestion("Is hider's closest museum the same as yours?", (
+                bool answer,
+              ) async {
+                // var museums = jsonDecode(
+                //   await File("downloads/museums.json").readAsString(),
+                LatLng lastPosition = LatLng(52.0677, 4.35026);
+                var result = await http.post(
+                  Uri.parse('https://overpass-api.de/api/interpreter'),
+                  body: {
+                    "data":
+                        '''[out:json][timeout:90];
+            nwr['tourism' = 'museum'](around:7000,${lastPosition.latitude}, ${lastPosition.longitude});
+            out geom;''',
+                  },
+                );
+                if (result.statusCode != 200)
+                  return Future.error(
+                    "Internal error: query for museums failed!",
+                  );
+                await File("out.json").writeAsString(result.body);
+                var (list, n) = convertToList(jsonDecode(result.body));
+
+                return askClosestMuseumQuestion(
+                  boundary,
+                  // lastPositionForCpp(),
+                  Struct.create()
+                    ..lat = lastPosition.latitude
+                    ..lon = lastPosition.longitude,
+                  list,
+                  n,
+                  answer,
+                  !firstQuestion,
+                );
+              });
             },
           ),
         ],

@@ -1,12 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/Map.dart';
 import 'package:jetlag/Maths.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:jetlag/shape.dart';
 import 'dart:ffi' hide Size;
-import 'package:jetlag/maths_generated_bindings.dart';
-import 'package:ffi/ffi.dart';
 
 void main() async {
   final directory = Directory('newtests');
@@ -21,7 +18,7 @@ void main() async {
     // file.path == "newtests/circle.json")
     // continue;
     test(file.path, () async {
-      var (shapes, intersections, solutions) = fromJson(
+      var (shapes, intersections, solutions, _, _, _, _) = fromJson(
         jsonDecode(await file.readAsString()),
       );
       for (int i = 0; i < intersections.length; i++) {

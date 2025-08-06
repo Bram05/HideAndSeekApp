@@ -38,6 +38,40 @@ class AdminAreaQuestion {
   );
 }
 
+class ClosestMuseumQuestion {
+  final int id;
+  final Pointer<Void> boundary;
+  final LatLngDart position;
+  final Pointer<LatLngDart> museums;
+  final int numMuseums;
+  final int answer;
+  final int deleteFirst;
+  const ClosestMuseumQuestion(
+    this.id,
+    this.boundary,
+    this.position,
+    this.museums,
+    this.numMuseums,
+    this.answer,
+    this.deleteFirst,
+  );
+}
+
+class WithinRadiusQuestion {
+  final int id;
+  final Pointer<Void> boundary;
+  final LatLngDart centre;
+  final double radius;
+  final int answer;
+  const WithinRadiusQuestion(
+    this.id,
+    this.boundary,
+    this.centre,
+    this.radius,
+    this.answer,
+  );
+}
+
 class QuestionResponse {
   final int id;
   final Pointer<Void> shape;
@@ -102,6 +136,52 @@ Future<Pointer<Void>> askAdminAreaQuestion(
     length,
     position,
     ans ? 1 : 0,
+  );
+  final Completer<Pointer<Void>> completer = Completer<Pointer<Void>>();
+  _questionRequests[requestId] = completer;
+  helperIsolateSendPort.send(request);
+  return completer.future;
+}
+
+Future<Pointer<Void>> askWithinRadiusQuestion(
+  Pointer<Void> boundary,
+  LatLngDart centre,
+  double radius,
+  bool ans,
+) async {
+  final SendPort helperIsolateSendPort = await _helperIsolateSendPort;
+  final int requestId = _nextQuestionRequestId++;
+  final WithinRadiusQuestion request = WithinRadiusQuestion(
+    requestId,
+    boundary,
+    centre,
+    radius,
+    ans ? 1 : 0,
+  );
+  final Completer<Pointer<Void>> completer = Completer<Pointer<Void>>();
+  _questionRequests[requestId] = completer;
+  helperIsolateSendPort.send(request);
+  return completer.future;
+}
+
+Future<Pointer<Void>> askClosestMuseumQuestion(
+  Pointer<Void> boundary,
+  LatLngDart position,
+  Pointer<LatLngDart> museums,
+  int numMuseums,
+  bool answer,
+  bool deleteFirst,
+) async {
+  final SendPort helperIsolateSendPort = await _helperIsolateSendPort;
+  final int requestId = _nextQuestionRequestId++;
+  final ClosestMuseumQuestion request = ClosestMuseumQuestion(
+    requestId,
+    boundary,
+    position,
+    museums,
+    numMuseums,
+    answer ? 1 : 0,
+    deleteFirst ? 1 : 0,
   );
   final Completer<Pointer<Void>> completer = Completer<Pointer<Void>>();
   _questionRequests[requestId] = completer;
@@ -179,6 +259,31 @@ Future<SendPort> _helperIsolateSendPort = () async {
           sendPort.send(response);
           return;
         }
+        if (data is ClosestMuseumQuestion) {
+          final Pointer<Void> result = maths.UpdateBoundaryWithClosests(
+            data.boundary,
+            data.position,
+            data.museums,
+            data.numMuseums,
+            data.answer,
+            data.deleteFirst,
+          );
+          final QuestionResponse response = QuestionResponse(data.id, result);
+          sendPort.send(response);
+          return;
+        }
+        if (data is WithinRadiusQuestion) {
+          final Pointer<Void> result = maths.WithinRadiusQuestion(
+            data.boundary,
+            data.centre,
+            data.radius,
+            data.answer,
+          );
+          final QuestionResponse response = QuestionResponse(data.id, result);
+          sendPort.send(response);
+          return;
+        }
+
         throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
       });
 

@@ -1,12 +1,22 @@
 #ifndef EXPOSE_H
 #define EXPOSE_H
 
+// All functions that are needed in dart
+// Dart keeps a Shape* that points to the shape in cpp code
+// This is then passed to every function that operates on a shape or to query information about it
+// such as the number of segments or sides
+#ifdef __WIN32
+#error "Cannot compile for windows"
+#else
 #define EXPOSE __attribute__((visibility("default")))
+#endif
 #ifdef __cplusplus
 extern "C"
 {
 #endif // __cplusplus
 
+    // Initialize and destruct everything, called when (un)loading the library
+    // Do not call these anywhere else
     void InitEverything() __attribute__((constructor));
     void DestroyEverything() __attribute__((destructor));
 
@@ -28,6 +38,9 @@ extern "C"
         int segmentsCount;
     };
 
+    // Get the segments from the shape
+    // Returns: Segment*  <--- Dart cannot access this; it must be passed to
+    // out parameter length: how many segments are there
     EXPOSE const void* GetSegments(const void* shape, int* length);
     EXPOSE const struct LatLngDart* GetAllVertices(const void* segments, int segmentIndex,
                                                    int* length);
@@ -57,15 +70,17 @@ extern "C"
     EXPOSE void* UpdateBoundaryWithClosestToObject(void* boundary, struct LatLngDart position,
                                                    struct LatLngDart object, int closerToObject);
     EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position,
-                                            struct LatLngDart* objects, int numObjects, int answer);
+                                            struct LatLngDart* objects, int numObjects, int answer,
+                                            int deleteFirst);
     EXPOSE void Reverse(void* shape);
-    // EXPOSE void GetBounds(const void* shape, double* minLat, double* maxLat, double* minLon,
-    //                       double* maxLon);
 
     EXPOSE void* LatitudeQuestion(void* shape, double latitude, int theirsHigher);
     EXPOSE void* LongitudeQuestion(void* shape, double longitude, int theirsHigher);
     EXPOSE int IsValid(void* shape, int* segment, int* side);
-    EXPOSE void* AdminAreaQuesiton(void* shape, void* regions, int length, struct LatLngDart position , int same);
+    EXPOSE void* AdminAreaQuesiton(void* shape, void* regions, int length,
+                                   struct LatLngDart position, int same);
+    EXPOSE void* WithinRadiusQuestion(void* shape, struct LatLngDart centre, double radius,
+                                      int answer);
 
 #ifdef __cplusplus
 }

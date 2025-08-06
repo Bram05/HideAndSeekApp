@@ -2,60 +2,37 @@
 #include "Constants.h"
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <stack>
 #include <stdexcept>
 #include <tracy/Tracy.hpp>
 #include <vector>
 
-// double total_time = 0;
-// class Timer
-// {
-//     std::chrono::time_point<std::chrono::steady_clock> begin;
-//
-// public:
-//     Timer() { start(); }
-//     ~Timer() { stop(); }
-//
-//     void start() { begin = std::chrono::steady_clock::now(); }
-//     void stop()
-//     {
-//         total_time += (std::chrono::steady_clock::now() - begin).count();
-//         // auto now = std::chrono::steady_clock::now();
-//         // auto delta = now-begin;
-//         // delta.count();
-//     }
-//     static void print()
-//     {
-//         std::cerr << "Total time in init is " << total_time / 1000 / 1000 << " ms" << std::endl;
-//     }
-//
-// private:
-// };
-// void print() { Timer::print(); }
-
 constexpr int maxValuesAtStart = 1000;
 std::vector<mpfr_t> variables;
 std::stack<int> freeSpots;
+std::mutex mutex;
 
 void Double::Init()
 {
+    // Initializing mpfr_t is 'slow' so on startup we initialize a bunch and then reuse them
     variables = std::vector<mpfr_t>(maxValuesAtStart);
     for (int i = 0; i < maxValuesAtStart; i++)
     {
         freeSpots.push(i);
         mpfr_init2(variables[i], Constants::precision);
     }
-    std::cerr << "Initialized mpfr to size " << variables.size() << '\n';
+    TracyMessageL("Initializing number of allocated mpfr_t");
 }
 void Double::InitVal()
 {
+    std::lock_guard<std::mutex> guard(mutex);
     if (freeSpots.empty())
     {
         int current = variables.size();
         std::vector<mpfr_t> newVariables(2 * current);
         for (int i = 0; i < current; i++) newVariables[i][0] = variables[i][0];
         variables = std::move(newVariables);
-        // std::cerr << "Warning: increasing number of allocated mpfr_t to " << 2 * current << '\n';
         TracyMessageL("Warning: increasing number of allocated mpfr_t");
         for (int i = current; i < 2 * current; i++)
         {
@@ -68,6 +45,7 @@ void Double::InitVal()
 }
 void Double::Destroy()
 {
+    TracyMessageL("Destroying");
     for (mpfr_t& i : variables) { mpfr_clear(i); }
 }
 
@@ -95,6 +73,7 @@ Double::Double(mpfr_t p)
 }
 Double::~Double()
 {
+    std::lock_guard<std::mutex> guard(mutex);
     if (val != -1) freeSpots.push(val);
 }
 Double::Double(int x)
@@ -111,7 +90,6 @@ Double& Double::operator=(const Double& other)
 {
     if (this != &other)
     {
-        // mpfr_set_prec(val, mpfr_get_prec(other.val));
         if (val == -1)
         {
             val = freeSpots.top();
@@ -295,28 +273,16 @@ std::ostream& operator<<(std::ostream& os, const Double& d)
 }
 std::string Double::ToString() const
 {
-    FILE* file = fopen("out.txt", "w");
-    mpfr_out_str(file, 10, 0, variables[val], rnd);
-    char* buffer = new char[Constants::precision + 20];
-    fclose(file);
-    file    = fopen("out.txt", "r");
-    char* p = fgets(buffer, Constants::precision + 20, file);
-    if (p == nullptr) throw std::runtime_error("Unable to red from the file");
-    std::string res = std::string(buffer);
-    delete[] buffer;
-    fclose(file);
-    return res;
-    // std::stringstream os;
-    // FILE* file =
-    // // os << ToDouble();
-    // // Use this second version for high Constants::precision output
-    // mpfr_exp_t exponent;
-    // char* str     = mpfr_get_str(0, &exponent, 10, 0, val, MPFR_RNDN);
-    // std::string s = str;
-    // if (s.size() == 0) return os.str();
-    // int off = (s[0] == '-' || s[0] == '+') ? 1 : 0;
-    // s.insert(off + 1, 1, '.');
-    // os << s << "*10^" << exponent;
-    // mpfr_free_str(str);
-    // return os.str();
+    return std::to_string(mpfr_get_d(variables[val], rnd));
+    // FILE* file = fopen("temp.txt", "w");
+    // mpfr_out_str(file, 10, 0, variables[val], rnd);
+    // char* buffer = new char[Constants::precision + 20];
+    // fclose(file);
+    // file    = fopen("temp.txt", "r");
+    // char* p = fgets(buffer, Constants::precision + 20, file);
+    // if (p == nullptr) throw std::runtime_error("Unable to red from the file");
+    // std::string res = std::string(buffer);
+    // delete[] buffer;
+    // fclose(file);
+    // return res;
 }

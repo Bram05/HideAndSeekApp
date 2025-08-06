@@ -31,12 +31,12 @@ ui.Path transform(
   ui.Offset offset = camera.latLngToScreenOffset(center);
   ui.Offset original = camera.latLngToScreenOffset(LatLng(0, 0));
   Matrix4 matrix =
-      Matrix4.translationValues(size.width / 2, size.height / 2, 0) *
-      Matrix4.rotationZ(camera.rotationRad) *
-      Matrix4.translationValues(-size.width / 2, -size.height / 2, 0) *
       Matrix4.translation(
         Vector3(original.dx - offset.dx, original.dy - offset.dy, 0),
-      );
+      ) *
+      Matrix4.translationValues(size.width / 2, size.height / 2, 0) *
+      Matrix4.rotationZ(camera.rotationRad) *
+      Matrix4.translationValues(-size.width / 2, -size.height / 2, 0);
   // Matrix4.diagonal3(Vector3(1, 1, 1) * camera.getZoomScale(camera.zoom, 1));
 
   ui.Path result = path.transform(matrix.storage);
@@ -95,22 +95,26 @@ class ShapeState extends State<Shape> {
   ui.Path? path;
   double prevzoom = -1;
   Pointer<Void> prevShape = nullptr;
+  ui.Size prevSize = ui.Size(0, 0);
 
   @override
   Widget build(BuildContext context) {
     // size is not used currently inside the getpath
-    if (path == null ||
-        (MapCamera.of(context).zoom - prevzoom).abs() > epsilon ||
-        prevShape != widget.shape) {
-      var baseCamera = MapCamera.of(
-        context,
-      ).withRotation(0).withPosition(center: LatLng(0, 0));
-      path = getPath(widget.shape, baseCamera, ui.Size(0, 0));
-      prevzoom = MapCamera.of(context).zoom;
-      prevShape = widget.shape;
-    }
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        Size size = Size(constraints.maxWidth, constraints.maxHeight);
+        if (path == null ||
+            (MapCamera.of(context).zoom - prevzoom).abs() > epsilon ||
+            prevShape != widget.shape ||
+            prevSize != size) {
+          var baseCamera = MapCamera.of(
+            context,
+          ).withRotation(0).withPosition(center: LatLng(0, 0));
+          path = getPath(widget.shape, baseCamera, ui.Size(0, 0));
+          prevzoom = MapCamera.of(context).zoom;
+          prevShape = widget.shape;
+          prevSize = size;
+        }
         MapCamera c = MapCamera.of(context);
         double width = constraints.maxWidth, height = constraints.maxHeight;
         double deltaPixels = 30;
