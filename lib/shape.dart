@@ -122,6 +122,7 @@ List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   double,
   double,
   double,
+  List<List<bool>>,
 )
 fromJson(Map<String, dynamic> json) {
   List<Pointer<Void>> extraShapes = [];
@@ -142,6 +143,16 @@ fromJson(Map<String, dynamic> json) {
     solutions.add(ret.$1);
   }
 
+  List<List<bool>> questionsUsed = [];
+  if (json["questionsUsed"] != null) {
+    print("Loading used questions");
+    for (var item in json["questionsUsed"]) {
+      List<bool> list = [];
+      for (var q in item) list.add(q);
+      questionsUsed.add(list);
+    }
+  }
+
   // print("Loaded ${extraShapes.length} extra shapes from json");
   return (
     extraShapes,
@@ -151,14 +162,19 @@ fromJson(Map<String, dynamic> json) {
     minLon,
     maxLat,
     maxLon,
+    questionsUsed,
   );
 }
 
 // For single shape
-Map<String, dynamic> toJson(Pointer<Void> shape) {
+Map<String, dynamic> toJson(
+  Pointer<Void> shape,
+  List<List<bool>> questionsUsed,
+) {
   return {
     "shapes": [shapeToJson(shape)],
     "intersections": [],
+    "questionsUsed": questionsUsed,
   };
 }
 

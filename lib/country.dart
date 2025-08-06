@@ -263,7 +263,7 @@ String toShapeJson(Map<String, dynamic> body) {
   }
   malloc.free(shape.ref.segments);
   malloc.free(shape);
-  String result = jsonEncode(toJson(shapePtr));
+  String result = jsonEncode(toJson(shapePtr, []));
   maths.FreeShape(shapePtr);
   return result;
 }

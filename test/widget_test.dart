@@ -18,7 +18,7 @@ void main() async {
     // file.path == "newtests/circle.json")
     // continue;
     test(file.path, () async {
-      var (shapes, intersections, solutions, _, _, _, _) = fromJson(
+      var (shapes, intersections, solutions, _, _, _, _, _) = fromJson(
         jsonDecode(await file.readAsString()),
       );
       for (int i = 0; i < intersections.length; i++) {

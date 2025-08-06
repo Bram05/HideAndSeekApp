@@ -36,18 +36,18 @@ void main() {
     );
 
     // Updating the boundary clears it so we have to load it twice
-    var (boundaries1, _, _, _, _, _, _) = fromJson(
+    var (boundaries1, _, _, _, _, _, _, _) = fromJson(
       jsonDecode(await f.readAsString()),
     );
-    var (boundaries2, _, _, _, _, _, _) = fromJson(
+    var (boundaries2, _, _, _, _, _, _, _) = fromJson(
       jsonDecode(await f.readAsString()),
     );
     assert(boundaries1.length == 1);
     assert(boundaries2.length == 1);
-    var (solution, _, _, _, _, _, _) = fromJson(
+    var (solution, _, _, _, _, _, _, _) = fromJson(
       jsonDecode(await solutionFile.readAsString()),
     );
-    var (solutionRev, _, _, _, _, _, _) = fromJson(
+    var (solutionRev, _, _, _, _, _, _, _) = fromJson(
       jsonDecode(await solutionReverseFile.readAsString()),
     );
     assert(solution.length == 1);

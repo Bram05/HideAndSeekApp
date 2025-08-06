@@ -62,6 +62,7 @@ class MapWidgetState extends State<MapWidget> {
   int focussed = -1;
   bool firstQuestion = true;
   late Future<(Pointer<Void>, int)> regions;
+  List<List<bool>>? questionsUsed;
 
   @override
   void initState() {
@@ -108,8 +109,18 @@ class MapWidgetState extends State<MapWidget> {
     String content = await file.readAsString();
     var json = jsonDecode(content);
     try {
-      var (extraShapesNew, intersectsNew, sol, minLat, minLon, maxLat, maxLon) =
-          fromJson(json);
+      var (
+        extraShapesNew,
+        intersectsNew,
+        sol,
+        minLat,
+        minLon,
+        maxLat,
+        maxLon,
+        _,
+      ) = fromJson(
+        json,
+      );
       if (extraShapesNew.length != 1) {
         return Future.error(
           "Invalid file: it contained ${extraShapesNew.length} shapes instead of 1",
@@ -305,85 +316,13 @@ class MapWidgetState extends State<MapWidget> {
   }
 
   List<MenuEntry> _getMenus() {
-    final List<MenuEntry> result = <MenuEntry>[
-      MenuEntry(
-        label: 'Go back',
-        onPressed: () {
-          context.goNamed("ChooseBoundary");
-        },
-      ),
-      MenuEntry(
-        label: 'Save/Load',
-        menuChildren: <MenuEntry>[
-          MenuEntry(
-            label: 'Save current state',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyS,
-              control: true,
-            ),
-            onPressed: () async {
-              var tempJson = {};
-              tempJson["shapes"] = [];
-
-              tempJson["shapes"].add(shapeToJson(boundary));
-              tempJson["intersections"] = [];
-              String json = jsonEncode(tempJson);
-              FilePicker.platform.saveFile(
-                dialogTitle: 'Please select an output file:',
-                initialDirectory: "${Directory.current.path}/saves/",
-                bytes: utf8.encode(json),
-                allowedExtensions: ["json"],
-                fileName: ".json",
-              );
-            },
-          ),
-          MenuEntry(
-            label: "Load from json",
-            onPressed: () async {
-              var result = await FilePicker.platform.pickFiles(
-                dialogTitle: "Select file to load",
-                initialDirectory: "${Directory.current.path}/saves/",
-              );
-              if (result == null) {
-                print("No file selected");
-                return;
-              }
-              var file = File(result.paths.single!);
-              String content = await file.readAsString();
-              print("File content is $content");
-              var json = jsonDecode(content);
-              setState(() {
-                var (extraShapesNew, intersectsNew, sol, _, _, _, _) = fromJson(
-                  json,
-                );
-                if (extraShapesNew.length != 1) {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: Text("Invalid file"),
-                        content: Text("File contains not exactly one boundary"),
-                      );
-                    },
-                  );
-                  return;
-                }
-                setBoundary(extraShapesNew[0]);
-              });
-            },
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyO,
-              control: true,
-            ),
-          ),
-        ],
-      ),
-      MenuEntry(
-        label: "Relative",
-        menuChildren: [
-          MenuEntry(
-            label: "Latitude",
-            onPressed: () {
+    var questions = [
+      (
+        "relative",
+        [
+          (
+            "Latitude",
+            () {
               askQuestion(
                 "Is hiders latitude higher than yours (above you on the map)?",
                 (bool answer) async {
@@ -397,9 +336,9 @@ class MapWidgetState extends State<MapWidget> {
               );
             },
           ),
-          MenuEntry(
-            label: "Longitude",
-            onPressed: () {
+          (
+            "Longitude",
+            () {
               askQuestion(
                 "Is hiders longitude higher than yours (to the right of you)?",
                 (bool answer) async {
@@ -413,9 +352,9 @@ class MapWidgetState extends State<MapWidget> {
               );
             },
           ),
-          MenuEntry(
-            label: "Same admin area",
-            onPressed: () {
+          (
+            "Same area",
+            () {
               askQuestion(
                 "Is the hider in the same administrative area (province,...)?",
                 (bool answer) async {
@@ -439,13 +378,13 @@ class MapWidgetState extends State<MapWidget> {
           ),
         ],
       ),
-      MenuEntry(
-        label: "Radius",
-        menuChildren: [
+      (
+        "Radius",
+        [
           for (double r in [100, 500, 1000, 10000, 20000, 50000, 100000])
-            MenuEntry(
-              label: prettyDistance(r),
-              onPressed: () async {
+            (
+              prettyDistance(r),
+              () {
                 askQuestion(
                   "Is hider's location within ${prettyDistance(r)} of your current position?",
                   (bool answer) async {
@@ -461,12 +400,12 @@ class MapWidgetState extends State<MapWidget> {
             ),
         ],
       ),
-      MenuEntry(
-        label: "Precision",
-        menuChildren: [
-          MenuEntry(
-            label: "museums",
-            onPressed: () async {
+      (
+        "Precision",
+        [
+          (
+            "museums",
+            () async {
               askQuestion("Is hider's closest museum the same as yours?", (
                 bool answer,
               ) async {
@@ -506,14 +445,146 @@ class MapWidgetState extends State<MapWidget> {
         ],
       ),
     ];
+    questionsUsed ??= [
+      for (var cat in questions) [for (var _ in cat.$2) false],
+    ];
+    final List<MenuEntry> result = <MenuEntry>[
+      MenuEntry(
+        label: 'Go back',
+        onPressed: () {
+          context.goNamed("ChooseBoundary");
+        },
+        active: true,
+      ),
+      MenuEntry(
+        label: 'Save/Load',
+
+        menuChildren: <MenuEntry>[
+          MenuEntry(
+            label: 'Save current state',
+            active: true,
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyS,
+              control: true,
+            ),
+            onPressed: () async {
+              var tempJson = toJson(boundary, questionsUsed!);
+              String json = jsonEncode(tempJson);
+              print(json);
+              FilePicker.platform.saveFile(
+                dialogTitle: 'Please select an output file:',
+                initialDirectory: "${Directory.current.path}/saves/",
+                bytes: utf8.encode(json),
+                allowedExtensions: ["json"],
+                fileName: ".json",
+              );
+            },
+          ),
+          MenuEntry(
+            label: "Load from json",
+            active: true,
+            onPressed: () async {
+              var result = await FilePicker.platform.pickFiles(
+                dialogTitle: "Select file to load",
+                initialDirectory: "${Directory.current.path}/newtests/",
+              );
+              if (result == null) {
+                print("No file selected");
+                return;
+              }
+              var file = File(result.paths.single!);
+              String content = await file.readAsString();
+              print("File content is $content");
+              var json = jsonDecode(content);
+              setState(() {
+                var (
+                  extraShapesNew,
+                  intersectsNew,
+                  sol,
+                  _,
+                  _,
+                  _,
+                  _,
+                  newQuestionsUsed,
+                ) = fromJson(
+                  json,
+                );
+                questionsUsed = newQuestionsUsed;
+                if (extraShapesNew.length != 1) {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: Text("Invalid file"),
+                        content: Text("File contains not exactly one boundary"),
+                      );
+                    },
+                  );
+                  return;
+                }
+                setBoundary(extraShapesNew[0]);
+              });
+            },
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyO,
+              control: true,
+            ),
+          ),
+        ],
+      ),
+    ];
+    MenuEntry creatEntry((String, VoidCallback) item, int i, int j) {
+      return MenuEntry(
+        label: item.$1,
+        onPressed: () {
+          if (questionsUsed![i][j]) {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text("Cannot ask this question"),
+                  content: Text("Every question can only be asked once"),
+                  actions: [
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text("Close"),
+                    ),
+                  ],
+                );
+              },
+            );
+            return;
+          }
+          item.$2();
+          setState(() {
+            questionsUsed![i][j] = true;
+          });
+        },
+        active: !(questionsUsed![i][j]),
+      );
+    }
+
+    for (int i = 0; i < questions.length; i++) {
+      result.add(
+        MenuEntry(
+          label: questions[i].$1,
+          menuChildren: [
+            for (int j = 0; j < questions[i].$2.length; j++)
+              creatEntry(questions[i].$2[j], i, j),
+          ],
+        ),
+      );
+    }
     // (Re-)register the shortcuts with the ShortcutRegistry so that they are
     // available to the entire application, and update them if they've changed.
-    _shortcutsEntry?.dispose();
-    if (ShortcutRegistry.of(context).shortcuts.isEmpty) {
-      _shortcutsEntry = ShortcutRegistry.of(
-        context,
-      ).addAll(MenuEntry.shortcuts(result));
-    }
+    // _shortcutsEntry?.dispose();
+    // if (ShortcutRegistry.of(context).shortcuts.isEmpty) {
+    //   _shortcutsEntry = ShortcutRegistry.of(
+    //     context,
+    //   ).addAll(MenuEntry.shortcuts(result));
+    // }
     return result;
   }
 }

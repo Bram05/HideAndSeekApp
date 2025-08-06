@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 // Taken from https://api.flutter.dev/flutter/material/MenuBar-class.html
 class MenuEntry {
-  const MenuEntry({
+  bool? active;
+  MenuEntry({
     required this.label,
     this.shortcut,
     this.onPressed,
     this.menuChildren,
+    this.active,
   }) : assert(
          menuChildren == null || onPressed == null,
          'onPressed is ignored if menuChildren are provided',
@@ -25,11 +27,27 @@ class MenuEntry {
           child: Text(selection.label),
         );
       }
-      return MenuItemButton(
-        shortcut: selection.shortcut,
-        onPressed: selection.onPressed,
-        child: Text(selection.label),
-      );
+      if (!selection.active!)
+        // We use a gesturedetector because now we can make use of the 'disabled' look of the button, but still notify the user why they cannot click
+        return GestureDetector(
+          onTap: selection.onPressed,
+          child: MenuItemButton(
+            shortcut: selection.shortcut,
+            onPressed: null,
+            // style: ButtonStyle(
+            //   backgroundColor: WidgetStateProperty.fromMap({
+            //     // WidgetState.: Colors.black,
+            //   }),
+            // ),
+            child: Text(selection.label),
+          ),
+        );
+      else
+        return MenuItemButton(
+          shortcut: selection.shortcut,
+          onPressed: selection.onPressed,
+          child: Text(selection.label),
+        );
     }
 
     return selections.map<Widget>(buildSelection).toList();
