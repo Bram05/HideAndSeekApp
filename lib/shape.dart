@@ -190,8 +190,6 @@ ui.Offset getCoordinates(LatLngDart point, MapCamera camera) {
   return camera.latLngToScreenOffset(latLngDartToLatLng(point));
 }
 
-// todo: delete when starting new shape
-Map<(int, int), (Pointer<LatLngDart>, int)> cachedIntPoints = {};
 ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   int numSegments = maths.GetNumberOfSegments(shape);
   if (numSegments == 0) {
@@ -199,7 +197,8 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   }
 
   // const int numIntermediatePoints = 5;
-  const int meterPerIntermediatePoint = 10;
+  const double meterPerIntermediatePoint = 100;
+  const int maxIntermediatePoints = 1000;
 
   int numPoints = 0;
   int total = 0;
@@ -218,21 +217,18 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     for (int j = 0; j < numSides; j += delta) {
       Pointer<LatLngDart> intermediatePoints;
       int numIntermediatePoints;
-      if (cachedIntPoints[(i, j)] == null) {
-        Pointer<Int> k = malloc();
-        intermediatePoints = maths.GetIntermediatePoints(
-          shape,
-          i,
-          j,
-          meterPerIntermediatePoint,
-          k,
-        );
-        numIntermediatePoints = k.value;
-        malloc.free(k);
-        // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
-      } else {
-        (intermediatePoints, numIntermediatePoints) = cachedIntPoints[(i, j)]!;
-      }
+      Pointer<Int> k = malloc();
+      intermediatePoints = maths.GetIntermediatePoints(
+        shape,
+        i,
+        j,
+        meterPerIntermediatePoint,
+        k,
+        maxIntermediatePoints,
+      );
+      numIntermediatePoints = k.value;
+      malloc.free(k);
+      // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
       numPoints += numIntermediatePoints;
       ++total;
       if (intermediatePoints == Pointer.fromAddress(0)) return path;

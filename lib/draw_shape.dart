@@ -23,16 +23,19 @@ class ShapeCreator extends StatefulWidget {
 class ShapeCreatorState extends State<ShapeCreator> {
   bool firstClick = true;
   LatLngDart? lastclick;
-  late Pointer<Void> shape;
+  List<Pointer<Void>> shapes = [];
   late Shape shapeWidget;
+  List<Shape> finished = [];
+  late Pointer<ShapeDart> shapeDart;
 
   void createShapeWidget() {
     setState(() {
       shapeWidget = Shape(
         key: UniqueKey(),
-        shape: shape,
+        shape: shapes.last,
         color: Colors.lime,
         focussed: false,
+        renderAsBoundary: false,
       );
     });
   }
@@ -45,14 +48,20 @@ class ShapeCreatorState extends State<ShapeCreator> {
       ..ref.verticesCount = 0;
     // ..ref.sides = Pointer.fromAddress(0)
     // ..ref.sidesCount = 0;
-    Pointer<ShapeDart> shapeDart = malloc()
+    shapeDart = malloc()
       ..ref.segmentsCount = 1
       ..ref.segments = s;
 
-    shape = maths.ConvertToShape(shapeDart, 0);
-    malloc.free(s);
-    malloc.free(shapeDart);
+    shapes.add(maths.ConvertToShape(shapeDart, 0));
     createShapeWidget();
+  }
+
+  @override
+  void dispose() {
+    malloc.free(shapeDart.ref.segments);
+    malloc.free(shapeDart);
+    for (Pointer<Void> shape in shapes) maths.FreeShape(shape);
+    super.dispose();
   }
 
   @override
@@ -70,7 +79,7 @@ class ShapeCreatorState extends State<ShapeCreator> {
             (point.lat - lastclick!.lat).abs() < 0.0001 &&
                 (point.lon - lastclick!.lon).abs() < 0.0001)
           return;
-        maths.ModifyLastVertex(shape, point);
+        maths.ModifyLastVertex(shapes.last, point);
         createShapeWidget();
       },
       child: GestureDetector(
@@ -85,11 +94,11 @@ class ShapeCreatorState extends State<ShapeCreator> {
             ..lon = pos.longitude;
           // Pointer<SideDart> side = malloc()..ref.isStraight = 1;
           if (firstClick) {
-            maths.AddFirstSide(shape, posDart);
+            maths.AddFirstSide(shapes.last, posDart);
           } else {
-            maths.ModifyLastVertex(shape, posDart);
+            maths.ModifyLastVertex(shapes.last, posDart);
             maths.AddStraightSide(
-              shape,
+              shapes.last,
             ); // The next one: to be modified by hovering
           }
           lastclick = posDart;
@@ -97,11 +106,25 @@ class ShapeCreatorState extends State<ShapeCreator> {
           createShapeWidget();
         },
         onLongPress: () {
-          maths.RemoveLastVertexAndSide(shape);
-          maths.CloseShape(shape);
-          widget.callback(shape);
+          print("Long pressed");
+          maths.RemoveLastVertexAndSide(shapes.last);
+          maths.CloseShape(shapes.last);
+          widget.callback(shapes.last);
+          finished.add(
+            Shape(
+              shape: shapes.last,
+              color: Colors.blue,
+              focussed: false,
+              renderAsBoundary: false,
+            ),
+          );
+          shapes.add(maths.ConvertToShape(shapeDart, 0));
+          setState(() {
+            firstClick = true;
+            createShapeWidget();
+          });
         },
-        child: shapeWidget,
+        child: Stack(children: [for (Shape s in finished) s, shapeWidget]),
       ),
     );
   }

@@ -4,6 +4,7 @@
 #include "Plane.h"
 #include "Shape.h"
 #include "Vector3.h"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -32,7 +33,7 @@ LatLngDart* GetIntermediatePoints(const void* segment, int index, int num)
     ZoneScoped;
     Segment* seg = (Segment*)segment;
     Shape s      = Shape({ *seg });
-    return GetIntermediatePoints(&s, 0, index, num, nullptr);
+    return GetIntermediatePoints(&s, 0, index, num, nullptr, 0);
 }
 
 const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* length)
@@ -46,7 +47,7 @@ const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* leng
         LatLng vertex         = segment->sides[i]->begin.ToLatLng();
         vertices[2 * i].lat   = vertex.latitude.ToDouble();
         vertices[2 * i].lon   = vertex.longitude.ToDouble();
-        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3, nullptr);
+        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3, nullptr, 0);
         vertices[2 * i + 1]   = intPoints[1];
         FreeIntermediatePoints(intPoints);
     }
@@ -253,9 +254,15 @@ void whyUnequal(const void* a, const void* b)
     }
     shapeA->printDebugInfo = copy;
 }
+void* CreateCircle(LatLngDart centre, double radius)
+{
+    LatLng c = LatLng(centre.lat, centre.lon);
+    Shape s  = Side::FullCircle(c.ToVector3(), radius, true);
+    return new Shape(s);
+}
 
 LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideIndex,
-                                  int meterPerIntermediatePoint, int* numPoints)
+                                  double meterPerIntermediatePoint, int* numPoints, int max)
 {
     ZoneScoped;
     try
@@ -277,7 +284,7 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         int numIntermediatePoints;
         if (numPoints != nullptr)
         {
-            numIntermediatePoints = std::max(2, (int)(distance / meterPerIntermediatePoint));
+            numIntermediatePoints = std::clamp((int)(distance / meterPerIntermediatePoint), 2, max);
             *numPoints            = numIntermediatePoints;
         }
         else { numIntermediatePoints = meterPerIntermediatePoint; }

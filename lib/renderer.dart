@@ -11,11 +11,13 @@ class Shape extends StatefulWidget {
   final Pointer<Void> shape;
   final Color color;
   final bool focussed;
+  final bool? renderAsBoundary;
   const Shape({
     super.key,
     required this.shape,
     required this.color,
     required this.focussed,
+    this.renderAsBoundary,
   });
   @override
   State<Shape> createState() => ShapeState();
@@ -48,11 +50,17 @@ class MyClipper extends CustomClipper<ui.Path> {
   BuildContext context;
   Pointer<Void> shape;
   ui.Path path;
-  MyClipper({required this.context, required this.shape, required this.path});
+  final bool addBorder;
+  MyClipper({
+    required this.context,
+    required this.shape,
+    required this.path,
+    required this.addBorder,
+  });
 
   @override
   ui.Path getClip(Size size) {
-    ui.Path p = transform(MapCamera.of(context), path, size, true);
+    ui.Path p = transform(MapCamera.of(context), path, size, addBorder);
     return p;
   }
 
@@ -134,6 +142,8 @@ class ShapeState extends State<Shape> {
             context: context,
             shape: widget.shape,
             path: path!,
+            addBorder:
+                widget.renderAsBoundary == null || widget.renderAsBoundary!,
           ),
           child: Container(
             width: width,

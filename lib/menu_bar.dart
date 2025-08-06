@@ -27,7 +27,7 @@ class MenuEntry {
           child: Text(selection.label),
         );
       }
-      if (!selection.active!)
+      if (selection.active != null && !selection.active!)
         // We use a gesturedetector because now we can make use of the 'disabled' look of the button, but still notify the user why they cannot click
         return GestureDetector(
           onTap: selection.onPressed,

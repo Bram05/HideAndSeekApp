@@ -294,7 +294,7 @@ std::set<IndexOfArea> GetIndicesForSide(const Shape* s, int segIndex, int sideIn
     int numPoints         = 0;
     LatLngDart* positions = GetIntermediatePoints(
         s, segIndex, sideIndex, Constants::CircumferenceEarth().ToDouble() / (4 * numSubSections),
-        &numPoints);
+        &numPoints, 1000000000);
     for (int i = 0; i < numPoints; i++)
     {
         indices.insert({ (int)(positions[i].lat * numSubSections / 180),

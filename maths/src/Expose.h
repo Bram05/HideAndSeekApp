@@ -57,6 +57,9 @@ extern "C"
     // Remove the last side from shape
     EXPOSE void RemoveLastVertexAndSide(void* shape);
 
+    // Create circle
+    EXPOSE void* CreateCircle(struct LatLngDart centre, double radius);
+
     // Free all memory for shape
     EXPOSE void FreeShape(void* shape);
 
@@ -100,7 +103,7 @@ extern "C"
     // nullptr to numPoints and pass the requested number of points to meterPerIntermediatePoint)
     // @returns an array of points - free this via FreeIntermediatePoints
     EXPOSE struct LatLngDart* GetIntermediatePoints(const void* shape, int segIndex, int sideIndex,
-                                                    int meterPerIntermediatePoint, int* numPoints);
+                                                    double meterPerIntermediatePoint, int* numPoints, int max);
     // Free the output of GetIntermediatePoints
     EXPOSE void FreeIntermediatePoints(struct LatLngDart* points);
 

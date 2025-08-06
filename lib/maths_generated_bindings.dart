@@ -139,6 +139,23 @@ class Maths {
   late final _RemoveLastVertexAndSide = _RemoveLastVertexAndSidePtr.asFunction<
       void Function(ffi.Pointer<ffi.Void>)>();
 
+  ffi.Pointer<ffi.Void> CreateCircle(
+    LatLngDart centre,
+    double radius,
+  ) {
+    return _CreateCircle(
+      centre,
+      radius,
+    );
+  }
+
+  late final _CreateCirclePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
+              LatLngDart, ffi.Double)>>('CreateCircle');
+  late final _CreateCircle = _CreateCirclePtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(LatLngDart, double)>();
+
   void FreeShape(
     ffi.Pointer<ffi.Void> shape,
   ) {
@@ -312,8 +329,9 @@ class Maths {
     ffi.Pointer<ffi.Void> shape,
     int segIndex,
     int sideIndex,
-    int meterPerIntermediatePoint,
+    double meterPerIntermediatePoint,
     ffi.Pointer<ffi.Int> numPoints,
+    int max,
   ) {
     return _GetIntermediatePoints(
       shape,
@@ -321,6 +339,7 @@ class Maths {
       sideIndex,
       meterPerIntermediatePoint,
       numPoints,
+      max,
     );
   }
 
@@ -330,11 +349,12 @@ class Maths {
               ffi.Pointer<ffi.Void>,
               ffi.Int,
               ffi.Int,
-              ffi.Int,
-              ffi.Pointer<ffi.Int>)>>('GetIntermediatePoints');
+              ffi.Double,
+              ffi.Pointer<ffi.Int>,
+              ffi.Int)>>('GetIntermediatePoints');
   late final _GetIntermediatePoints = _GetIntermediatePointsPtr.asFunction<
-      ffi.Pointer<LatLngDart> Function(
-          ffi.Pointer<ffi.Void>, int, int, int, ffi.Pointer<ffi.Int>)>();
+      ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, int, int, double,
+          ffi.Pointer<ffi.Int>, int)>();
 
   void FreeIntermediatePoints(
     ffi.Pointer<LatLngDart> points,

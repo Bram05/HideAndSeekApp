@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jetlag/new_border.dart';
-import 'package:screenshot/screenshot.dart';
 
 String beautify(String countryName) {
   return countryName.replaceAll("_", " ");
@@ -101,6 +99,12 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
                     context.goNamed("CreateBoundary");
                   },
                   child: Text("Add your own"),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    context.goNamed("MapFun");
+                  },
+                  child: Text("Have some fun on the map"),
                 ),
                 const SizedBox(height: 10),
               ],
