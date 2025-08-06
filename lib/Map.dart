@@ -150,16 +150,14 @@ class MapWidgetState extends State<MapWidget> {
     } catch (e) {
       return Future.error("error: $e");
     }
-    regions = compute(getRegions, widget.border);
+    if (widget.renderExtras) regions = compute(getRegions, widget.border);
 
     return 3;
   }
 
   @override
   Widget build(BuildContext context) {
-    print("Boundary = $boundary");
     Size size = MediaQuery.of(context).size;
-    print("Size: $size");
     return FutureBuilder<void>(
       future: initialize(size),
       builder: (context, asyncSnapshot) {
@@ -253,11 +251,9 @@ class MapWidgetState extends State<MapWidget> {
     Pointer<Void>? out = await showDialog<Pointer<Void>>(
       context: context,
       builder: (context) {
-        print("Building dialog");
         return FutureBuilder(
           future: handle(result),
           builder: (context, state) {
-            print("Building within");
             if (state.hasError)
               return AlertDialog(
                 scrollable: true,

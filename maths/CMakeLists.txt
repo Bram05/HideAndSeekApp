@@ -15,7 +15,6 @@ add_library(
   src/Double.cpp
   src/Equations.cpp
   src/Line.cpp
-  src/maths.cpp
   src/Matrix3.cpp
   src/Plane.cpp
   src/Shape.cpp

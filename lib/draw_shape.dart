@@ -87,7 +87,6 @@ class ShapeCreatorState extends State<ShapeCreator> {
           if (firstClick) {
             maths.AddFirstSide(shape, posDart);
           } else {
-            print("Here");
             maths.ModifyLastVertex(shape, posDart);
             maths.AddStraightSide(
               shape,

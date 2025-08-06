@@ -22,7 +22,6 @@ Future<Map<String, dynamic>?> attemptGet(String spec, String name) async {
   );
 
   bool testAdminLevel(String level) {
-    print("testing for level $level");
     if (name == "Nederland") {
       return level == "3";
     } else
@@ -236,8 +235,7 @@ String toShapeJson(Map<String, dynamic> body) {
     //   wrong = true;
     //   // shapeIsCurrentlyInner = !shapeIsCurrentlyInner;
     // }
-    bool shapeIsCurrentlyInner =
-        1 == maths.FirstHitOrientedPositively(segmentShape, point);
+    bool shapeIsCurrentlyInner = 1 == maths.hit(segmentShape, point);
     // if (wrong) {
     //   print(
     //     "inside = ${shapeIsCurrentlyInner} an isOuter = ${isOuter} point = ${point.ref.lat}, ${point.ref.lon}",

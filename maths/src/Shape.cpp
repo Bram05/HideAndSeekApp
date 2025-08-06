@@ -636,25 +636,6 @@ OrientationResult areOrientedPositively(const Vector3& a, const Vector3& b, cons
     return cross == point.normalized() ? OrientationResult::positive : OrientationResult::negative;
 }
 
-std::pair<std::vector<IntersectionWithIndex>, std::unique_ptr<Shape>>
-    Shape::GetIntersectionsForHit(const Vector3& point) const
-{
-    LatLng l = point.ToLatLng();
-    // Vector3 end = LatLng(l.latitude, l.longitude - 180).ToVector3();
-    Vector3 end = LatLng(90, l.longitude).ToVector3();
-    if (l.latitude == 0 || l.latitude == 90) { throw "See todo :)"; }
-    // todo: this does not work if latitude == 0 or 90
-    // // loop around half the circle. We assume that this is enough and no curve will loop
-    // around more than half the earth todo: add a check and explicitly fail otherwise todo:
-    // make sure that the intersections also work when looping around the earth
-    std::unique_ptr<Shape> s = std::make_unique<Shape>(std::vector<Segment>{
-        Segment({ Side::StraightSide(point, end) }),
-    });
-
-    auto [points, _] = IntersectionPoints(s.get(), this, true);
-    return { points, std::move(s) };
-}
-
 bool Shape::Hit(const Vector3& point) const
 {
     for (int i = 0; i < segments[0].sides.size(); i++)
@@ -694,70 +675,8 @@ bool Shape::Hit(const Vector3& point) const
     // This happens in test 'sharingASide' but should never happen in an actual application
     // If it does, this is probably the most likely solution
     return false;
-    // std::cerr << "All points are invalid\n";
-    // throw "All points in first segment are invalid";
+}
 
-    // return true;
-    // // todo: if no intersections and no surroundsplanet: take a line to one of the points in
-    // the
-    // // shape with no orientationresult indeterminate. then check orientation of the first
-    // // intersection
-    // auto [points, s] = GetIntersectionsForHit(point);
-    // if (points.size() == 0 && surroundsPlanet)
-    // {
-    //     std::cerr << "Hit found no intersection with surrounding planet\n";
-    //     assert(segments.size() == 1);
-    //     assert(segments[0].sides.size() == 2 &&
-    //            segments[0].sides[0]->plane == segments[0].sides[1]->plane);
-    //     return dot(segments[0].sides[0]->plane.GetNormal(), point) >= 0;
-    // }
-    // int count = 0;
-    // for (IntersectionWithIndex p : points)
-    // {
-    //     Vector3 t1 = GetTangentAtIntersection(*s, p.indexInS1, p.point);
-    //     Vector3 t2 = GetTangentAtIntersection(*this, p.indexInS2, p.point);
-    //
-    //     switch (areOrientedPositively(t1, t2, p.point))
-    //     {
-    //     case OrientationResult::positive: ++count; break;
-    //     case OrientationResult::negative: --count; break;
-    //     case OrientationResult::undeterminated:
-    //         std::cerr << "undetermined\n";
-    //         break;
-    //         // do nothing
-    //         // We ignore it: think about turning the ray an infinitesimal amount making sure
-    //         it does
-    //         // not intersect this line anymore. The other lines are still intersected the
-    //         same way
-    //         // though
-    //     }
-    // }
-    // return count > 0;
-}
-bool Shape::FirstHitOrientedPositively(const Vector3& point) const
-{
-    auto [points, s]   = GetIntersectionsForHit(point);
-    int minIndex       = 0;
-    Double minDistance = "10000000000";
-    for (int i = 0; i < points.size(); i++)
-    {
-        Double dist = GetDistanceAlongEarthForOrder(points[i].point, point);
-        if (dist < minDistance)
-        {
-            minDistance = dist;
-            minIndex    = i;
-        }
-    }
-    Vector3 t1 = GetTangentAtIntersection(*s, points[minIndex].indexInS1, points[minIndex].point);
-    Vector3 t2 =
-        GetTangentAtIntersection(*this, points[minIndex].indexInS2, points[minIndex].point);
-    auto result = areOrientedPositively(t1, t2, points[minIndex].point);
-    if (result == OrientationResult::undeterminated)
-    {
-        throw std::runtime_error("Error firsthitorientedpositively is undeterminend");
-    }
-    return result == OrientationResult::positive;
-}
 template <>
 std::ostream& operator<< <Vector3>(std::ostream& os, const std::vector<Vector3>& p)
 {

@@ -92,50 +92,23 @@ Vector3double operator*(Matrix3double m, Vector3double v)
 double clamp(double val)
 {
     ZoneScoped;
-    if (val > 1)
-    {
-        // std::cerr << "WARNING: clamping value " << val << '\n';
-        // assert(val - Constants::GetEpsilon() <= 1);
-        return 1;
-    }
-    else if (val < -1)
-    {
-        // std::cerr << "WARNING: clamping value " << val << '\n';
-        // assert(val + Constants::GetEpsilon() >= -1);
-        return -1.0;
-    }
+    if (val > 1) { return 1; }
+    else if (val < -1) { return -1.0; }
     return val;
 }
 LatLngdouble Vector3double::ToLatLngImprecise() const
 {
     ZoneScoped;
-    // if (length2() != 1)
-    // {
-    //     std::cerr << *this << ", " << length() << '\n';
-    //     assert(false);
-    // }
-    // Convert the vector to latitude and longitude
-    // Double lat = asin(z / length()) * ("180" / Constants::pi());
-    // assert(length() == 1);
-    // Double lat = asinu(z / length());
-    // double xd  = x.ToDouble();
-    // double yd  = y.ToDouble();
-    // double zd  = z.ToDouble();
     double lat     = std::asin(z) / (2 * M_PI) * 360;
     double lon     = -1;
     double epsilon = 1e-6;
-    if (std::abs(x) < epsilon && std::abs(y) < epsilon)
-    {
-        // lon = Double(0); // Arbitrary value when both x and y are zero
-        lon = 0;
-    }
+    if (std::abs(x) < epsilon && std::abs(y) < epsilon) { lon = 0; }
     else
     {
         double r2 = x * x + y * y + z * z;
         double s  = std::sqrt(r2 - z * z); // r^2-z^2 = x^2+y^2 >= 0
         if (std::abs(x) < epsilon)
         {
-            // This check is needed because we are outside the 'correct' domain of arcsin
             if (y > 0) { lon = 0; }
             else { lon = 180; }
         }

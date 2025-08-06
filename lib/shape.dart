@@ -145,7 +145,6 @@ fromJson(Map<String, dynamic> json) {
 
   List<List<bool>> questionsUsed = [];
   if (json["questionsUsed"] != null) {
-    print("Loading used questions");
     for (var item in json["questionsUsed"]) {
       List<bool> list = [];
       for (var q in item) list.add(q);
@@ -153,7 +152,6 @@ fromJson(Map<String, dynamic> json) {
     }
   }
 
-  // print("Loaded ${extraShapes.length} extra shapes from json");
   return (
     extraShapes,
     intersections,

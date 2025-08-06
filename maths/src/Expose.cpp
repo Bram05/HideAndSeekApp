@@ -213,11 +213,6 @@ int hit(const void* shape, const LatLngDart* point)
     LatLng latLng(point->lat, point->lon);
     return ((Shape*)shape)->Hit(latLng.ToVector3());
 }
-int FirstHitOrientedPositively(const void* shape, const struct LatLngDart* point)
-{
-    LatLng latLng(point->lat, point->lon);
-    return ((Shape*)shape)->FirstHitOrientedPositively(latLng.ToVector3());
-}
 void* IntersectShapes(const void* a, const void* b)
 {
     ZoneScoped;
@@ -368,17 +363,7 @@ int GetNumberOfSidesInSegment(const void* shape, int segmentIndex)
 {
     return ((const Shape*)shape)->segments[segmentIndex].sides.size();
 }
-// void* AddCircle(LatLngDart* centreP, double radius)
-// {
-//     // Vector3 centre             = LatLng("48.864716", "2.349014").ToVector3();
-//     // Vector3 centre = LatLng(centreP->lat, centreP->lon).ToVector3();
-//     // std::cerr << "Have centre: " << centre.ToLatLng() << '\n';
-//     // // Double radius              = 5000000;
-//     // auto [p, p1, p2]           = Plane::FromCircle(centre, radius, true);
-//     // std::shared_ptr<Side> side = std::make_shared<CircleSide>(centre, radius, p, true);
-//     // return new Shape({ Segment({ p1, p2 }, { side, side }) });
-// }
-//
+
 void* UpdateBoundaryWithClosestToObject(void* boundary, LatLngDart positionP, LatLngDart objectP,
                                         int closerToObject)
 {
@@ -414,7 +399,6 @@ void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
         }
     }
 
-    std::cerr << "Closest index " << closestIndex << '\n';
     Shape* boundary = nullptr;
     int first       = closestIndex == 0 ? 1 : 0;
     for (int i = 0; i < numObjects; i++)

@@ -183,13 +183,7 @@ public:
     bool operator!=(const Shape& other) const { return !(*this == other); }
 
     bool Hit(const Vector3& point) const;
-    bool FirstHitOrientedPositively(const Vector3& point) const;
-
     void Reverse();
-
-private:
-    std::pair<std::vector<IntersectionWithIndex>, std::unique_ptr<Shape>>
-        GetIntersectionsForHit(const Vector3& point) const;
 };
 
 struct PositionForTwoShapes

@@ -14,5 +14,7 @@ public:
         assert(!dir.isZero());
     }
 };
-Vector3 Intersect(const Line& l1, const Line& l2, const Vector3& perpendicular);
+// Intersect the two lines, can optionally pass 'perpendicular': a vector perpendicular to the lines
+// for a slight optimization if this value is already known
 Vector3 Intersect(const Line& l1, const Line& l2);
+Vector3 Intersect(const Line& l1, const Line& l2, const Vector3& perpendicular);

@@ -66,5 +66,6 @@ public:
 
 private:
     void InitVal();
+    __mpfr_struct* GetVal() const;
     int val;
 };
