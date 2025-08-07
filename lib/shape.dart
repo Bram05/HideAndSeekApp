@@ -80,6 +80,7 @@ List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
 
 (Pointer<Void>, double, double, double, double) shapeFromJson(
   List<dynamic> json,
+  int toSkipForQuality,
 ) {
   Pointer<SegmentDart> segments = malloc(json.length);
   double minLat = 10000, minLon = 10000, maxLat = -10000, maxLon = -10000;
@@ -94,7 +95,7 @@ List<Map<String, dynamic>> segmentToJson(Pointer<Void> shape, int index) {
   var p = malloc<ShapeDart>()
     ..ref.segments = segments
     ..ref.segmentsCount = json.length;
-  var res = maths.ConvertToShape(p, 0);
+  var res = maths.ConvertToShape(p, 0, toSkipForQuality);
   for (int i = 0; i < p.ref.segmentsCount; i++) {
     SegmentDart s = p.ref.segments[i];
     malloc.free(s.vertices);
@@ -124,13 +125,13 @@ List<List<Map<String, dynamic>>> shapeToJson(Pointer<Void> shape) {
   double,
   List<List<bool>>,
 )
-fromJson(Map<String, dynamic> json) {
+fromJson(Map<String, dynamic> json, int toSkipForQuality) {
   List<Pointer<Void>> extraShapes = [];
   List<(int, int)> intersections = [];
   List<Pointer<Void>> solutions = [];
   double minLat = -100000, minLon = -100000, maxLat = -100000, maxLon = -100000;
   for (var shape in json["shapes"]) {
-    var ret = shapeFromJson(shape);
+    var ret = shapeFromJson(shape, toSkipForQuality);
     extraShapes.add(ret.$1);
     minLat = ret.$2;
     minLon = ret.$3;
@@ -139,7 +140,7 @@ fromJson(Map<String, dynamic> json) {
   }
   for (var intersection in json["intersections"]) {
     intersections.add((intersection["first"], intersection["second"]));
-    var ret = shapeFromJson(intersection["solution"]);
+    var ret = shapeFromJson(intersection["solution"], toSkipForQuality);
     solutions.add(ret.$1);
   }
 
@@ -209,7 +210,8 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     int delta = 1;
-    if (numSides > 600) {
+    if (numSides > 10000) {
+      print("Simplifying");
       delta = 10;
       // delta = 1;
     }

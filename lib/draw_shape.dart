@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/Maths.dart';
+import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/renderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'maths_generated_bindings.dart';
-import 'dart:math' as math;
 
 class ShapeCreator extends StatefulWidget {
   final Function(Pointer<Void>) callback;
@@ -52,7 +52,9 @@ class ShapeCreatorState extends State<ShapeCreator> {
       ..ref.segmentsCount = 1
       ..ref.segments = s;
 
-    shapes.add(maths.ConvertToShape(shapeDart, 0));
+    shapes.add(
+      maths.ConvertToShape(shapeDart, 0, getDeltaFromQuality(Quality.full)),
+    );
     createShapeWidget();
   }
 
@@ -118,7 +120,13 @@ class ShapeCreatorState extends State<ShapeCreator> {
               renderAsBoundary: false,
             ),
           );
-          shapes.add(maths.ConvertToShape(shapeDart, 0));
+          shapes.add(
+            maths.ConvertToShape(
+              shapeDart,
+              0,
+              getDeltaFromQuality(Quality.full),
+            ),
+          );
           setState(() {
             firstClick = true;
             createShapeWidget();

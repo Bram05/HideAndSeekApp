@@ -38,7 +38,7 @@ extern "C"
     EXPOSE void printValue(struct LatLngDart p);
 
     // Convert the ShapeDart to a shape in cpp memory
-    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart, int addStraigthSides);
+    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart, int addStraigthSides, int toSkip);
 
     // ----section: Modifying shape -----
     // Add the first side to a new segment

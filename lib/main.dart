@@ -8,7 +8,7 @@ import 'package:jetlag/new_border.dart';
 void main() => runApp(MyApp());
 
 final _router = GoRouter(
-  initialLocation: '/mapfun',
+  initialLocation: '/',
   routes: [
     GoRoute(
       name: 'ChooseBoundary',

@@ -35,19 +35,21 @@ class Maths {
   ffi.Pointer<ffi.Void> ConvertToShape(
     ffi.Pointer<ShapeDart> shapeDart,
     int addStraigthSides,
+    int toSkip,
   ) {
     return _ConvertToShape(
       shapeDart,
       addStraigthSides,
+      toSkip,
     );
   }
 
   late final _ConvertToShapePtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Void> Function(
-              ffi.Pointer<ShapeDart>, ffi.Int)>>('ConvertToShape');
+              ffi.Pointer<ShapeDart>, ffi.Int, ffi.Int)>>('ConvertToShape');
   late final _ConvertToShape = _ConvertToShapePtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>, int)>();
+      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ShapeDart>, int, int)>();
 
   void AddFirstSide(
     ffi.Pointer<ffi.Void> shape,

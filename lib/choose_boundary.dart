@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:jetlag/SettingsWidget.dart';
 
 String beautify(String countryName) {
   return countryName.replaceAll("_", " ");
@@ -105,6 +106,17 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
                     context.goNamed("MapFun");
                   },
                   child: Text("Have some fun on the map"),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return SettingsWidget();
+                      },
+                    );
+                  },
+                  child: Text("Settings"),
                 ),
                 const SizedBox(height: 10),
               ],

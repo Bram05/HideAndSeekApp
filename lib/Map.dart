@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:jetlag/Boundary.dart';
 import 'package:jetlag/Location.dart';
+import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/helper.dart';
 import 'package:jetlag/new_border.dart';
 import 'menu_bar.dart';
@@ -36,13 +37,20 @@ class MapWidget extends StatefulWidget {
   }
 }
 
-Future<(Pointer<Void>, int)> getRegions(String message) async {
-  Directory dir = Directory("${getLocationOfRegion(message)}/subareas");
+class Data {
+  final String message;
+  final int toSkip;
+  const Data(this.message, this.toSkip);
+}
+
+Future<(Pointer<Void>, int)> getRegions(Data d) async {
+  Directory dir = Directory("${getLocationOfRegion(d.message)}/subareas");
   List<FileSystemEntity> entities = await dir.list().toList();
   Pointer<Pointer<Void>> regions = malloc(entities.length);
   for (int i = 0; i < entities.length; i++) {
     var res = fromJson(
       jsonDecode(await File(entities[i].path).readAsString()),
+      d.toSkip,
     ).$1;
     if (res.length != 1) {
       return Future.error(
@@ -94,6 +102,7 @@ class MapWidgetState extends State<MapWidget> {
     if (boundary != nullptr) {
       return 0;
     }
+    int toSkip = getDeltaFromQuality(await readQuality());
     // regions = getRegions(widget.border);
     // var (shapes, _, _, _, _, _, _) = fromJson(
     //   jsonDecode(
@@ -120,6 +129,7 @@ class MapWidgetState extends State<MapWidget> {
         _,
       ) = fromJson(
         json,
+        toSkip,
       );
       if (extraShapesNew.length != 1) {
         return Future.error(
@@ -150,7 +160,8 @@ class MapWidgetState extends State<MapWidget> {
     } catch (e) {
       return Future.error("error: $e");
     }
-    if (widget.renderExtras) regions = compute(getRegions, widget.border);
+    if (widget.renderExtras)
+      regions = compute(getRegions, Data(widget.border, toSkip));
 
     return 3;
   }
@@ -222,7 +233,29 @@ class MapWidgetState extends State<MapWidget> {
 
   ShortcutRegistryEntry? _shortcutsEntry;
 
-  void askQuestion(String question, Function(bool) handle) async {
+  Future<bool> askQuestion(String question, Function(bool) handle) async {
+    if (lastPosition == null) {
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Error: location not yet determined!"),
+            content: Text(
+              "Cannot ask this question without a location. Please wait until it has been determined",
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text("Close"),
+              ),
+            ],
+          );
+        },
+      );
+      return false;
+    }
     bool? result = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -245,9 +278,8 @@ class MapWidgetState extends State<MapWidget> {
         );
       },
     );
-    if (result == null) return;
+    if (result == null) return false;
 
-    print("Here");
     Pointer<Void>? out = await showDialog<Pointer<Void>>(
       context: context,
       builder: (context) {
@@ -273,8 +305,10 @@ class MapWidgetState extends State<MapWidget> {
                 title: Text("Loading..."),
                 content: Text("Please wait"),
               );
-            Navigator.pop(context, state.data);
-            return Text('...');
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => Navigator.pop(context, state.data),
+            );
+            return const SizedBox.shrink();
           },
         );
       },
@@ -303,6 +337,7 @@ class MapWidgetState extends State<MapWidget> {
       );
     }
     firstQuestion = false;
+    return true;
   }
 
   String prettyDistance(double meters) {
@@ -319,13 +354,13 @@ class MapWidgetState extends State<MapWidget> {
           (
             "Latitude",
             () {
-              askQuestion(
+              return askQuestion(
                 "Is hiders latitude higher than yours (above you on the map)?",
                 (bool answer) async {
                   return await askLatitudeQuestion(
                     maths.LatitudeQuestion,
                     boundary,
-                    lastPosition.latitude,
+                    lastPosition!.latitude,
                     answer,
                   );
                 },
@@ -335,13 +370,13 @@ class MapWidgetState extends State<MapWidget> {
           (
             "Longitude",
             () {
-              askQuestion(
+              return askQuestion(
                 "Is hiders longitude higher than yours (to the right of you)?",
                 (bool answer) async {
                   return await askLongitudeQuestion(
                     maths.LongitudeQuestion,
                     boundary,
-                    lastPosition.longitude,
+                    lastPosition!.longitude,
                     answer,
                   );
                 },
@@ -351,7 +386,7 @@ class MapWidgetState extends State<MapWidget> {
           (
             "Same area",
             () {
-              askQuestion(
+              return askQuestion(
                 "Is the hider in the same administrative area (province,...)?",
                 (bool answer) async {
                   return await regions.then(
@@ -381,7 +416,7 @@ class MapWidgetState extends State<MapWidget> {
             (
               prettyDistance(r),
               () {
-                askQuestion(
+                return askQuestion(
                   "Is hider's location within ${prettyDistance(r)} of your current position?",
                   (bool answer) async {
                     return askWithinRadiusQuestion(
@@ -402,40 +437,41 @@ class MapWidgetState extends State<MapWidget> {
           (
             "museums",
             () async {
-              askQuestion("Is hider's closest museum the same as yours?", (
-                bool answer,
-              ) async {
-                // var museums = jsonDecode(
-                //   await File("downloads/museums.json").readAsString(),
-                LatLng lastPosition = LatLng(52.0677, 4.35026);
-                var result = await http.post(
-                  Uri.parse('https://overpass-api.de/api/interpreter'),
-                  body: {
-                    "data":
-                        '''[out:json][timeout:90];
+              return askQuestion(
+                "Is hider's closest museum the same as yours?",
+                (bool answer) async {
+                  // var museums = jsonDecode(
+                  //   await File("downloads/museums.json").readAsString(),
+                  LatLng lastPosition = LatLng(52.0677, 4.35026);
+                  var result = await http.post(
+                    Uri.parse('https://overpass-api.de/api/interpreter'),
+                    body: {
+                      "data":
+                          '''[out:json][timeout:90];
             nwr['tourism' = 'museum'](around:7000,${lastPosition.latitude}, ${lastPosition.longitude});
             out geom;''',
-                  },
-                );
-                if (result.statusCode != 200)
-                  return Future.error(
-                    "Internal error: query for museums failed!",
+                    },
                   );
-                await File("out.json").writeAsString(result.body);
-                var (list, n) = convertToList(jsonDecode(result.body));
+                  if (result.statusCode != 200)
+                    return Future.error(
+                      "Internal error: query for museums failed!",
+                    );
+                  await File("out.json").writeAsString(result.body);
+                  var (list, n) = convertToList(jsonDecode(result.body));
 
-                return askClosestMuseumQuestion(
-                  boundary,
-                  // lastPositionForCpp(),
-                  Struct.create()
-                    ..lat = lastPosition.latitude
-                    ..lon = lastPosition.longitude,
-                  list,
-                  n,
-                  answer,
-                  !firstQuestion,
-                );
-              });
+                  return askClosestMuseumQuestion(
+                    boundary,
+                    // lastPositionForCpp(),
+                    Struct.create()
+                      ..lat = lastPosition.latitude
+                      ..lon = lastPosition.longitude,
+                    list,
+                    n,
+                    answer,
+                    !firstQuestion,
+                  );
+                },
+              );
             },
           ),
         ],
@@ -504,6 +540,9 @@ class MapWidgetState extends State<MapWidget> {
                   newQuestionsUsed,
                 ) = fromJson(
                   json,
+                  getDeltaFromQuality(
+                    Quality.full,
+                  ), // The loaded file already is of degraded quality
                 );
                 questionsUsed = newQuestionsUsed;
                 if (extraShapesNew.length != 1) {
@@ -529,10 +568,14 @@ class MapWidgetState extends State<MapWidget> {
         ],
       ),
     ];
-    MenuEntry creatEntry((String, VoidCallback) item, int i, int j) {
+    MenuEntry createEntry(
+      (String, Future<bool> Function()) item,
+      int i,
+      int j,
+    ) {
       return MenuEntry(
         label: item.$1,
-        onPressed: () {
+        onPressed: () async {
           if (questionsUsed![i][j]) {
             showDialog(
               context: context,
@@ -553,10 +596,11 @@ class MapWidgetState extends State<MapWidget> {
             );
             return;
           }
-          item.$2();
-          setState(() {
-            questionsUsed![i][j] = true;
-          });
+          bool asked = await item.$2();
+          if (asked)
+            setState(() {
+              questionsUsed![i][j] = true;
+            });
         },
         active: !(questionsUsed![i][j]),
       );
@@ -568,7 +612,7 @@ class MapWidgetState extends State<MapWidget> {
           label: questions[i].$1,
           menuChildren: [
             for (int j = 0; j < questions[i].$2.length; j++)
-              creatEntry(questions[i].$2[j], i, j),
+              createEntry(questions[i].$2[j], i, j),
           ],
         ),
       );

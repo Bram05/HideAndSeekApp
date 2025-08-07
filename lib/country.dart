@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:http/http.dart' as http;
 import 'package:jetlag/Maths.dart';
+import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/maths_generated_bindings.dart';
 import 'package:jetlag/shape.dart';
 
@@ -200,7 +201,11 @@ String toShapeJson(Map<String, dynamic> body) {
     Pointer<ShapeDart> shapeDart = malloc()
       ..ref.segmentsCount = 1
       ..ref.segments = segmentDart;
-    Pointer<Void> segmentShape = maths.ConvertToShape(shapeDart, 1);
+    Pointer<Void> segmentShape = maths.ConvertToShape(
+      shapeDart,
+      1,
+      getDeltaFromQuality(Quality.full),
+    );
     double minlat = 1000, minLon = 1000, maxLon = -1000;
     for (int i = 0; i < segment.length; i++) {
       minlat = min(minlat, segment[i].lat);
@@ -255,7 +260,11 @@ String toShapeJson(Map<String, dynamic> body) {
       shape.ref.segments[i].vertices[j] = shapeCoordinates[i][j];
     }
   }
-  Pointer<Void> shapePtr = maths.ConvertToShape(shape, 1);
+  Pointer<Void> shapePtr = maths.ConvertToShape(
+    shape,
+    1,
+    getDeltaFromQuality(Quality.full),
+  );
   for (int i = 0; i < shape.ref.segmentsCount; i++) {
     malloc.free(shape.ref.segments[i].vertices);
   }

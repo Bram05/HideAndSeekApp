@@ -1,14 +1,17 @@
 #include "Expose.h"
 #include "Constants.h"
+#include "Double.h"
 #include "Matrix3.h"
 #include "Plane.h"
 #include "Shape.h"
 #include "Vector3.h"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <tracy/Tracy.hpp>
 
 void InitEverything()
@@ -110,7 +113,7 @@ void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
 //     return res;
 // }
 
-void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
+void* ConvertToShape(const ShapeDart* shape, int addStraightSides, int toSkip)
 {
     ZoneScoped;
     std::vector<Segment> segments;
@@ -121,21 +124,35 @@ void* ConvertToShape(const ShapeDart* shape, int addStraightSides)
         count += segmentDart.verticesCount;
         std::vector<std::shared_ptr<Side>> sides;
         if (!addStraightSides) assert(segmentDart.verticesCount % 2 == 0);
-        int delta = (addStraightSides ? 1 : 2);
-        for (int j = 0; j < segmentDart.verticesCount; j += delta)
+        int delta       = (addStraightSides ? 1 : 2);
+        int toSkipInner = toSkip;
+        if (segmentDart.verticesCount < 200) toSkipInner = 1;
+        for (int j = 0; j < segmentDart.verticesCount; j += delta * toSkipInner)
         {
             ZoneScoped;
             auto convert = [](LatLngDart p) { return LatLng(p.lat, p.lon).ToVector3(); };
             TracyMessageL("After convert");
             Vector3 begin = convert(segmentDart.vertices[j]);
             // Vector3 between = convert(segmentDart.vertices[j + 1]);
-            Vector3 end = convert(segmentDart.vertices[(j + delta) % segmentDart.verticesCount]);
+            int endindex = j + delta * toSkipInner;
+            if (endindex >= segmentDart.verticesCount) endindex = 0;
+            Vector3 end = convert(segmentDart.vertices[endindex]);
             Vector3 between;
             TracyMessageL("After convert2");
-            if (addStraightSides)
+            if (addStraightSides && toSkipInner == 1)
                 between = (begin + end).normalized();
             else
-                between = convert(segmentDart.vertices[j + 1]);
+            {
+                int middle =
+                    j + (delta * toSkipInner) /
+                            2; // In this branch: addstraightside == false or toSkipInner>1,
+                               // if addstraightside == false then delta = 2
+                               // Therefore delta*toskip > 1, so 1 <= (delta*toSkipInner)/2 <
+                               // (delta*toSkipInner) so we are always taking a correct point
+                if (middle >= segmentDart.verticesCount) { between = (begin + end).normalized(); }
+                else
+                    between = convert(segmentDart.vertices[middle]);
+            }
             TracyMessageL("Before end");
             sides.push_back(std::make_shared<Side>(begin, between, end));
         }
