@@ -114,6 +114,7 @@ class CircleWidgetState extends State<CircleWidget> {
           color: Colors.blue,
           focussed: false,
           renderAsBoundary: false,
+          centerOfCountry: LatLng(0, 0),
         ),
       ),
     );

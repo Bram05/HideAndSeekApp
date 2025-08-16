@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:jetlag/shape.dart';
@@ -9,6 +11,7 @@ import 'package:vector_math/vector_math_64.dart' hide Colors;
 
 class Shape extends StatefulWidget {
   final Pointer<Void> shape;
+  final LatLng centerOfCountry;
   final Color color;
   final bool focussed;
   final bool? renderAsBoundary;
@@ -17,6 +20,7 @@ class Shape extends StatefulWidget {
     required this.shape,
     required this.color,
     required this.focussed,
+    required this.centerOfCountry,
     this.renderAsBoundary,
   });
   @override
@@ -126,8 +130,23 @@ class ShapeState extends State<Shape> {
         MapCamera c = MapCamera.of(context);
         double width = constraints.maxWidth, height = constraints.maxHeight;
         double deltaPixels = 30;
-        Offset o = c.latLngToScreenOffset(LatLng(0, 0));
-        Offset end = o + Offset(deltaPixels, deltaPixels);
+        Offset o = c.latLngToScreenOffset(widget.centerOfCountry);
+        double rotation = c.rotationRad;
+        double cos = math.cos(rotation), sin = math.sin(rotation);
+        Matrix2 m = Matrix2(
+          math.cos(rotation),
+          -math.sin(rotation),
+          math.sin(rotation),
+          math.cos(rotation),
+        );
+        Vector2 v = m * Vector2(deltaPixels, deltaPixels);
+        Offset end =
+            o +
+            Offset(
+              cos * deltaPixels - sin * deltaPixels,
+              sin * deltaPixels + cos * deltaPixels,
+            );
+        // Offset end = o + Offset(deltaPixels, deltaPixels);
         Alignment topleft = Alignment(
           o.dx / width * 2 - 1,
           o.dy / height * 2 - 1,

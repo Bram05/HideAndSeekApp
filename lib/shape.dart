@@ -210,10 +210,10 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     int delta = 1;
-    print("Segment with ${numSides} sides");
-    int min = 20;
+    // print("Segment with ${numSides} sides");
+    int min = 10;
     if (numSides > 10000) {
-      print("Simplifying");
+      // print("Simplifying");
       delta = 10;
       min = 2;
       // delta = 10;

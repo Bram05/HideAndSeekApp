@@ -57,8 +57,8 @@ class LocationMarkerState extends State<LocationMarker> {
 
   @override
   Widget build(BuildContext context) {
-    lastPosition = LatLng(52.3676, 4.90414);
-    if (second) lastPosition = LatLng(52.03354662932838, 4.981643376818461);
+    // lastPosition = LatLng(52.3676, 4.90414);
+    // if (second) lastPosition = LatLng(52.03354662932838, 4.981643376818461);
     if (lastPosition == null) return const SizedBox.shrink();
     return MarkerLayer(
       markers: [

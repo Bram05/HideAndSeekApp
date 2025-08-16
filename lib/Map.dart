@@ -25,7 +25,6 @@ import 'Maths.dart';
 import 'dart:ffi' hide Size;
 import 'dart:async';
 
-bool second = false;
 String getSavesDirectory() {
   return "$documentsdir/saves";
 }
@@ -256,12 +255,6 @@ class MapWidgetState extends State<MapWidget> {
                                   thermometerDistance,
                             ),
                           ),
-                          // FilledButton(
-                          //   onPressed: () {
-                          //     second = true;
-                          //   },
-                          //   child: Text("Next"),
-                          // ),
                           FilledButton(
                             onPressed: () async {
                               bool? result = await showDialog(
@@ -312,7 +305,12 @@ class MapWidgetState extends State<MapWidget> {
                   ),
                   children: [
                     tileLayer,
-                    Shape(shape: boundary, color: Colors.white, focussed: true),
+                    Shape(
+                      shape: boundary,
+                      color: Colors.white,
+                      focussed: true,
+                      centerOfCountry: initialPos,
+                    ),
                     // if (originalBoundary != nullptr)
                     //   Shape(
                     //     shape: originalBoundary,
@@ -641,29 +639,27 @@ class MapWidgetState extends State<MapWidget> {
                 (bool answer) async {
                   // var museums = jsonDecode(
                   //   await File("downloads/museums.json").readAsString(),
-                  LatLng lastPosition = LatLng(52.0677, 4.35026);
+                  // LatLng lastPosition = LatLng(52.0677, 4.35026);
                   var result = await http.post(
                     Uri.parse('https://overpass-api.de/api/interpreter'),
                     body: {
                       "data":
                           '''[out:json][timeout:90];
-            nwr['tourism' = 'museum'](around:7000,${lastPosition.latitude}, ${lastPosition.longitude});
+            nwr['tourism' = 'museum'](around:7000,${lastPosition!.latitude}, ${lastPosition!.longitude});
             out geom;''',
                     },
                   );
+                  print("Location is ${lastPosition!}");
                   if (result.statusCode != 200)
                     return Future.error(
                       "Internal error: query for museums failed!",
                     );
-                  await File("out.json").writeAsString(result.body);
+                  // await File("out.json").writeAsString(result.body);
                   var (list, n) = convertToList(jsonDecode(result.body));
 
                   return askClosestMuseumQuestion(
                     boundary,
-                    // lastPositionForCpp(),
-                    Struct.create()
-                      ..lat = lastPosition.latitude
-                      ..lon = lastPosition.longitude,
+                    lastPositionForCpp(),
                     list,
                     n,
                     answer,

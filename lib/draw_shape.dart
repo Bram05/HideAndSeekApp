@@ -36,6 +36,7 @@ class ShapeCreatorState extends State<ShapeCreator> {
         color: Colors.lime,
         focussed: false,
         renderAsBoundary: false,
+        centerOfCountry: LatLng(0, 0),
       );
     });
   }
@@ -118,6 +119,7 @@ class ShapeCreatorState extends State<ShapeCreator> {
               color: Colors.blue,
               focussed: false,
               renderAsBoundary: false,
+              centerOfCountry: LatLng(0, 0),
             ),
           );
           shapes.add(
