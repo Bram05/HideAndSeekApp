@@ -42,7 +42,6 @@ Quality? toQualityString(String value) {
 
 Future<String> getSettingsFile() async {
   String s = "${(await getApplicationDocumentsDirectory()).path}/settings.txt";
-  print("Settings file: $s");
   return s;
 }
 
@@ -78,7 +77,6 @@ class SettingsWidgetState extends State<SettingsWidget> {
   Future<int> setQuality() async {
     if (quality != null) return Future.value(3);
     quality = await readQuality();
-    print("Complete");
     return Future.value(3);
   }
 

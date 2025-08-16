@@ -74,7 +74,6 @@ class ShapeCreatorState extends State<ShapeCreator> {
         LatLng pos = MapCamera.of(
           context,
         ).screenOffsetToLatLng(e.localPosition);
-        // print("Modifying");
         LatLngDart point = Struct.create()
           ..lat = pos.latitude
           ..lon = pos.longitude;
@@ -88,7 +87,6 @@ class ShapeCreatorState extends State<ShapeCreator> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (TapUpDetails details) {
-          print("tapped up");
           LatLng pos = MapCamera.of(
             context,
           ).screenOffsetToLatLng(details.localPosition);
@@ -109,7 +107,6 @@ class ShapeCreatorState extends State<ShapeCreator> {
           createShapeWidget();
         },
         onLongPress: () {
-          print("Long pressed");
           maths.RemoveLastVertexAndSide(shapes.last);
           maths.CloseShape(shapes.last);
           widget.callback(shapes.last);

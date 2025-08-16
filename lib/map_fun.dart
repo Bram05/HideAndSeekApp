@@ -1,14 +1,12 @@
+import 'package:flutter_map_compass/flutter_map_compass.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jetlag/Location.dart';
+import 'package:jetlag/MapAttribution.dart';
 import 'package:jetlag/MapFun/circle.dart';
 import 'package:jetlag/draw_shape.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/renderer.dart';
 import 'package:latlong2/latlong.dart';
-import 'Maths.dart';
-import 'dart:ffi' hide Size;
 
 class MapFunWidget extends StatefulWidget {
   const MapFunWidget({super.key});
@@ -64,7 +62,12 @@ class MapFunWidgetState extends State<MapFunWidget> {
                 initialCenter: initialPos,
                 initialZoom: initialZoom,
               ),
-              children: [tileLayer, if (activeWidget != null) activeWidget!],
+              children: [
+                tileLayer,
+                if (activeWidget != null) activeWidget!,
+                MapAttribution(),
+                MapCompass.cupertino(hideIfRotatedNorth: true),
+              ],
             ),
           ),
         ),

@@ -4,10 +4,12 @@ import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_map_compass/flutter_map_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:jetlag/Boundary.dart';
 import 'package:jetlag/Location.dart';
+import 'package:jetlag/MapAttribution.dart';
 import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/helper.dart';
 import 'package:jetlag/main.dart';
@@ -319,53 +321,8 @@ class MapWidgetState extends State<MapWidget> {
                     //   ),
                     if (widget.renderExtras) LocationMarker(),
                     if (widget.renderExtras)
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Container(
-                          color: Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: RichText(
-                              text: TextSpan(
-                                style: TextStyle(color: Colors.black),
-                                text: "All map related data from ",
-                                children: [
-                                  TextSpan(
-                                    text: "OpenStreetMap",
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () async {
-                                        if (!await launchUrl(
-                                          Uri.https(
-                                            "openstreetmap.org",
-                                            "copyright",
-                                          ),
-                                          mode: LaunchMode.externalApplication,
-                                        ))
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) {
-                                              return AlertDialog(
-                                                title: Text(
-                                                  "Unable to open license page",
-                                                ),
-                                                content: Text(
-                                                  "Please go to 'https://www.openstreetmap.org/copyright' yourself",
-                                                ),
-                                              );
-                                            },
-                                          );
-                                      },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const MapCompass.cupertino(hideIfRotatedNorth: true),
+                    if (widget.renderExtras) MapAttribution(),
                   ],
                 ),
               ),
@@ -697,13 +654,14 @@ class MapWidgetState extends State<MapWidget> {
             onPressed: () async {
               var tempJson = toJson(boundary, questionsUsed!);
               String json = jsonEncode(tempJson);
-              print(json);
-              FilePicker.platform.saveFile(
+              print("Asking");
+              await FilePicker.platform.saveFile(
                 dialogTitle: 'Please select an output file:',
-                initialDirectory: "${Directory.current.path}/saves/",
+                // initialDirectory: "${Directory.current.path}/saves/",
                 bytes: utf8.encode(json),
                 allowedExtensions: ["json"],
                 fileName: ".json",
+                type: FileType.custom,
               );
             },
           ),
@@ -713,7 +671,7 @@ class MapWidgetState extends State<MapWidget> {
             onPressed: () async {
               var result = await FilePicker.platform.pickFiles(
                 dialogTitle: "Select file to load",
-                initialDirectory: "${Directory.current.path}/newtests/",
+                initialDirectory: "${Directory.current.path}/saves/",
               );
               if (result == null) {
                 print("No file selected");

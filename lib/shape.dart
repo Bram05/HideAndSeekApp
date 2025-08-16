@@ -234,7 +234,6 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
         min,
       );
       numIntermediatePoints = k.value;
-      if (numSides == 2) print("Rnedering $numIntermediatePoints int points");
       malloc.free(k);
       // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
       numPoints += numIntermediatePoints;

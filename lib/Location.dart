@@ -65,8 +65,8 @@ class LocationMarkerState extends State<LocationMarker> {
         Marker(
           point: lastPosition!,
           child: Image(image: AssetImage("assets/marker.png")),
-          width: 50,
-          height: 50,
+          width: 40,
+          height: 40,
           rotate: true,
           alignment: Alignment.topCenter,
         ),

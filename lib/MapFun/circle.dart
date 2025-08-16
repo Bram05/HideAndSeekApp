@@ -27,13 +27,16 @@ class CircleWidgetState extends State<CircleWidget> {
   late double radius = 100000;
   final FocusNode _focusNode = FocusNode();
   bool singlePress = true;
-  DateTime? atpress;
+  late DateTime atpress;
   Timer? t;
   void updateCircle() {
     if (radius > 20000000) radius = 20000000;
     // if (radius < 1) radius = 1;
+    // We need to it this way because Shape checks if it should rerender by comparing the address of the new shape with the previous.
+    // If we first delete and then recreate then it may happen at the same address
+    Pointer<Void> newcirc = maths.CreateCircle(toLatLngDart(centre), radius);
     maths.FreeShape(circle);
-    circle = maths.CreateCircle(toLatLngDart(centre), radius);
+    circle = newcirc;
   }
 
   @override
@@ -42,6 +45,7 @@ class CircleWidgetState extends State<CircleWidget> {
     // centre = MapCamera.of(context).screenOffsetToLatLng(Offset(0, 0));
     centre = LatLng(0, 0);
     circle = maths.CreateCircle(toLatLngDart(centre), radius);
+    atpress = DateTime.now();
     super.initState();
   }
 
@@ -71,7 +75,6 @@ class CircleWidgetState extends State<CircleWidget> {
     void updateCentre(Offset location) {
       setState(() {
         centre = MapCamera.of(context).screenOffsetToLatLng(location);
-        print("New centre $centre");
         updateCircle();
       });
     }
@@ -96,7 +99,7 @@ class CircleWidgetState extends State<CircleWidget> {
         atpress = DateTime.now();
       },
       onTapDown: (e) {
-        if (DateTime.now().difference(atpress!) <
+        if (DateTime.now().difference(atpress) <
             (Duration(milliseconds: 400))) {
           return;
         }

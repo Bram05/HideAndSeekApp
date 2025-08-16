@@ -20,7 +20,6 @@ Future<void> setAppDir() async {
 }
 
 void main() async {
-  print("Running");
   runApp(MyApp());
 }
 

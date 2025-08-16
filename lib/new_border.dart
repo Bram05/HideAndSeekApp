@@ -150,6 +150,7 @@ class NewBorderState extends State<NewBorder> {
       "Generating image",
     ))
       return;
+    imageCache.clear();
 
     stateChange(() {
       text += "All Done";

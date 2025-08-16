@@ -35,7 +35,6 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
     f = Directory(getSavesDirectory());
     if (!await f.exists()) await f.create(recursive: true);
 
-    print("App directory = ${documentsdir}");
     Directory dir = Directory(getCountriesDirectory());
     return dir
         .list()
