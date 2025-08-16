@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi' hide Size;
 
 import 'package:flutter/material.dart';
@@ -25,7 +26,12 @@ class CircleWidgetState extends State<CircleWidget> {
   late Pointer<Void> circle;
   late double radius = 100000;
   final FocusNode _focusNode = FocusNode();
+  bool singlePress = true;
+  DateTime? atpress;
+  Timer? t;
   void updateCircle() {
+    if (radius > 20000000) radius = 20000000;
+    // if (radius < 1) radius = 1;
     maths.FreeShape(circle);
     circle = maths.CreateCircle(toLatLngDart(centre), radius);
   }
@@ -36,13 +42,12 @@ class CircleWidgetState extends State<CircleWidget> {
     // centre = MapCamera.of(context).screenOffsetToLatLng(Offset(0, 0));
     centre = LatLng(0, 0);
     circle = maths.CreateCircle(toLatLngDart(centre), radius);
-    print('init');
     super.initState();
   }
 
   @override
   void dispose() {
-    print("Dispose");
+    if (t != null) t!.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -60,22 +65,56 @@ class CircleWidgetState extends State<CircleWidget> {
         setState(() {
           radius /= 1.2;
           updateCircle();
-          print(radius);
         });
       }),
     });
-    return MouseRegion(
-      onHover: (e) {
-        setState(() {
-          centre = MapCamera.of(context).screenOffsetToLatLng(e.localPosition);
-          updateCircle();
+    void updateCentre(Offset location) {
+      setState(() {
+        centre = MapCamera.of(context).screenOffsetToLatLng(location);
+        print("New centre $centre");
+        updateCircle();
+      });
+    }
+
+    return GestureDetector(
+      onLongPressStart: (e) {
+        t = Timer.periodic(Duration(milliseconds: 5), (Timer t) {
+          setState(() {
+            if (singlePress)
+              radius *= 1.005;
+            else
+              radius /= 1.005;
+            updateCircle();
+          });
         });
       },
-      child: Shape(
-        shape: circle,
-        color: Colors.blue,
-        focussed: false,
-        renderAsBoundary: false,
+      onLongPressEnd: (e) {
+        t!.cancel();
+      },
+      onDoubleTapDown: (e) {
+        singlePress = false;
+        atpress = DateTime.now();
+      },
+      onTapDown: (e) {
+        if (DateTime.now().difference(atpress!) <
+            (Duration(milliseconds: 400))) {
+          return;
+        }
+        singlePress = true;
+      },
+      onTapUp: (e) {
+        updateCentre(e.localPosition);
+      },
+      child: MouseRegion(
+        onHover: (e) {
+          updateCentre(e.localPosition);
+        },
+        child: Shape(
+          shape: circle,
+          color: Colors.blue,
+          focussed: false,
+          renderAsBoundary: false,
+        ),
       ),
     );
   }

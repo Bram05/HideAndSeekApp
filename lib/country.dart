@@ -16,8 +16,8 @@ Future<Map<String, dynamic>?> attemptGet(String spec, String name) async {
     Uri.parse('https://overpass-api.de/api/interpreter'),
     body: {
       "data":
-          '''[out:json][timeout:90];
-            $spec;
+          '''[out:json][timeout:200];
+            ($spec);
             out geom;''',
     },
   );
@@ -44,15 +44,16 @@ Future<Map<String, dynamic>?> attemptGet(String spec, String name) async {
 }
 
 Future<Map<String, dynamic>> getRequest({String? name, int? ref}) async {
-  if (name != null && ref != null) throw "Internal error: Not both can be null";
+  if (name != null && ref != null)
+    throw "Internal error: Not both can be non-null";
   if (name != null) {
-    String spec = "nwr['name' = '$name']";
+    String spec = "nwr['name' = '$name'];nwr['int_name' = '$name'];";
     var ret = await attemptGet(spec, name);
-    ret ??= await attemptGet("nwr['int_name' = '$name']", name);
+    // ret ??= await attemptGet("nwr['int_name' = '$name']", name);
     if (ret == null) throw "Cannot find such a region";
     return ret;
   } else if (ref != null) {
-    String spec = "nwr($ref)";
+    String spec = "nwr($ref);";
     var el = await attemptGet(spec, "");
     if (el == null) throw "Internal error: cannot find this reference";
     return el;

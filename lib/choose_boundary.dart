@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:jetlag/Map.dart';
 import 'package:jetlag/SettingsWidget.dart';
+import 'package:jetlag/main.dart';
+import 'package:jetlag/new_border.dart';
 
 String beautify(String countryName) {
   return countryName.replaceAll("_", " ");
@@ -20,9 +23,20 @@ class ChooseBoundary extends StatefulWidget {
   }
 }
 
+String getCountriesDirectory() {
+  return "$documentsdir/countries";
+}
+
 class ChooseBoundaryState extends State<ChooseBoundary> {
   Future<List<String>> getBorders() async {
-    Directory dir = Directory("countries");
+    await setAppDir();
+    Directory f = Directory(getCountriesDirectory());
+    if (!await f.exists()) await f.create(recursive: true);
+    f = Directory(getSavesDirectory());
+    if (!await f.exists()) await f.create(recursive: true);
+
+    print("App directory = ${documentsdir}");
+    Directory dir = Directory(getCountriesDirectory());
     return dir
         .list()
         .map(
@@ -54,13 +68,15 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
                   spacing: 20,
                   children: [
                     if (snapshot.hasError)
-                      Text("Something went wrong, please try again.")
+                      Text(
+                        "Something went wrong (${snapshot.error}), please try again.",
+                      )
                     else if (!snapshot.hasData)
                       Text("Loading ...")
                     else
                       for (var item in snapshot.data!)
                         ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: 500),
+                          constraints: BoxConstraints(maxWidth: 400),
                           child: Card(
                             child: ListTile(
                               // minVerticalPadding: 20,
@@ -77,6 +93,41 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
                                   pathParameters: {"path": item},
                                 );
                               },
+                              onLongPress: () async {
+                                bool? result = await showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      title: Text(
+                                        "Are you sure you want to delete the region '$item'?",
+                                      ),
+                                      // actionsAlignment:
+                                      //     MainAxisAlignment.spaceAround,
+                                      actions: [
+                                        FilledButton(
+                                          child: Text("Yes"),
+                                          onPressed: () {
+                                            Navigator.pop(context, true);
+                                          },
+                                        ),
+                                        FilledButton(
+                                          child: Text("No"),
+                                          onPressed: () {
+                                            Navigator.pop(context, false);
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                                if (result == true) {
+                                  setState(() {
+                                    Directory(
+                                      getLocationOfRegion(item),
+                                    ).deleteSync(recursive: true);
+                                  });
+                                }
+                              },
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 10.0),
                                 child: ClipRRect(
@@ -85,7 +136,7 @@ class ChooseBoundaryState extends State<ChooseBoundary> {
                                   ),
                                   child: Image.file(
                                     File(
-                                      "countries/${uglify(item)}/image.jpeg",
+                                      "${getLocationOfRegion(item)}/image.jpeg",
                                     ),
                                   ),
                                 ),

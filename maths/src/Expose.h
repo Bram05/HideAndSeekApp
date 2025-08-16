@@ -38,7 +38,8 @@ extern "C"
     EXPOSE void printValue(struct LatLngDart p);
 
     // Convert the ShapeDart to a shape in cpp memory
-    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart, int addStraigthSides, int toSkip);
+    EXPOSE void* ConvertToShape(const struct ShapeDart* shapeDart, int addStraigthSides,
+                                int toSkip);
 
     // ----section: Modifying shape -----
     // Add the first side to a new segment
@@ -103,7 +104,8 @@ extern "C"
     // nullptr to numPoints and pass the requested number of points to meterPerIntermediatePoint)
     // @returns an array of points - free this via FreeIntermediatePoints
     EXPOSE struct LatLngDart* GetIntermediatePoints(const void* shape, int segIndex, int sideIndex,
-                                                    double meterPerIntermediatePoint, int* numPoints, int max);
+                                                    double meterPerIntermediatePoint,
+                                                    int* numPoints, int max, int min);
     // Free the output of GetIntermediatePoints
     EXPOSE void FreeIntermediatePoints(struct LatLngDart* points);
 
@@ -135,12 +137,17 @@ extern "C"
     EXPOSE void* WithinRadiusQuestion(void* shape, struct LatLngDart centre, double radius,
                                       int answer);
 
+    EXPOSE void* UpdateBoundaryWithClosestToObject(void* boundary, struct LatLngDart closer,
+                                                   struct LatLngDart further);
     // is hider's closest 'object' the same as yours?
     // @returns the new region where the hider could be based on this question
     // @params deleteFirst = should the input 'boundary' be deleted?
     EXPOSE void* UpdateBoundaryWithClosests(void* boundary, struct LatLngDart position,
                                             struct LatLngDart* objects, int numObjects, int answer,
                                             int deleteFirst);
+    // ----section: querying other stuff
+    EXPOSE double DistanceBetween(struct LatLngDart p1, struct LatLngDart p2);
+
     // Initialize and destruct everything, called when (un)loading the library
     // Do not call these anywhere else
     void InitEverything() __attribute__((constructor));

@@ -12,7 +12,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:go_router/go_router.dart';
 
 String getLocationOfRegion(String name) {
-  return "countries/${uglify(name)}";
+  return "${getCountriesDirectory()}/${uglify(name)}";
 }
 
 class NewBorder extends StatefulWidget {
@@ -37,7 +37,8 @@ class NewBorderState extends State<NewBorder> {
           data: MediaQueryData(size: Size(1080, 920)),
           child: MapWidget(border: name, renderExtras: false),
         ),
-        delay: Duration(seconds: 20),
+        delay: Duration(seconds: 5),
+        targetSize: Size(1080, 920),
       );
       File f = File("${getLocationOfRegion(name)}/image.jpeg");
       f.writeAsBytes(res);
@@ -64,7 +65,7 @@ class NewBorderState extends State<NewBorder> {
 
   int state = 0;
   String text = "";
-  String error = "?";
+  (String, String) error = ("?", "?");
   Future<void> create(
     String generalName,
     String borderName,
@@ -88,7 +89,7 @@ class NewBorderState extends State<NewBorder> {
       } catch (e) {
         stateChange(() {
           state = -1;
-          error = e.toString();
+          error = (name, e.toString());
         });
         return false;
       }
@@ -97,7 +98,7 @@ class NewBorderState extends State<NewBorder> {
     if (await dir.exists()) {
       stateChange(() {
         state = -1;
-        error = "This country already exists";
+        error = ("initialisation", "This country already exists");
       });
       return;
     }
@@ -121,7 +122,7 @@ class NewBorderState extends State<NewBorder> {
     } catch (e) {
       stateChange(() {
         state = -1;
-        error = e.toString();
+        error = ("getting all subareas", e.toString());
       });
       return;
     }
@@ -134,8 +135,9 @@ class NewBorderState extends State<NewBorder> {
       } catch (e) {
         stateChange(() {
           state = -1;
-          error = e.toString();
+          error = ("getting name for subarea $i", e.toString());
         });
+        return;
       }
       if (!await addSingleAction(
         () => parseAndStoreBoundary(json, "${dir.path}/subareas/$name.json"),
@@ -168,7 +170,7 @@ class NewBorderState extends State<NewBorder> {
       );
       state = 0;
       text = "";
-      error = "?";
+      error = ("?", "?");
       running = false;
       await showDialog(
         context: context,
@@ -202,8 +204,8 @@ class NewBorderState extends State<NewBorder> {
                   getLocationOfRegion(generalName),
                 ).deleteSync(recursive: true);
                 return AlertDialog(
-                  title: Text("Something went wrong"),
-                  content: Text(error),
+                  title: Text("Something went wrong during ${error.$1}"),
+                  content: Text(error.$2),
                   actions: [
                     FilledButton(
                       onPressed: () {

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,6 +29,7 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
       String? Function(String?) validator, {
       String prefixText = "",
       FocusNode? focusNode,
+      Function? onsubmit,
     }) {
       return TableRow(
         children: [
@@ -41,6 +43,9 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
               hintText: hinttext,
               contentPadding: const EdgeInsets.symmetric(horizontal: 10),
             ),
+            onFieldSubmitted: (String _) {
+              if (onsubmit != null) onsubmit();
+            },
           ),
         ],
       );
@@ -57,6 +62,14 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
     const rowSpacer = TableRow(
       children: [SizedBox(height: 6), SizedBox(height: 6)],
     );
+
+    void submit() {
+      if (_formKey.currentState!.validate()) {
+        String generalName = _nameController.text;
+        String borderName = isDifferent ? _borderController.text : generalName;
+        widget.onClick(generalName, borderName);
+      }
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -87,6 +100,7 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
                           "Name of the country in OpenStreetMap",
                           _nameController,
                           validator,
+                          onsubmit: submit,
                         ),
                         rowSpacer,
                         TableRow(
@@ -115,6 +129,7 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
                             "Name of the border in OpenStreetMap",
                             _borderController,
                             validator,
+                            onsubmit: submit,
                           ),
                       ],
                     ),
@@ -126,13 +141,7 @@ class NewBorderWidgetState extends State<NewBorderWidget> {
                         children: [
                           FilledButton(
                             onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                String generalName = _nameController.text;
-                                String borderName = isDifferent
-                                    ? _borderController.text
-                                    : generalName;
-                                widget.onClick(generalName, borderName);
-                              }
+                              submit();
                             },
                             child: const Text('Add region'),
                           ),

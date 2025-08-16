@@ -3,13 +3,16 @@ import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:jetlag/Boundary.dart';
 import 'package:jetlag/Location.dart';
 import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/helper.dart';
+import 'package:jetlag/main.dart';
 import 'package:jetlag/new_border.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' hide Size;
@@ -20,6 +23,12 @@ import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'Maths.dart';
 import 'dart:ffi' hide Size;
+import 'dart:async';
+
+bool second = false;
+String getSavesDirectory() {
+  return "$documentsdir/saves";
+}
 
 class MapWidget extends StatefulWidget {
   final String border;
@@ -44,7 +53,7 @@ class Data {
 }
 
 Future<(Pointer<Void>, int)> getRegions(Data d) async {
-  Directory dir = Directory("${getLocationOfRegion(d.message)}/subareas");
+  Directory dir = Directory(d.message);
   List<FileSystemEntity> entities = await dir.list().toList();
   Pointer<Pointer<Void>> regions = malloc(entities.length);
   for (int i = 0; i < entities.length; i++) {
@@ -72,8 +81,23 @@ class MapWidgetState extends State<MapWidget> {
   late Future<(Pointer<Void>, int)> regions;
   List<List<bool>>? questionsUsed;
 
+  late bool thermometerInProcess;
+  LatLng? thermometerStart;
+  late double thermometerDistance, thermometerCurrentDistance;
+  late bool thermometerCancel = false;
+  void resetThermometer() {
+    setState(() {
+      thermometerInProcess = false;
+      thermometerStart = null;
+      thermometerDistance = -1;
+      thermometerCurrentDistance = 0;
+      thermometerCancel = false;
+    });
+  }
+
   @override
   void initState() {
+    resetThermometer();
     tileLayer = TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       userAgentPackageName: 'com.HideAndSeek.app',
@@ -161,7 +185,10 @@ class MapWidgetState extends State<MapWidget> {
       return Future.error("error: $e");
     }
     if (widget.renderExtras)
-      regions = compute(getRegions, Data(widget.border, toSkip));
+      regions = compute(
+        getRegions,
+        Data("${getLocationOfRegion(widget.border)}/subareas", toSkip),
+      );
 
     return 3;
   }
@@ -191,13 +218,85 @@ class MapWidgetState extends State<MapWidget> {
               ],
             ),
           );
-        if (!asyncSnapshot.hasData) return Text("waiting");
+        if (!asyncSnapshot.hasData)
+          return Text(
+            "Loading...",
+            style: Theme.of(context).textTheme.headlineMedium,
+          );
         return Column(
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (widget.renderExtras)
+                if (thermometerInProcess)
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      color: Colors.orangeAccent,
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        alignment: WrapAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Thermometer in progress: ${prettyDistance(thermometerCurrentDistance)} out of ${prettyDistance(thermometerDistance)}",
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: 500),
+                            child: LinearProgressIndicator(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(7),
+                              ),
+                              minHeight: 7,
+                              value:
+                                  thermometerCurrentDistance /
+                                  thermometerDistance,
+                            ),
+                          ),
+                          // FilledButton(
+                          //   onPressed: () {
+                          //     second = true;
+                          //   },
+                          //   child: Text("Next"),
+                          // ),
+                          FilledButton(
+                            onPressed: () async {
+                              bool? result = await showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: Text(
+                                      "Do you really want to cancel the running thermometer?",
+                                    ),
+                                    actions: [
+                                      FilledButton(
+                                        onPressed: () {
+                                          Navigator.pop(context, true);
+                                        },
+                                        child: Text("Yes"),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () {
+                                          Navigator.pop(context, false);
+                                        },
+                                        child: Text("No"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                              if (result == true) thermometerCancel = true;
+                            },
+                            child: Text("Cancel"),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (widget.renderExtras)
                   Expanded(
                     child: MenuBar(children: MenuEntry.build(_getMenus())),
                   ),
@@ -220,7 +319,55 @@ class MapWidgetState extends State<MapWidget> {
                     //     color: Colors.white,
                     //     focussed: false,
                     //   ),
-                    LocationMarker(),
+                    if (widget.renderExtras) LocationMarker(),
+                    if (widget.renderExtras)
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Container(
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(color: Colors.black),
+                                text: "All map related data from ",
+                                children: [
+                                  TextSpan(
+                                    text: "OpenStreetMap",
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () async {
+                                        if (!await launchUrl(
+                                          Uri.https(
+                                            "openstreetmap.org",
+                                            "copyright",
+                                          ),
+                                          mode: LaunchMode.externalApplication,
+                                        ))
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) {
+                                              return AlertDialog(
+                                                title: Text(
+                                                  "Unable to open license page",
+                                                ),
+                                                content: Text(
+                                                  "Please go to 'https://www.openstreetmap.org/copyright' yourself",
+                                                ),
+                                              );
+                                            },
+                                          );
+                                      },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -233,31 +380,14 @@ class MapWidgetState extends State<MapWidget> {
 
   ShortcutRegistryEntry? _shortcutsEntry;
 
-  Future<bool> askQuestion(String question, Function(bool) handle) async {
-    if (lastPosition == null) {
-      await showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text("Error: location not yet determined!"),
-            content: Text(
-              "Cannot ask this question without a location. Please wait until it has been determined",
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: Text("Close"),
-              ),
-            ],
-          );
-        },
-      );
-      return false;
-    }
+  Future<bool> askQuestion(
+    String question,
+    Future<Pointer<Void>> Function(bool) handle, {
+    bool canIgnore = true,
+  }) async {
     bool? result = await showDialog<bool>(
       context: context,
+      barrierDismissible: canIgnore,
       builder: (context) {
         return SimpleDialog(
           title: Text(question),
@@ -286,7 +416,7 @@ class MapWidgetState extends State<MapWidget> {
         return FutureBuilder(
           future: handle(result),
           builder: (context, state) {
-            if (state.hasError)
+            if (state.hasError || (state.hasData && state.data == nullptr))
               return AlertDialog(
                 scrollable: true,
                 title: Text("Something went wrong"),
@@ -314,9 +444,10 @@ class MapWidgetState extends State<MapWidget> {
       },
       barrierDismissible: false,
     );
+    if (out == null) return false;
     // Pointer<Void> out = await handle(result);
     setState(() {
-      setBoundary(out!);
+      setBoundary(out);
     });
     Pointer<Int> segment = malloc();
     Pointer<Int> side = malloc();
@@ -341,9 +472,9 @@ class MapWidgetState extends State<MapWidget> {
   }
 
   String prettyDistance(double meters) {
-    if (meters < 500) return "${meters.toStringAsFixed(0)}  m";
+    if (meters < 500) return "${meters.toStringAsFixed(0)}m";
     double d = meters / 1000;
-    return "${d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 1)} km";
+    return "${d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 1)}km";
   }
 
   List<MenuEntry> _getMenus() {
@@ -407,6 +538,74 @@ class MapWidgetState extends State<MapWidget> {
               );
             },
           ),
+        ],
+      ),
+      (
+        "Thermometer",
+        [
+          for (double d in [500, 5000, 15000, 50000])
+            (
+              prettyDistance(d),
+              () async {
+                setState(() {
+                  thermometerInProcess = true;
+                  thermometerStart = lastPosition;
+                  thermometerDistance = d;
+                });
+                bool result = await Stream.periodic(Duration(milliseconds: 100))
+                    .firstWhere((_) {
+                      if (thermometerCancel) throw "_";
+                      setState(() {
+                        thermometerCurrentDistance = maths.DistanceBetween(
+                          lastPositionForCpp(),
+                          Struct.create()
+                            ..lat = thermometerStart!.latitude
+                            ..lon = thermometerStart!.longitude,
+                        );
+                      });
+                      return thermometerCurrentDistance >= thermometerDistance;
+                    })
+                    .then(
+                      (_) {
+                        print("finished");
+                        return true;
+                      },
+                      onError: (_) {
+                        print("error");
+                        return false;
+                      },
+                    );
+                print("Finished: result=$result");
+                if (!result) {
+                  resetThermometer();
+                  return false;
+                }
+                result = await askQuestion(
+                  "Thermometer finished. Did you get closer?",
+                  (bool result) async {
+                    if (result)
+                      return maths.UpdateBoundaryWithClosestToObject(
+                        boundary,
+                        lastPositionForCpp(),
+                        Struct.create()
+                          ..lat = thermometerStart!.latitude
+                          ..lon = thermometerStart!.longitude,
+                      );
+                    else
+                      return maths.UpdateBoundaryWithClosestToObject(
+                        boundary,
+                        Struct.create()
+                          ..lat = thermometerStart!.latitude
+                          ..lon = thermometerStart!.longitude,
+                        lastPositionForCpp(),
+                      );
+                  },
+                  canIgnore: false,
+                );
+                resetThermometer();
+                return result;
+              },
+            ),
         ],
       ),
       (
@@ -544,7 +743,8 @@ class MapWidgetState extends State<MapWidget> {
                     Quality.full,
                   ), // The loaded file already is of degraded quality
                 );
-                questionsUsed = newQuestionsUsed;
+                if (newQuestionsUsed.isNotEmpty)
+                  questionsUsed = newQuestionsUsed;
                 if (extraShapesNew.length != 1) {
                   showDialog(
                     context: context,
@@ -596,7 +796,31 @@ class MapWidgetState extends State<MapWidget> {
             );
             return;
           }
-          bool asked = await item.$2();
+          bool asked = await () async {
+            if (lastPosition == null) {
+              await showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: Text("Error: location not yet determined!"),
+                    content: Text(
+                      "Cannot ask this question without a location. Please wait until it has been determined",
+                    ),
+                    actions: [
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: Text("Close"),
+                      ),
+                    ],
+                  );
+                },
+              );
+              return false;
+            }
+            return await item.$2();
+          }();
           if (asked)
             setState(() {
               questionsUsed![i][j] = true;

@@ -36,7 +36,7 @@ LatLngDart* GetIntermediatePoints(const void* segment, int index, int num)
     ZoneScoped;
     Segment* seg = (Segment*)segment;
     Shape s      = Shape({ *seg });
-    return GetIntermediatePoints(&s, 0, index, num, nullptr, 0);
+    return GetIntermediatePoints(&s, 0, index, num, nullptr, 0, 0);
 }
 
 const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* length)
@@ -50,7 +50,7 @@ const LatLngDart* GetAllVertices(const void* shapeP, int segmentIndex, int* leng
         LatLng vertex         = segment->sides[i]->begin.ToLatLng();
         vertices[2 * i].lat   = vertex.latitude.ToDouble();
         vertices[2 * i].lon   = vertex.longitude.ToDouble();
-        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3, nullptr, 0);
+        LatLngDart* intPoints = GetIntermediatePoints(shape, segmentIndex, i, 3, nullptr, 0, 0);
         vertices[2 * i + 1]   = intPoints[1];
         FreeIntermediatePoints(intPoints);
     }
@@ -116,6 +116,7 @@ void FreeVertices(LatLngDart* vertices) { delete[] vertices; }
 void* ConvertToShape(const ShapeDart* shape, int addStraightSides, int toSkip)
 {
     ZoneScoped;
+    // std::cerr << "COnverting to shape!!!\n";
     std::vector<Segment> segments;
     int count = 0;
     for (int i = 0; i < shape->segmentsCount; ++i)
@@ -279,7 +280,8 @@ void* CreateCircle(LatLngDart centre, double radius)
 }
 
 LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideIndex,
-                                  double meterPerIntermediatePoint, int* numPoints, int max)
+                                  double meterPerIntermediatePoint, int* numPoints, int max,
+                                  int min)
 {
     ZoneScoped;
     try
@@ -301,8 +303,9 @@ LatLngDart* GetIntermediatePoints(const void* shapeP, int segIndex, int sideInde
         int numIntermediatePoints;
         if (numPoints != nullptr)
         {
-            numIntermediatePoints = std::clamp((int)(distance / meterPerIntermediatePoint), 2, max);
-            *numPoints            = numIntermediatePoints;
+            numIntermediatePoints =
+                std::clamp((int)(distance / meterPerIntermediatePoint), min, max);
+            *numPoints = numIntermediatePoints;
         }
         else { numIntermediatePoints = meterPerIntermediatePoint; }
         assert(side->plane.LiesInside(begin));
@@ -388,13 +391,12 @@ int GetNumberOfSidesInSegment(const void* shape, int segmentIndex)
     return ((const Shape*)shape)->segments[segmentIndex].sides.size();
 }
 
-void* UpdateBoundaryWithClosestToObject(void* boundary, LatLngDart positionP, LatLngDart objectP,
-                                        int closerToObject)
+void* UpdateBoundaryWithClosestToObject(void* boundary, LatLngDart positionP, LatLngDart objectP)
 {
-    Vector3 position = LatLng{ positionP.lat, positionP.lon }.ToVector3();
-    Vector3 object   = LatLng{ objectP.lat, objectP.lon }.ToVector3();
-    Vector3 middle   = (position + object).normalized();
-    Plane p          = Plane((object - position).normalized() * (closerToObject ? 1 : -1), middle);
+    Vector3 position                 = LatLng{ positionP.lat, positionP.lon }.ToVector3();
+    Vector3 object                   = LatLng{ objectP.lat, objectP.lon }.ToVector3();
+    Vector3 middle                   = (position + object).normalized();
+    Plane p                          = Plane((object - position).normalized() * -1, middle);
     std::shared_ptr<Side> firstSide  = std::make_shared<Side>(middle, -middle, Vector3(0, 0, 0), p);
     std::shared_ptr<Side> secondSide = std::make_shared<Side>(-middle, middle, Vector3(0, 0, 0), p);
     Shape shape                      = Shape({ Segment({ firstSide, secondSide }) }, true);
@@ -429,7 +431,7 @@ void* UpdateBoundaryWithClosests(void* boundaryP, struct LatLngDart positionP,
     {
         if (i == closestIndex) continue;
         void* newBoundary =
-            UpdateBoundaryWithClosestToObject(boundary, objectsP[closestIndex], objectsP[i], false);
+            UpdateBoundaryWithClosestToObject(boundary, objectsP[closestIndex], objectsP[i]);
         if (i != first || deleteFirst) delete boundary;
         boundary = (Shape*)newBoundary;
     }
@@ -496,35 +498,42 @@ int IsValid(void* shapeP, int* segment, int* side)
 }
 void* AdminAreaQuesiton(void* shapeP, void* regionsP, int length, LatLngDart positionP, int same)
 {
-    Shape* shape      = (Shape*)shapeP;
-    Shape** regionsPP = (Shape**)regionsP;
-    Vector3 position  = LatLng(positionP.lat, positionP.lon).ToVector3();
-    std::vector<Shape*> regions(length);
-    for (int i = 0; i < length; i++) { regions[i] = (Shape*)regionsPP[i]; }
-    int index = -1;
-    for (int i = 0; i < length; i++)
+    try
     {
-        if (regions[i]->Hit(position))
+        Shape* shape      = (Shape*)shapeP;
+        Shape** regionsPP = (Shape**)regionsP;
+        Vector3 position  = LatLng(positionP.lat, positionP.lon).ToVector3();
+        std::vector<Shape*> regions(length);
+        for (int i = 0; i < length; i++) { regions[i] = (Shape*)regionsPP[i]; }
+        int index = -1;
+        for (int i = 0; i < length; i++)
         {
-            std::cerr << "In area " << i << '\n';
-            index = i;
-            break;
+            if (regions[i]->Hit(position))
+            {
+                std::cerr << "In area " << i << '\n';
+                index = i;
+                break;
+            }
         }
-    }
-    if (index == -1)
-    {
-        std::cerr << "ERROR: position is not in any subarean\n";
-        return nullptr;
-    }
-    if (same)
-    {
-        Shape s = Intersect(shape, regions[index]);
+        if (index == -1)
+        {
+            std::cerr << "ERROR: position is not in any subarean\n";
+            return nullptr;
+        }
+        if (same)
+        {
+            Shape s = Intersect(shape, regions[index]);
+            return new Shape(s);
+        }
+        Shape* copy = regions[index];
+        copy->Reverse();
+        Shape s = Intersect(shape, copy);
         return new Shape(s);
     }
-    Shape* copy = regions[index];
-    copy->Reverse();
-    Shape s = Intersect(shape, copy);
-    return new Shape(s);
+    catch (std::exception e)
+    {
+        return nullptr;
+    }
 }
 void* WithinRadiusQuestion(void* shapeP, LatLngDart centreP, double radius, int answer)
 {
@@ -533,4 +542,10 @@ void* WithinRadiusQuestion(void* shapeP, LatLngDart centreP, double radius, int 
     Shape circle  = Side::FullCircle(centre.ToVector3(), radius, true);
     if (!answer) circle.Reverse();
     return IntersectShapes(shape, &circle);
+}
+double DistanceBetween(LatLngDart p1P, LatLngDart p2P)
+{
+    LatLng p1 = LatLng(p1P.lat, p1P.lon);
+    LatLng p2 = LatLng(p2P.lat, p2P.lon);
+    return GetDistanceAlongEarthImprecise(p1.ToVector3(), p2.ToVector3());
 }

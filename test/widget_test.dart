@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jetlag/Maths.dart';
+import 'package:jetlag/SettingsWidget.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:jetlag/shape.dart';
@@ -20,6 +21,7 @@ void main() async {
     test(file.path, () async {
       var (shapes, intersections, solutions, _, _, _, _, _) = fromJson(
         jsonDecode(await file.readAsString()),
+        getDeltaFromQuality(Quality.full),
       );
       for (int i = 0; i < intersections.length; i++) {
         Pointer<Void> result = maths.IntersectShapes(
@@ -28,6 +30,8 @@ void main() async {
         );
         if (1 != maths.ShapesEqual(result, solutions[i])) {
           maths.whyUnequal(result, solutions[i]);
+          File f = File("${file.path}.res");
+          f.writeAsString(jsonEncode(toJson(result, [])));
           assert(false);
         }
         maths.FreeShape(result);

@@ -334,6 +334,7 @@ class Maths {
     double meterPerIntermediatePoint,
     ffi.Pointer<ffi.Int> numPoints,
     int max,
+    int min,
   ) {
     return _GetIntermediatePoints(
       shape,
@@ -342,6 +343,7 @@ class Maths {
       meterPerIntermediatePoint,
       numPoints,
       max,
+      min,
     );
   }
 
@@ -353,10 +355,11 @@ class Maths {
               ffi.Int,
               ffi.Double,
               ffi.Pointer<ffi.Int>,
+              ffi.Int,
               ffi.Int)>>('GetIntermediatePoints');
   late final _GetIntermediatePoints = _GetIntermediatePointsPtr.asFunction<
       ffi.Pointer<LatLngDart> Function(ffi.Pointer<ffi.Void>, int, int, double,
-          ffi.Pointer<ffi.Int>, int)>();
+          ffi.Pointer<ffi.Int>, int, int)>();
 
   void FreeIntermediatePoints(
     ffi.Pointer<LatLngDart> points,
@@ -490,6 +493,27 @@ class Maths {
       ffi.Pointer<ffi.Void> Function(
           ffi.Pointer<ffi.Void>, LatLngDart, double, int)>();
 
+  ffi.Pointer<ffi.Void> UpdateBoundaryWithClosestToObject(
+    ffi.Pointer<ffi.Void> boundary,
+    LatLngDart closer,
+    LatLngDart further,
+  ) {
+    return _UpdateBoundaryWithClosestToObject(
+      boundary,
+      closer,
+      further,
+    );
+  }
+
+  late final _UpdateBoundaryWithClosestToObjectPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
+              LatLngDart)>>('UpdateBoundaryWithClosestToObject');
+  late final _UpdateBoundaryWithClosestToObject =
+      _UpdateBoundaryWithClosestToObjectPtr.asFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>, LatLngDart, LatLngDart)>();
+
   ffi.Pointer<ffi.Void> UpdateBoundaryWithClosests(
     ffi.Pointer<ffi.Void> boundary,
     LatLngDart position,
@@ -521,6 +545,22 @@ class Maths {
       _UpdateBoundaryWithClosestsPtr.asFunction<
           ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>, LatLngDart,
               ffi.Pointer<LatLngDart>, int, int, int)>();
+
+  double DistanceBetween(
+    LatLngDart p1,
+    LatLngDart p2,
+  ) {
+    return _DistanceBetween(
+      p1,
+      p2,
+    );
+  }
+
+  late final _DistanceBetweenPtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(LatLngDart, LatLngDart)>>(
+          'DistanceBetween');
+  late final _DistanceBetween =
+      _DistanceBetweenPtr.asFunction<double Function(LatLngDart, LatLngDart)>();
 
   void InitEverything() {
     return _InitEverything();

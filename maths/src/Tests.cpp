@@ -370,7 +370,7 @@ bool CheckShape(const Shape& shape, int number, int printInfo)
         {
             const Vector3& begin = s.sides[i]->begin;
             const Vector3& end   = s.sides[i]->end;
-            LatLngDart* points   = GetIntermediatePoints(&shape, j, i, number, nullptr, 0);
+            LatLngDart* points   = GetIntermediatePoints(&shape, j, i, number, nullptr, 0, 0);
             if (!VerifyPoints(s.sides[i]->plane, begin, s.sides[i]->properCentre, end, points,
                               number, printInfo))
             {

@@ -210,9 +210,13 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     int delta = 1;
+    print("Segment with ${numSides} sides");
+    int min = 20;
     if (numSides > 10000) {
       print("Simplifying");
       delta = 10;
+      min = 2;
+      // delta = 10;
       // delta = 1;
     }
     if (numSides < 2) return ui.Path();
@@ -227,8 +231,10 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
         meterPerIntermediatePoint,
         k,
         maxIntermediatePoints,
+        min,
       );
       numIntermediatePoints = k.value;
+      if (numSides == 2) print("Rnedering $numIntermediatePoints int points");
       malloc.free(k);
       // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
       numPoints += numIntermediatePoints;

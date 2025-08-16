@@ -28,6 +28,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+	ndk {
+	    abiFilters += listOf("arm64-v8a", "armeabi-v7a");
+	}
     }
 
     buildTypes {
@@ -37,6 +40,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    externalNativeBuild {
+    // Encapsulates your CMake build configurations.
+    cmake {
+      // Provides a relative path to your CMake build script.
+      path = file("../../maths/CMakeLists.txt")
+    }
+  }
 }
 
 flutter {

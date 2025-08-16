@@ -291,13 +291,17 @@ std::set<IndexOfArea> GetIndicesForSide(const Shape* s, int segIndex, int sideIn
 {
     ZoneScoped;
     std::set<IndexOfArea> indices;
-    int numPoints         = 0;
+    int numPoints = 0;
+    // The meters per intermediate points depends on the number of subsections: more subsections
+    // means fewer meters in order to capture all subsections A line, however, can cross a
+    // subsection and barely scrape the edge of it, that is why we multiply by a constant to attemtp
+    // to capture these as well
     LatLngDart* positions = GetIntermediatePoints(
-        s, segIndex, sideIndex, Constants::CircumferenceEarth().ToDouble() / (4 * numSubSections),
-        &numPoints, 1000000000);
+        s, segIndex, sideIndex, Constants::CircumferenceEarth().ToDouble() / (15 * numSubSections),
+        &numPoints, 1000000000, 2);
     for (int i = 0; i < numPoints; i++)
     {
-        indices.insert({ (int)(positions[i].lat * numSubSections / 180),
+        indices.insert({ (int)(positions[i].lat * numSubSections / 360),
                          (int)(positions[i].lon * numSubSections / 360) });
     }
     return indices;
@@ -457,9 +461,10 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
     }
     prevs                                      = {};
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
-    // std::cerr << "Found " << intersections.size() << " intersections\n";
+    std::cerr << "Found " << intersections.size() << " intersections\n";
     for (auto in : intersections)
     {
+        // std::cerr << "Int: " << in.point.ToLatLng() << '\n';
         auto& side1 = s1->segments[in.indexInS1.segmentIndex].sides[in.indexInS1.sideIndex];
         assert(side1->plane.LiesInside(side1->begin));
         assert(side1->plane.LiesInside(side1->end));
@@ -492,6 +497,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             if (s2->Hit(s1->segments[i].sides.front()->begin))
             {
+                std ::cerr << "HIT -> adding segment in shape 1\n";
                 result.segments.push_back(s1->segments[i]);
             }
         }
@@ -508,6 +514,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             if (s1->Hit(s2->segments[i].sides.front()->begin))
             {
+                std ::cerr << "HIT -> adding segment in shape 2\n";
                 result.segments.push_back(s2->segments[i]);
             }
         }
@@ -519,7 +526,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
 
         Segment newSegment = Segment();
         do {
-            ZoneScopedN("Inner loop intersection");
+            // ZoneScopedN("Inner loop intersection");
             ++count;
             if (count > 100000)
             {
@@ -529,6 +536,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             if (intersectionsTotal.find(currentPoint.point) != intersectionsTotal.end())
             {
+                ZoneScopedN("Seeing intersection");
                 intersectionsLeft.erase(currentPoint.point);
                 const auto& indices = intersectionsTotal[currentPoint.point];
                 const std::vector<std::shared_ptr<Side>>& sides1 =
@@ -545,7 +553,8 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
                 const Vector3& tangentAlongS2 =
                     sides2[indices.second.sideIndex]->getTangent(currentPoint.point);
                 const Vector3& cross = NormalizedCrossProduct(tangentAlongS1, tangentAlongS2);
-                if (cross != currentPoint.point.normalized())
+                // if (cross != currentPoint.point.normalized())
+                if (dot(cross, currentPoint.point) <= 0)
                 {
                     // std::cerr << "Going along shape 1\n";
                     currentPoint.pos.first = true;
@@ -579,7 +588,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             else
             {
-                ZoneNameF("Without seeing intersection");
+                ZoneScopedN("Without seeing intersection");
                 // we must update the begin and end here because these may differe from the
                 // original because of new intersections std::shared_ptr<Side> newside =
                 //     std::make_shared<Side>(*s2.segments[currentPoint.pos.pos.segmentIndex]

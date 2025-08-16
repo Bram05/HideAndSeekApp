@@ -1,11 +1,28 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jetlag/Map.dart';
 import 'package:jetlag/choose_boundary.dart';
 import 'package:jetlag/map_fun.dart';
 import 'package:jetlag/new_border.dart';
+import 'package:path_provider/path_provider.dart';
 
-void main() => runApp(MyApp());
+late String documentsdir;
+bool init = false;
+
+Future<void> setAppDir() async {
+  if (init) return;
+  documentsdir = (await getApplicationDocumentsDirectory()).path;
+  Directory f = Directory(documentsdir);
+  if (!await f.exists()) await f.create(recursive: true);
+  init = true;
+}
+
+void main() async {
+  print("Running");
+  runApp(MyApp());
+}
 
 final _router = GoRouter(
   initialLocation: '/',
@@ -60,6 +77,6 @@ class _OSMFlutterMapState extends State<OSMFlutterMap> {
   String border = "";
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(routerConfig: _router);
+    return SafeArea(child: MaterialApp.router(routerConfig: _router));
   }
 }

@@ -2,13 +2,15 @@
 #include "Constants.h"
 #include <cstdio>
 #include <cstdlib>
+#include <mpfr.h>
 #include <mutex>
 #include <stack>
 #include <tracy/Tracy.hpp>
 #include <vector>
 
 constexpr int maxValuesAtStart = 1000;
-std::vector<mpfr_t>* variables;
+// IMPORTANT: when using these next two, guard with a mutex
+std::vector<__mpfr_struct>* variables;
 std::stack<int>* freeSpots;
 std::mutex mutex;
 
@@ -16,13 +18,12 @@ void Double::Init()
 {
     // Initializing mpfr_t is 'slow' so on startup we initialize a bunch and then reuse them
     // variables = new std::vector<mpfr_t>(maxValuesAtStart);
-    std::cerr << "INIT\n";
-    variables = new std::vector<mpfr_t>(maxValuesAtStart);
+    variables = new std::vector<__mpfr_struct>(maxValuesAtStart);
     freeSpots = new std::stack<int>();
     for (int i = 0; i < variables->size(); i++)
     {
         freeSpots->push(i);
-        mpfr_init2((*variables)[i], Constants::precision);
+        mpfr_init2(&(*variables)[i], Constants::precision);
     }
     TracyMessageL("Initializing number of allocated mpfr_t");
 }
@@ -31,14 +32,14 @@ void Double::InitVal()
     std::lock_guard<std::mutex> guard(mutex);
     if (freeSpots->empty())
     {
-        int current                       = variables->size();
-        std::vector<mpfr_t>* newVariables = new std::vector<mpfr_t>(2 * current);
-        for (int i = 0; i < current; i++) (*newVariables)[i][0] = (*variables)[i][0];
+        int current                              = variables->size();
+        std::vector<__mpfr_struct>* newVariables = new std::vector<__mpfr_struct>(2 * current);
+        for (int i = 0; i < current; i++) (*newVariables)[i] = (*variables)[i];
         variables = newVariables;
         std::cerr << "Warning: increasing number of allocated mpfr_t\n";
         for (int i = current; i < 2 * current; i++)
         {
-            mpfr_init2((*variables)[i], Constants::precision);
+            mpfr_init2(&(*variables)[i], Constants::precision);
             freeSpots->push(i);
         }
     }
@@ -49,14 +50,14 @@ void Double::Destroy()
 {
     ZoneScoped;
     std::cerr << "Destroying\n";
-    for (int i = 0; i < variables->size(); i++) { mpfr_clear((*variables)[i]); }
+    for (int i = 0; i < variables->size(); i++) { mpfr_clear(&(*variables)[i]); }
     delete variables;
     delete freeSpots;
 }
 __mpfr_struct* Double::GetVal() const
 {
     std::lock_guard<std::mutex> guard(mutex);
-    return (*variables)[val];
+    return &(*variables)[val];
 }
 
 mpfr_rnd_t rnd = MPFR_RNDN;
@@ -102,6 +103,7 @@ Double& Double::operator=(const Double& other)
     {
         if (val == -1)
         {
+            std::lock_guard<std::mutex> _guard(mutex);
             val = freeSpots->top();
             freeSpots->pop();
         }

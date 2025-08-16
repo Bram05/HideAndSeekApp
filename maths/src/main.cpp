@@ -12,9 +12,10 @@
 int main()
 {
     ZoneScoped;
-    for (int i = 0; i < 200; i++)
-        OneNonTransverseIntersection({ 10, 10 }, { -9.9, 190 }, { -10.1, 190 }, { 10, 10 },
-                                     { 12, 12 }, { 10, 12 }, 1);
+
+    // for (int i = 0; i < 200; i++)
+    //     OneNonTransverseIntersection({ 10, 10 }, { -9.9, 190 }, { -10.1, 190 }, { 10, 10 },
+    //                                  { 12, 12 }, { 10, 12 }, 1);
     // auto begin      = std::chrono::steady_clock::now();
     // mpfr_t val;
     // for (int i = 0; i < 100000; i++) mpfr_init2(val, 100);
