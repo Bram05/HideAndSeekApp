@@ -1,0 +1,1 @@
+{"shapes":[[[{"latitude":50.0,"longitude":0.0},{"latitude":50.001074268695156,"longitude":0.5000000000000001},{"latitude":50.0,"longitude":1.0},{"latitude":50.25107254508944,"longitude":0.5026232461484543},{"latitude":50.50000000000001,"longitude":0.0},{"latitude":50.25,"longitude":0.0}]]],"intersections":[],"questionsUsed":[]}

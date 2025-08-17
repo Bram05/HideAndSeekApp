@@ -76,6 +76,7 @@ extern "C"
     EXPOSE int hit(const void* shape, const struct LatLngDart* point);
     // Is the shape valid, i.e. 'end' of a side matches the 'begin' of the next
     EXPOSE int IsValid(void* shape, int* segment, int* side);
+    EXPOSE int isEmpty(const void* shape);
 
     // What is the intersectiong of a and b
     EXPOSE void* IntersectShapes(const void* a, const void* b);

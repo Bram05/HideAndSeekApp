@@ -2,8 +2,7 @@
 # installed. You should not increase this version, as doing so will cause the
 # plugin to fail to compile for some customers of the plugin.
 cmake_minimum_required(VERSION 3.10)
-# include(ExternalProject)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+# include(ExternalProject) set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 project(
   Maths
   VERSION 0.0.1

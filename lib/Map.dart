@@ -14,6 +14,7 @@ import 'package:jetlag/SettingsWidget.dart';
 import 'package:jetlag/helper.dart';
 import 'package:jetlag/main.dart';
 import 'package:jetlag/new_border.dart';
+import 'package:jetlag/scale.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
@@ -304,6 +305,7 @@ class MapWidgetState extends State<MapWidget> {
                   options: MapOptions(
                     initialCenter: initialPos,
                     initialZoom: initialZoom,
+                    crs: Epsg3857NoRepeat(),
                   ),
                   children: [
                     tileLayer,
@@ -323,6 +325,7 @@ class MapWidgetState extends State<MapWidget> {
                     if (widget.renderExtras)
                       const MapCompass.cupertino(hideIfRotatedNorth: true),
                     if (widget.renderExtras) MapAttribution(),
+                    if (widget.renderExtras) ScaleWidget(),
                   ],
                 ),
               ),
@@ -400,6 +403,26 @@ class MapWidgetState extends State<MapWidget> {
       barrierDismissible: false,
     );
     if (out == null) return false;
+    if (1 == maths.isEmpty(out)) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("The hider's potential space is empty!"),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text("Go back"),
+              ),
+            ],
+          );
+        },
+      );
+      context.goNamed("ChooseBoundary");
+    }
     // Pointer<Void> out = await handle(result);
     setState(() {
       setBoundary(out);
@@ -424,12 +447,6 @@ class MapWidgetState extends State<MapWidget> {
     }
     firstQuestion = false;
     return true;
-  }
-
-  String prettyDistance(double meters) {
-    if (meters < 500) return "${meters.toStringAsFixed(0)}m";
-    double d = meters / 1000;
-    return "${d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 1)}km";
   }
 
   List<MenuEntry> _getMenus() {
@@ -614,9 +631,9 @@ class MapWidgetState extends State<MapWidget> {
                               return "Please enter the distance";
                             int? intValue = int.tryParse(value);
                             if (intValue == null ||
-                                intValue < 100 ||
-                                intValue > 100000)
-                              return "Enter a valid number between 100m and 100km";
+                                // intValue < 100 ||
+                                intValue >= 10000000)
+                              return "Enter a whole number less than 10000km";
                             return null;
                           },
                         ),
@@ -874,4 +891,18 @@ class MapWidgetState extends State<MapWidget> {
     // }
     return result;
   }
+}
+
+String prettyDistance(double meters) {
+  if (meters < 500) return "${meters.toStringAsFixed(0)}m";
+  double d = meters / 1000;
+  return "${d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 1)}km";
+}
+
+// Use default projection without multiple worlds
+class Epsg3857NoRepeat extends Epsg3857 {
+  const Epsg3857NoRepeat();
+
+  @override
+  bool get replicatesWorldLongitude => false;
 }

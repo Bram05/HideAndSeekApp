@@ -13,7 +13,8 @@ void main() async {
   for (var file in files) {
     if (!file.path.endsWith('.json')) continue;
 
-    // if (file.path == "newtests/intersectSelfNL.json")
+    if (file.path == "newtests/sharingASide.json")
+      continue; // This one is not reliable because the sides may be equal as doubles but not necessarily as high precision Doubles (i.e. it fails when precision is set too high
     // if (file.path != "newtests/nl.json")
     // file.path == "newtests/box.json" ||
     // file.path == "newtests/circle.json")

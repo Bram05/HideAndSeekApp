@@ -142,10 +142,26 @@ Double operator-(const Double& x)
     mpfr_neg(d.GetVal(), x.GetVal(), rnd);
     return d;
 }
-bool operator<(const Double& a, const Double& b) { return mpfr_cmp(a.GetVal(), b.GetVal()) < 0; }
-bool operator>(const Double& x, const Double& y) { return mpfr_cmp(x.GetVal(), y.GetVal()) > 0; }
-bool operator<=(const Double& x, const Double& y) { return mpfr_cmp(x.GetVal(), y.GetVal()) <= 0; }
-bool operator>=(const Double& x, const Double& y) { return mpfr_cmp(x.GetVal(), y.GetVal()) >= 0; }
+bool operator<(const Double& a, const Double& b)
+{
+    if (a == b) return false;
+    return mpfr_cmp(a.GetVal(), b.GetVal()) < 0;
+}
+bool operator>(const Double& x, const Double& y)
+{
+    if (x == y) return false;
+    return mpfr_cmp(x.GetVal(), y.GetVal()) > 0;
+}
+bool operator<=(const Double& x, const Double& y)
+{
+    if (x == y) return true;
+    return mpfr_cmp(x.GetVal(), y.GetVal()) <= 0;
+}
+bool operator>=(const Double& x, const Double& y)
+{
+    if (x == y) return true;
+    return mpfr_cmp(x.GetVal(), y.GetVal()) >= 0;
+}
 Double operator+(const Double& x, const Double& y)
 {
     Double d;

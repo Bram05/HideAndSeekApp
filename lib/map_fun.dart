@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:jetlag/MapAttribution.dart';
 import 'package:jetlag/MapFun/circle.dart';
 import 'package:jetlag/draw_shape.dart';
+import 'package:jetlag/scale.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -67,6 +68,7 @@ class MapFunWidgetState extends State<MapFunWidget> {
                 if (activeWidget != null) activeWidget!,
                 MapAttribution(),
                 MapCompass.cupertino(hideIfRotatedNorth: true),
+                ScaleWidget(),
               ],
             ),
           ),

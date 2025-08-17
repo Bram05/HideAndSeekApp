@@ -223,6 +223,20 @@ class Maths {
       int Function(
           ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Int>)>();
 
+  int isEmpty(
+    ffi.Pointer<ffi.Void> shape,
+  ) {
+    return _isEmpty(
+      shape,
+    );
+  }
+
+  late final _isEmptyPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+          'isEmpty');
+  late final _isEmpty =
+      _isEmptyPtr.asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+
   ffi.Pointer<ffi.Void> IntersectShapes(
     ffi.Pointer<ffi.Void> a,
     ffi.Pointer<ffi.Void> b,

@@ -24,8 +24,9 @@ public:
     bool operator!=(const Vector3& other) const { return !(*this == other); }
     bool operator<(const Vector3& other) const
     {
-        if (other == *this)
-            return false; // This is needed bceause of precision issues, not sure actually?
+        // if (other == *this)
+        //     return false; // This is needed bceause of precision issues, not sure actually?
+	// if (x == other.x)
         if (x < other.x) return true;
         if (x > other.x) return false;
         if (y < other.y) return true;

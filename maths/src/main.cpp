@@ -12,7 +12,8 @@
 int main()
 {
     ZoneScoped;
-
+    LatLng l = LatLng("-13", "90");
+    std::cerr << l.ToVector3().ToLatLng() << '\n';
     // for (int i = 0; i < 200; i++)
     //     OneNonTransverseIntersection({ 10, 10 }, { -9.9, 190 }, { -10.1, 190 }, { 10, 10 },
     //                                  { 12, 12 }, { 10, 12 }, 1);

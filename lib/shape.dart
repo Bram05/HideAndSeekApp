@@ -213,14 +213,14 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     // print("Segment with ${numSides} sides");
     int min = 10;
     if (numSides > 1000) {
-      print("Simplifying");
+      // print("Simplifying");
       delta = 5;
       min = 2;
       // delta = 10;
       // delta = 1;
     }
     if (numSides > 10000) {
-      print("Heavily simplifying");
+      // print("Heavily simplifying");
       // delta = 20;
       delta = (numSides / 1000).toInt();
       min = 2;

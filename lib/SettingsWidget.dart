@@ -133,7 +133,36 @@ class SettingsWidgetState extends State<SettingsWidget> {
                                 max: Quality.values.length - 1,
                                 divisions: Quality.values.length - 1,
                                 label: quality!.name,
-                                onChanged: (double value) {
+                                onChanged: (double value) async {
+                                  if ((Platform.isAndroid || Platform.isIOS) &&
+                                      value.toInt() != Quality.poor.index) {
+                                    bool? result = await showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          title: Text("Are you sure?"),
+                                          content: Text(
+                                            "Your device may not be able to handle this level of detail. This can lead to slowdowns and random crashes. Do you want to continue?",
+                                          ),
+                                          actions: [
+                                            FilledButton(
+                                              onPressed: () {
+                                                Navigator.pop(context, true);
+                                              },
+                                              child: Text("Yes"),
+                                            ),
+                                            FilledButton(
+                                              onPressed: () {
+                                                Navigator.pop(context, false);
+                                              },
+                                              child: Text("No"),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    if (result != true) return;
+                                  }
                                   setState(() {
                                     quality = toQuality(value.toInt())!;
                                   });

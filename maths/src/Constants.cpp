@@ -9,7 +9,7 @@ void Constants::SetEpsilon(const Double& val) { instance->epsilon = val; }
 void Constants::Init()
 {
     instance                     = new Constants;
-    instance->epsilon            = "1e-25";
+    instance->epsilon            = "1e-50";
     instance->circumferenceEarth = Double("40075017"); // metres
     instance->radiusEarth        = Double("6371000");
 }

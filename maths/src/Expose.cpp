@@ -496,6 +496,7 @@ int IsValid(void* shapeP, int* segment, int* side)
     }
     return 1;
 }
+int isEmpty(const void* shape) { return ((Shape*)shape)->segments.size() == 0; }
 void* AdminAreaQuesiton(void* shapeP, void* regionsP, int length, LatLngDart positionP, int same)
 {
     try

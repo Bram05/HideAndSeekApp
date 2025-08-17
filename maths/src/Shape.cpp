@@ -461,6 +461,7 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
     }
     prevs                                      = {};
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
+    std::cerr << "Found " << intersections.size() << "intersections\n";
     for (auto in : intersections)
     {
         // std::cerr << "Int: " << in.point.ToLatLng() << '\n';
