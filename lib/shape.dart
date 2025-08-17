@@ -203,7 +203,6 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
 
   int numPoints = 0;
   int total = 0;
-  print("Rendering $numSegments segments");
 
   ui.Path path = ui.Path();
   // path.fillType = ui.PathFillType.nonZero;

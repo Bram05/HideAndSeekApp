@@ -583,6 +583,75 @@ class MapWidgetState extends State<MapWidget> {
                 );
               },
             ),
+          (
+            "???",
+            () async {
+              TextEditingController controller = TextEditingController();
+              GlobalKey<FormState> formKey = GlobalKey();
+              int? value = await showDialog<int>(
+                context: context,
+                builder: (context) {
+                  void submit() {
+                    if (formKey.currentState!.validate())
+                      Navigator.pop(context, int.parse(controller.value.text));
+                  }
+
+                  return AlertDialog(
+                    title: Text("What radius should the circle have?"),
+                    content: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: 50),
+                      child: Form(
+                        key: formKey,
+                        child: TextFormField(
+                          controller: controller,
+                          textAlign: TextAlign.end,
+                          decoration: InputDecoration(suffix: Text("m")),
+                          onFieldSubmitted: (_) {
+                            submit();
+                          },
+                          validator: (String? value) {
+                            if (value == null || value.isEmpty)
+                              return "Please enter the distance";
+                            int? intValue = int.tryParse(value);
+                            if (intValue == null ||
+                                intValue < 100 ||
+                                intValue > 100000)
+                              return "Enter a valid number between 100m and 100km";
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                    actions: [
+                      FilledButton(
+                        onPressed: submit,
+                        child: Text("Ask question"),
+                      ),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(context, null);
+                        },
+                        child: Text("Cancel"),
+                      ),
+                    ],
+                  );
+                },
+              );
+              if (value == null) return false;
+              return askQuestion(
+                "Is hider's location within ${prettyDistance(value.toDouble())} of your current position?",
+                (bool answer) async {
+                  return askWithinRadiusQuestion(
+                    boundary,
+                    lastPositionForCpp(),
+                    value.toDouble(),
+                    answer,
+                  );
+                },
+              );
+              return true;
+            },
+          ),
         ],
       ),
       (

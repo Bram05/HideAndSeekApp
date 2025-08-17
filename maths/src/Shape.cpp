@@ -461,7 +461,6 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
     }
     prevs                                      = {};
     auto [intersections, intersectionsPerLine] = IntersectionPoints(s1, s2, firstIsForHit);
-    std::cerr << "Found " << intersections.size() << " intersections\n";
     for (auto in : intersections)
     {
         // std::cerr << "Int: " << in.point.ToLatLng() << '\n';
@@ -497,7 +496,6 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             if (s2->Hit(s1->segments[i].sides.front()->begin))
             {
-                std ::cerr << "HIT -> adding segment in shape 1\n";
                 result.segments.push_back(s1->segments[i]);
             }
         }
@@ -514,7 +512,6 @@ Shape Intersect(const Shape* s1, const Shape* s2, bool firstIsForHit)
             }
             if (s1->Hit(s2->segments[i].sides.front()->begin))
             {
-                std ::cerr << "HIT -> adding segment in shape 2\n";
                 result.segments.push_back(s2->segments[i]);
             }
         }
