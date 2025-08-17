@@ -203,6 +203,7 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
 
   int numPoints = 0;
   int total = 0;
+  print("Rendering $numSegments segments");
 
   ui.Path path = ui.Path();
   // path.fillType = ui.PathFillType.nonZero;
@@ -212,13 +213,22 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     int delta = 1;
     // print("Segment with ${numSides} sides");
     int min = 10;
-    if (numSides > 10000) {
-      // print("Simplifying");
-      delta = 10;
+    if (numSides > 1000) {
+      print("Simplifying");
+      delta = 5;
       min = 2;
       // delta = 10;
       // delta = 1;
     }
+    if (numSides > 10000) {
+      print("Heavily simplifying");
+      // delta = 20;
+      delta = (numSides / 1000).toInt();
+      min = 2;
+    }
+    // if (numSides > 30000) {
+    //   delta = 30;
+    // }
     if (numSides < 2) return ui.Path();
     for (int j = 0; j < numSides; j += delta) {
       Pointer<LatLngDart> intermediatePoints;
