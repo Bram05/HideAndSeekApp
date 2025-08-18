@@ -214,8 +214,8 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     int min = 10;
     if (numSides > 1000) {
       // print("Simplifying");
-      delta = 5;
-      min = 2;
+      // delta = 5;
+      min = 2; // Neede to render Germany properly on mobile
       // delta = 10;
       // delta = 1;
     }
