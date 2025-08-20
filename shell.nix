@@ -11,6 +11,8 @@ in pkgs.mkShell.override { stdenv = pkgs.llvmPackages_16.stdenv; } {
     # pkgs.pkgsCross.i686-embedded.mpfr
     envsubst
     tracy
+    flutter
+    cmake
   ];
 
   shellHook = ''

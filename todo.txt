@@ -1,0 +1,3 @@
+#opslaan-laden fixen
+arbitraire afstand radius
+aantal intermediate points afhankelijk van zoom level

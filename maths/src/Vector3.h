@@ -26,7 +26,7 @@ public:
     {
         // if (other == *this)
         //     return false; // This is needed bceause of precision issues, not sure actually?
-	// if (x == other.x)
+        // if (x == other.x)
         if (x < other.x) return true;
         if (x > other.x) return false;
         if (y < other.y) return true;
@@ -100,6 +100,8 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const Vector3& v);
     std::string ToString() const;
 
+    // Convert this vector3 to latitude and longitude coordinates
+    // See the readme for information on the coordinate system used
     LatLng ToLatLng() const;
     Double x, y, z;
 };
@@ -130,6 +132,8 @@ public:
     Double longitudeInRad() const { return longitude * Constants::pi() / Double("180"); }
     Double latitudeInRad() const { return latitude * Constants::pi() / Double("180"); }
 
+    // Convert this latlng to a coordinate in three dimensional space on the unit sphere
+    // See the readme for information on the coordinate system used
     Vector3 ToVector3() const;
     friend std::ostream& operator<<(std::ostream& os, const LatLng& l);
     std::string ToString() const;
