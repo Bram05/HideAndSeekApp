@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/Maths.dart';
+import 'package:bigbrother/Maths.dart';
 
 void circleStraightTest() {
   if (1 != maths.CircleStraightTest(0)) {

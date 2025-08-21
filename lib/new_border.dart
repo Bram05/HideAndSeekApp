@@ -1,13 +1,11 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:jetlag/Map.dart';
-import 'package:jetlag/choose_boundary.dart';
-import 'package:jetlag/country.dart';
-import 'package:jetlag/new_border_widget.dart';
+import 'map.dart';
+import 'choose_boundary.dart';
+import 'country.dart';
+import 'new_border_widget.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,6 +14,8 @@ String getLocationOfRegion(String name) {
 }
 
 class NewBorder extends StatefulWidget {
+  const NewBorder({super.key});
+
   @override
   State<StatefulWidget> createState() {
     return NewBorderState();

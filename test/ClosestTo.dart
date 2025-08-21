@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetlag/Boundary.dart';
-import 'package:jetlag/Maths.dart';
-import 'package:jetlag/SettingsWidget.dart';
+import 'package:bigbrother/closest_to.dart';
+import 'package:bigbrother/maths.dart';
+import 'package:bigbrother/settings_widget.dart';
 import 'dart:ffi';
-import 'package:jetlag/maths_generated_bindings.dart';
-import 'package:jetlag/shape.dart';
+import 'package:bigbrother/maths_generated_bindings.dart';
+import 'package:bigbrother/shape.dart';
 
 void main() {
   test("Test closest to museum", () async {
@@ -38,18 +38,22 @@ void main() {
 
     // Updating the boundary clears it so we have to load it twice
     var (boundaries1, _, _, _, _, _, _, _) = fromJson(
-      jsonDecode(await f.readAsString()),getDeltaFromQuality(Quality.full)
+      jsonDecode(await f.readAsString()),
+      getDeltaFromQuality(Quality.full),
     );
     var (boundaries2, _, _, _, _, _, _, _) = fromJson(
-      jsonDecode(await f.readAsString()),getDeltaFromQuality(Quality.full)
+      jsonDecode(await f.readAsString()),
+      getDeltaFromQuality(Quality.full),
     );
     assert(boundaries1.length == 1);
     assert(boundaries2.length == 1);
     var (solution, _, _, _, _, _, _, _) = fromJson(
-      jsonDecode(await solutionFile.readAsString()),getDeltaFromQuality(Quality.full)
+      jsonDecode(await solutionFile.readAsString()),
+      getDeltaFromQuality(Quality.full),
     );
     var (solutionRev, _, _, _, _, _, _, _) = fromJson(
-      jsonDecode(await solutionReverseFile.readAsString()),getDeltaFromQuality(Quality.full)
+      jsonDecode(await solutionReverseFile.readAsString()),
+      getDeltaFromQuality(Quality.full),
     );
     assert(solution.length == 1);
     assert(solutionRev.length == 1);

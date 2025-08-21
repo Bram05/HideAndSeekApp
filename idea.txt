@@ -1,1 +1,0 @@
-convert point to screen coords (spherical coordiante transformation) and then locally construct the perpndicular line -> convert those back to spherical coords and construct the line through them

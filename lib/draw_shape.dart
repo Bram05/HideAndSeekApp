@@ -4,9 +4,9 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/Maths.dart';
-import 'package:jetlag/SettingsWidget.dart';
-import 'package:jetlag/renderer.dart';
+import 'maths.dart';
+import 'settings_widget.dart';
+import 'renderer.dart';
 import 'package:latlong2/latlong.dart';
 import 'maths_generated_bindings.dart';
 

@@ -3,26 +3,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:ui' as ui;
-import 'package:vector_math/vector_math_64.dart' hide Plane;
-import 'Maths.dart';
+import 'maths.dart';
 import 'dart:ffi';
 import 'maths_generated_bindings.dart';
 import 'package:ffi/ffi.dart';
 
 LatLngDart latLngFromJson(Map<String, dynamic> json) {
   // This would fail if a coordinate is an integer so we add .0 to automatically convert it to a double
-  if (json["x"] != null) {
-    // it is still the old version
-    print(
-      "WARNING: json file was still the old version. Convert to new version!!!!",
-    );
-    LatLng v = vec3ToLatLng(
-      Vector3(json["x"] + .0, json["y"] + .0, json["z"] + .0),
-    );
-    return Struct.create()
-      ..lat = v.latitude
-      ..lon = v.longitude;
-  }
   return Struct.create()
     ..lat = json["latitude"] + .0
     ..lon = json["longitude"] + .0;
@@ -197,37 +184,22 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
     return ui.Path();
   }
 
-  // const int numIntermediatePoints = 5;
   const double meterPerIntermediatePoint = 100;
   const int maxIntermediatePoints = 1000;
 
-  int numPoints = 0;
-  int total = 0;
-
   ui.Path path = ui.Path();
-  // path.fillType = ui.PathFillType.nonZero;
   path.fillType = ui.PathFillType.evenOdd;
   for (int i = 0; i < numSegments; i++) {
     int numSides = maths.GetNumberOfSidesInSegment(shape, i);
     int delta = 1;
-    // print("Segment with ${numSides} sides");
     int min = 10;
     if (numSides > 1000) {
-      // print("Simplifying");
-      // delta = 5;
       min = 2; // Neede to render Germany properly on mobile
-      // delta = 10;
-      // delta = 1;
     }
     if (numSides > 10000) {
-      // print("Heavily simplifying");
-      // delta = 20;
       delta = (numSides / 1000).toInt();
       min = 2;
     }
-    // if (numSides > 30000) {
-    //   delta = 30;
-    // }
     if (numSides < 2) return ui.Path();
     for (int j = 0; j < numSides; j += delta) {
       Pointer<LatLngDart> intermediatePoints;
@@ -244,9 +216,6 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
       );
       numIntermediatePoints = k.value;
       malloc.free(k);
-      // cachedIntPoints[(i, j)] = (intermediatePoints, numIntermediatePoints);
-      numPoints += numIntermediatePoints;
-      ++total;
       if (intermediatePoints == Pointer.fromAddress(0)) return path;
 
       ui.Offset coords = getCoordinates(intermediatePoints[0], camera);
@@ -255,73 +224,11 @@ ui.Path getPath(Pointer<Void> shape, MapCamera camera, ui.Size containerSize) {
         coords = getCoordinates(intermediatePoints[k], camera);
         path.lineTo(coords.dx, coords.dy);
       }
-
-      // maths.FreeIntermediatePoints(intermediatePoints);
+      maths.FreeIntermediatePoints(intermediatePoints);
     }
     path.close();
   }
-  // print("Finished getting path");
-  // // ui.Path path = getPath(shape, MapCamera.of(context), size);
-  // ui.Path otherPath = ui.Path();
-  // otherPath.moveTo(0, 0);
-  // // otherPath.lineTo(200, 200);
-  // // otherPath.lineTo(100, 200);
-  // otherPath.lineTo(0, containerSize.height);
-  // otherPath.lineTo(containerSize.width, containerSize.height);
-  // otherPath.lineTo(containerSize.width, 0);
-  // otherPath.close();
-  // path.addPath(otherPath, ui.Offset(0, 0));
   path.fillType = PathFillType.nonZero;
 
   return path;
-  // return otherPath;
-}
-
-double epsilon = 0.000001;
-bool close(double a, double b) {
-  return (a - b).abs() < epsilon;
-}
-
-double clamp(double val) {
-  if (val > 1) {
-    assert(val - epsilon <= 1);
-    return 1;
-  } else if (val < -1) {
-    assert(val + epsilon >= -1);
-    return -1.0;
-  }
-  return val;
-}
-
-// Todo: remove this
-LatLng vec3ToLatLng(Vector3 point) {
-  assert(close(point.length2, 1));
-  double longitude;
-  if (close(point.x, 0) && close(point.y, 0)) {
-    // this value does not matter
-    longitude = 0;
-  } else {
-    double r2 = point.length2;
-    double s = math.sqrt(r2 - point.z * point.z); // r^2-z^2 = x^2+y^2 >= 0
-    if (close(point.x, 0)) {
-      // This check is needed because we are outside the 'correct' domain of arcsin
-      if (point.y > 0) {
-        longitude = 0;
-      } else {
-        longitude = 180;
-      }
-    } else {
-      double inner = -point.x / s;
-      inner = clamp(inner);
-      longitude = math.asin(inner) / math.pi * 180;
-      if (point.y < 0) {
-        longitude = 180 - longitude;
-      }
-      if (longitude > 180) {
-        longitude -= 360;
-        assert(longitude <= 180);
-      }
-    }
-  }
-  return LatLng(math.asin(point.z / point.length) / math.pi * 180, longitude);
 }

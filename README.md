@@ -1,4 +1,4 @@
-# Hide and Seek App
+# Big Brother
 ## Introduction
 This app is based on the hide and seek game used in the series [Jetlag](https://nebula.tv/jetlag), built using [Flutter](https://flutter.dev/) and C++.
 It helps the seekers keep track of the potential search space by calculating this area based on the questions asked, similar to the graphics in the show.

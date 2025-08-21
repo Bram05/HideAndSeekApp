@@ -1,9 +1,9 @@
 import 'package:flutter_map_compass/flutter_map_compass.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jetlag/MapAttribution.dart';
-import 'package:jetlag/MapFun/circle.dart';
-import 'package:jetlag/draw_shape.dart';
-import 'package:jetlag/scale.dart';
+import 'map_attribution.dart';
+import 'MapFun/circle.dart';
+import 'draw_shape.dart';
+import 'scale.dart';
 import 'menu_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';

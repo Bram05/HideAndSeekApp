@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jetlag/Map.dart';
-import 'package:jetlag/SettingsWidget.dart';
-import 'package:jetlag/main.dart';
-import 'package:jetlag/new_border.dart';
+import 'map.dart';
+import 'settings_widget.dart';
+import 'main.dart';
+import 'new_border.dart';
 
 String beautify(String countryName) {
   return countryName.replaceAll("_", " ");

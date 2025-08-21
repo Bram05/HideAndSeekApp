@@ -1,4 +1,4 @@
-package com.example.jetlag
+package com.bigbrother.app
 
 import io.flutter.embedding.android.FlutterActivity
 

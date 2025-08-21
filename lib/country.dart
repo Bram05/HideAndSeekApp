@@ -6,10 +6,10 @@ import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:http/http.dart' as http;
-import 'package:jetlag/Maths.dart';
-import 'package:jetlag/SettingsWidget.dart';
-import 'package:jetlag/maths_generated_bindings.dart';
-import 'package:jetlag/shape.dart';
+import 'maths.dart';
+import 'settings_widget.dart';
+import 'maths_generated_bindings.dart';
+import 'shape.dart';
 
 Future<Map<String, dynamic>?> attemptGet(String spec, String name) async {
   var result = await http.post(
@@ -81,11 +81,11 @@ Future<Map<String, dynamic>> download(
   return json;
 }
 
-String ToString(LatLngDart pos) {
+String toString(LatLngDart pos) {
   return "${pos.lat};${pos.lon}";
 }
 
-void AddToMap(
+void addToMap(
   Map<String, List<(List<LatLngDart>, String, bool)>> map,
   String key,
   value,
@@ -130,14 +130,14 @@ String toShapeJson(Map<String, dynamic> body) {
           ..lon = geom["lon"],
       );
     }
-    AddToMap(segmentsLeft, ToString(coordinates[0]), (
+    addToMap(segmentsLeft, toString(coordinates[0]), (
       coordinates,
-      ToString(coordinates.last),
+      toString(coordinates.last),
       element["role"] == "outer",
     ));
-    AddToMap(segmentsLeft, ToString(coordinates.last), (
+    addToMap(segmentsLeft, toString(coordinates.last), (
       coordinates.reversed.toList(),
-      ToString(coordinates[0]),
+      toString(coordinates[0]),
       element["role"] == "outer",
     ));
   }
@@ -218,13 +218,6 @@ String toShapeJson(Map<String, dynamic> body) {
       ..ref.lat = minlat - 0.01
       ..ref.lon = (minLon + maxLon) / 2;
     // bool inside = 1 == maths.hit(segmentShape, point);
-    if (minlat < 0) {
-      print(
-        "ERROR: boundaries on southern hemisphere are currently not supported!",
-      );
-      // The firstHit does not work for these because the ray goes down and therefore we don't intersect the boundary
-      exit(-1);
-    }
     // bool wrong = false;
     // if (segment
     //         .firstWhere(

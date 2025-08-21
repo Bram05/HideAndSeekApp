@@ -48,6 +48,7 @@ target_link_libraries(Test PUBLIC ${PROJECT_NAME})
 target_include_directories(
   ${PROJECT_NAME} PUBLIC $ENV{MPFR_DIR}/include $ENV{GMP_DIR}/include
                          $ENV{TRACY_DIR}/include)
+message(${CMAKE_SYSTEM_PROCESSOR})
 if(CMAKE_SYSTEM_PROCESSOR MATCHES aarch64)
   target_link_directories(${PROJECT_NAME} PUBLIC $ENV{MPFR_LIB_DIR64}/lib)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a)

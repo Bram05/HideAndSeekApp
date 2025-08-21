@@ -1,5 +1,5 @@
-name: jetlag
-description: "A new Flutter project."
+name: bigbrother
+description: "Keep track of the hider's potential location during hide and seek. Based on the series JetLag"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.8.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -45,6 +45,7 @@ dependencies:
   path_provider: ^2.1.5
   url_launcher: ^6.3.2
   flutter_map_compass: ^1.1.1
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:

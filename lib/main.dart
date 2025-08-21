@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jetlag/Map.dart';
-import 'package:jetlag/choose_boundary.dart';
-import 'package:jetlag/map_fun.dart';
-import 'package:jetlag/new_border.dart';
+import 'map.dart';
+import 'choose_boundary.dart';
+import 'map_fun.dart';
+import 'new_border.dart';
 import 'package:path_provider/path_provider.dart';
 
 late String documentsdir;

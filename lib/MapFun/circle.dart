@@ -4,9 +4,9 @@ import 'dart:ffi' hide Size;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/Maths.dart';
-import 'package:jetlag/maths_generated_bindings.dart';
-import 'package:jetlag/renderer.dart';
+import '../maths.dart';
+import '../maths_generated_bindings.dart';
+import '../renderer.dart';
 import 'package:latlong2/latlong.dart';
 
 class CircleWidget extends StatefulWidget {

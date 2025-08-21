@@ -21,7 +21,7 @@
             "type": "cppdbg",
             "name": "Debug entire program",
             "request": "launch",
-            "program": "build/linux/x64/debug/bundle/jetlag",
+            "program": "build/linux/x64/debug/bundle/bigbrother",
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "runInTerminal": true,

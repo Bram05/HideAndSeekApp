@@ -2,8 +2,8 @@ import 'dart:ffi' hide Size;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/Map.dart';
-import 'package:jetlag/Maths.dart';
+import 'map.dart';
+import 'maths.dart';
 import 'package:latlong2/latlong.dart';
 
 class ScaleWidget extends StatefulWidget {

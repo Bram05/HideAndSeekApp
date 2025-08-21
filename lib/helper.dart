@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:isolate';
 
-import 'package:jetlag/Maths.dart';
-import 'package:jetlag/maths_generated_bindings.dart';
+import 'maths.dart';
+import 'maths_generated_bindings.dart';
 
 class LatitudeQuestion {
   final int id;

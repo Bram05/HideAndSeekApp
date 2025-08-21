@@ -3,8 +3,7 @@ import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/Map.dart';
-import 'package:jetlag/maths_generated_bindings.dart';
+import 'maths_generated_bindings.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 

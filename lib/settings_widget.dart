@@ -66,7 +66,7 @@ Future<void> writeQuality(Quality q) async {
 }
 
 class SettingsWidgetState extends State<SettingsWidget> {
-  Quality? quality = null;
+  Quality? quality;
 
   @override
   void deactivate() async {

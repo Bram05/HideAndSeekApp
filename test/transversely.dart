@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ffi/ffi.dart';
-import 'package:jetlag/maths_generated_bindings.dart';
-import 'package:jetlag/Maths.dart';
+import 'package:bigbrother/maths_generated_bindings.dart';
+import 'package:bigbrother/Maths.dart';
 import 'dart:ffi';
 
 Pointer<LatLngDart> createLatLng(double lat, double lon) {

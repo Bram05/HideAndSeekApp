@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jetlag/shape.dart';
+import 'shape.dart';
 import 'dart:ui' as ui;
 import 'package:latlong2/latlong.dart';
 import 'dart:ffi' hide Size;
@@ -103,6 +103,8 @@ class BorderPainter extends CustomPainter {
   }
 }
 
+double epsilon = 0.00001;
+
 class ShapeState extends State<Shape> {
   ui.Path? path;
   double prevzoom = -1;
@@ -133,13 +135,6 @@ class ShapeState extends State<Shape> {
         Offset o = c.latLngToScreenOffset(widget.centerOfCountry);
         double rotation = c.rotationRad;
         double cos = math.cos(rotation), sin = math.sin(rotation);
-        Matrix2 m = Matrix2(
-          math.cos(rotation),
-          -math.sin(rotation),
-          math.sin(rotation),
-          math.cos(rotation),
-        );
-        Vector2 v = m * Vector2(deltaPixels, deltaPixels);
         Offset end =
             o +
             Offset(

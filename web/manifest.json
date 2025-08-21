@@ -1,11 +1,11 @@
 {
-    "name": "jetlag",
-    "short_name": "jetlag",
+    "name": "bigbrother",
+    "short_name": "bigbrother",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#hexcode",
+    "theme_color": "#hexcode",
+    "description": "Keep track of the hider's potential location during hide and seek. Based on the series JetLag",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
